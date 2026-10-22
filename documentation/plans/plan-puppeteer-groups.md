@@ -31,7 +31,7 @@ Every Blacksmith surface was read against the Blacksmith 14.4.1 API documentatio
 | Surface | Puppeteer uses it for |
 |---|---|
 | Bootstrap | In `ready`: `await BlacksmithAPI.waitForReady()`, then check for every member Puppeteer uses (`sockets`, `pins`, `gmRequest`, `chatCards`, `toast`, `registerWindow`, `registerToolbarTool`, `registerMenubarTool`), then `registerModule`. A missing member stops initialisation with a loud error. Settings are registered only after that check passes, because registration cannot be redone. |
-| `BlacksmithHookManager` | Every hook Puppeteer listens to: `updateToken` (the follower), the delete hooks that prune members, `preCreateToken` (strips a copied group flag), `canvasReady`. One context, `coffee-pub-puppeteer`, and a `key` on each registration. The follower is never throttled or debounced, because that drops the intermediate updates it must act on. |
+| `BlacksmithHookManager` | Every hook Puppeteer listens to: `updateScene` (the pin follower), `updateToken` (the token follower, phase 2), the delete hooks that prune members, `canvasReady`. One context, `coffee-pub-puppeteer`, and a `key` on each registration. The follower is never throttled or debounced, because that drops the intermediate updates it must act on. |
 | `api.sockets` | The cosmetic channel only, event names prefixed `coffee-pub-puppeteer.`: the active GM announces a group move so other clients can tween the members' display and play the vehicle sound. Document state never travels over it. Emit does not reach the sender, so the GM tweens locally. Payloads carry no secrets. |
 | `api.gmRequest` | Anything a player needs a GM to do: board, disembark, and mark a passenger as carried. Ops are registered on every client and prefixed `coffee-pub-puppeteer.`. The handler checks `user` (the verified caller), never the payload, that the caller owns the passenger token. Results `NO_ACTIVE_GM` and `TIMEOUT` become toasts. |
 | Windows | `BlacksmithWindowBaseV2` for the Group Editor (members, footprint, carry toggle, heading for pin groups); `BlacksmithToolWindowBaseV2` for the capture palette. The classes are imported from `/modules/coffee-pub-blacksmith/api/blacksmith-api.js`, never read from `module.api` at class-definition time. Both are registered with `registerWindow` so toolbar, menubar and macros open them by id. |
@@ -50,22 +50,26 @@ A check in `tools/` should fail the build on a core call that has a Blacksmith e
 
 ## Data shape
 
-A group is stored as a flag on its anchor.
+Groups are records in one scene flag, `flags.coffee-pub-puppeteer.groups`, keyed by group id. The anchor does not hold the data; it points at it.
 
-- **Pin anchor (phase 1):** under a Puppeteer key in the pin's `config`, via `api.pins`.
-- **Token anchor (phase 2):** the same shape as `flags.coffee-pub-puppeteer.group` on the TokenDocument.
-- **Prefab (phase 3):** an unplaced Blacksmith pin of the Puppeteer type, holding the same shape. Stamping a prefab onto a scene creates the placeables and writes the group onto the chosen token.
+- **Pin anchor (phase 1):** the pin's `config.puppeteer` holds only `{ groupId }`. Pin `config` lives in a scene flag shared by every pin and every module in the scene, and `update()` replaces a nested object whole, so a member list kept there would be rewritten on every change.
+- **Token anchor (phase 2):** `flags.coffee-pub-puppeteer.groupId` on the TokenDocument.
+- **Prefab (phase 3):** an unplaced Blacksmith pin of the Puppeteer type whose `config.puppeteer` holds a serialised group record. Stamping a prefab creates the placeables and a new group record.
 
-The group holds:
+One place lists every group, which the Group Editor and the "missing members" notification need. A deleted anchor leaves a record the active GM prunes. A copied token carries the `groupId`, but the record names the original anchor, so the follower ignores the copy and no hook is needed to strip it.
+
+A group record holds:
+
+- A **name**, an **anchor** (`{ type: 'pin' | 'token', id }`), and the **applied** anchor state (`x, y, heading`) it last wrote members for, so the follower knows what changed.
 
 - **Members** as `{ type, id, dx, dy, drot }`. `id` is the embedded document id on the anchor's scene, not a UUID: a UUID names the scene, so it breaks when a scene is duplicated, exported or imported. `dx, dy` are the offset from the anchor's centre in the anchor's own frame (heading zero), and `drot` is the member's rotation relative to the anchor's heading.
 - A **carry-passengers** flag.
 - A **footprint** (width and height at heading zero, centred on the anchor, defaulting to the token's own size).
-- A **heading** for pin-anchored groups only, since a pin has no rotation of its own. A token-anchored group takes its heading from the token.
+- A **heading** for pin-anchored groups, since a pin has no rotation of its own. A token-anchored group takes its heading from the token.
 
 Offsets are stored in the anchor's frame, not the scene's, and positions are always computed absolutely from the anchor's committed state: `anchor.rotation + drot`, normalised for the `AngleField`, never `rotation += delta`. Applying a move is then one rotation and one translation per member, with no accumulated drift from repeated deltas.
 
-A token created from another token (copy, duplicate, drag from the sidebar) carries the flag with it. `preCreateToken` strips it, otherwise two vehicles would drive the same parts. Scene duplication needs no handling because members are scene-relative ids.
+**Integer coordinates.** `x` and `y` on Tile, AmbientLight, AmbientSound and Note, and every number in a Wall's `c`, are integer fields, so every computed position is rounded before it is written. Drawing `x` and `y` are not integer. Rounding cannot accumulate, because every position is computed afresh from the stored offsets.
 
 ## The pin follower (phase 1)
 
@@ -79,7 +83,7 @@ The math and the per-type writes are the table below, minus the passenger row. W
 
 ## The token follower (phase 2)
 
-One `updateToken` hook, registered through the Hook Manager. It acts only on the client that is `game.users.activeGM`, the same election `gmRequest` uses, so exactly one client writes and every Coffee Pub module agrees on who that is. It ignores updates where no field in `TokenDocument.MOVEMENT_FIELDS` or `rotation` changed (elevation and level are already movement fields), ignores tokens with no group flag, and ignores updates tagged as its own.
+One `updateToken` hook, registered through the Hook Manager. It acts only on the client that is `game.users.activeGM`, the same election `gmRequest` uses, so exactly one client writes and every Coffee Pub module agrees on who that is. It ignores updates where no field in `TokenDocument.MOVEMENT_FIELDS` or `rotation` changed (elevation and level are already movement fields), ignores tokens whose `groupId` does not resolve to a record naming that token as its anchor, and ignores updates tagged as its own.
 
 **Loop guard.** Every follower write carries an update option `{ puppeteer: { follower: true } }`. The hook returns on that option. A token that is already a member of a group is refused as an anchor, and a group cannot contain its own anchor, so there is no cycle to walk.
 
@@ -98,7 +102,6 @@ Per type:
 | AmbientSound | `x`, `y` | none |
 | Wall | both endpoints in `c`, rotated about the anchor centre | endpoints carry it |
 | Note | `x`, `y` | none |
-| MeasuredTemplate | `x`, `y` | `direction` the same way |
 | Passenger Token | `x`, `y` of its centre, converted back to top-left | `rotation` the same way |
 
 Tile and Drawing positions are top-left of an unrotated box, so rotate the box centre and convert back.
@@ -133,7 +136,7 @@ From the Blacksmith session, read from its code (`manager-hooks.js`, `manager-pi
 - **No GM.** Warn through a toast and let the move through. Refusing it would make a vehicle unusable whenever the GM steps away.
 - **Pin-anchored heading.** A pin has no rotation. The group stores its own heading, changed by a rotate action in the Group Editor and the toolbar; dragging the pin translates the group.
 - **Heading is ours.** Blacksmith will not add a rotation to pins, so the heading lives in Puppeteer's data and its own rotate UI.
-- **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall, Note and MeasuredTemplate. Token members and token anchors arrive in phase 2.
+- **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall and Note. MeasuredTemplate is not a core document in v14. Token members and token anchors arrive in phase 2.
 
 ## Observed
 
@@ -151,6 +154,8 @@ These concern a token anchor, so they apply from phase 2. One drag in v14.369 as
 2. Levels. Should a group follow the anchor between levels, or stay put?
 3. Snapping. Rotated members will not sit on grid positions, which is correct, but a snapped anchor with an unsnapped member offset needs to be allowed.
 4. Undo (Ctrl+Z) and a paused or constrained move were not tried. Both must leave members where the token committed.
+5. Does duplicating a scene keep the ids of its embedded documents? Groups reference members by id inside a scene flag, so a duplicate that regenerates ids would need the records remapped. Untested.
+6. Regions (v12 and later) are not covered. They carry shapes and a `levels` set, and could be members later.
 
 ## Capture
 

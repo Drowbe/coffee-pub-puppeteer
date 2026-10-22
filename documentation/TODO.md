@@ -21,7 +21,7 @@
 
 **Phase 2: tokens**
 
-3. Token anchors: the token follower (read `_source`, loop guard, no-GM toast, `preCreateToken` flag strip)
+3. Token anchors: the token follower (read `_source`, loop guard, no-GM toast)
    and the smoothness tween.
 4. Token members and passengers: footprint plus explicit boarded toggle, boarding through `gmRequest`, and the
    constraint-bypass check (constraints off versus the displace path). Chat card announcements.
