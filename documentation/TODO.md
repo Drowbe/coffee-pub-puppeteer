@@ -12,28 +12,27 @@
 
 ---
 
-**Phase 1: a vehicle that drags its parts (token-anchored, no passengers)**
+**Phase 1: pin-anchored groups of scene elements (no tokens)**
 
-1. Bootstrap: wait for Blacksmith, check every member Puppeteer uses, register the module, and refuse to
-   initialise loudly if one is missing. Register settings only after that check.
-2. Group data model (member ids, not UUIDs) and the follower hook, with the loop guard, the
-   `preCreateToken` flag strip, and the no-GM toast.
-3. Capture by rectangle, add selected and remove member, through the toolbar and a Group Editor window.
+1. Group data model (member ids, not UUIDs, offsets in the anchor's frame) and the pin follower, once Blacksmith
+   has answered which pin event carries the committed position and where module data may live on a pin.
+2. Capture by rectangle, add selected and remove member, through the toolbar and a Group Editor window, with
+   a rotate action (numeric heading and steps). Prune members through the delete hooks.
 
-**Phase 2: set pieces and reuse**
+**Phase 2: tokens**
 
-4. Prefab stamping from an unplaced Blacksmith pin.
-5. Pin-anchored groups for GM set pieces, with a stored heading.
+3. Token anchors: the token follower (read `_source`, loop guard, no-GM toast, `preCreateToken` flag strip)
+   and the smoothness tween.
+4. Token members and passengers: footprint plus explicit boarded toggle, boarding through `gmRequest`, and the
+   constraint-bypass check (constraints off versus the displace path). Chat card announcements.
 
-**Phase 3: passengers**
+**Phase 3: prefabs**
 
-6. Passenger carry: footprint plus explicit boarded toggle, boarding through `gmRequest`, and the
-   constraint-bypass check (constraints off versus the displace path).
-7. Chat card announcements for boarding and disembarking.
+5. Prefab stamping from an unplaced Blacksmith pin.
 
 **Phase 4: polish**
 
-8. Menubar tool and secondary bar for capture mode, sounds, toast channel, Scene Config tab.
-9. A check in `tools/` that fails on core calls that have a Blacksmith equivalent (`Hooks.on`,
-    `game.socket`, `ui.notifications`, `AudioHelper`, `ChatMessage.create`, `Dialog`). Start this in
-    phase 1 if the module code is growing without it.
+6. Menubar tool and secondary bar for capture mode, sounds, toast channel, Scene Config tab.
+7. A check in `tools/` that fails on core calls that have a Blacksmith equivalent (`Hooks.on`,
+   `game.socket`, `ui.notifications`, `AudioHelper`, `ChatMessage.create`, `Dialog`). Start this in
+   phase 1 if the module code is growing without it.

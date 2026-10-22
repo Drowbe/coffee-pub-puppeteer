@@ -2,11 +2,20 @@
 
 **Audience:** contributors building Puppeteer.
 
-The design for moving scene elements as one group, anchored to a vehicle token. Deleted when the module ships; durable knowledge moves to `architecture/`.
+The design for moving scene elements as one group, anchored first to a Blacksmith pin and later to a vehicle token. Deleted when the module ships; durable knowledge moves to `architecture/`.
 
 ## Goal
 
-Horse carts and ships first. Players pilot the vehicle token. Tiles, lights, sounds, walls and drawings that belong to the vehicle follow its position and heading, and tokens standing on it are carried along. GM-only set pieces (a drawbridge, a barge on rails) come second, anchored to a Blacksmith pin instead of a token.
+Group tiles, lights, sounds, walls, drawings and notes, and move and rotate them as one. A group does not need an actor or a token.
+
+## Phases
+
+1. **Pin-anchored groups of scene elements.** The GM makes a group on a Blacksmith pin, adds and removes members, and dragging the pin moves the whole group while a rotate action turns it. No tokens anywhere: this proves the model (offsets in the anchor's frame, committed state, one batched write per type) on things that are not actors. Set pieces such as a drawbridge, a barge on rails or a moving stage are the use case.
+2. **Tokens.** A token can anchor a group, so a vehicle a player pilots drags its parts, and tokens can be members, which is how passengers are carried (footprint plus an explicit boarded toggle).
+3. **Prefabs.** Stamp a saved group onto a scene from an unplaced pin.
+4. **Polish.** Menubar tool and secondary bar, sounds, toast channel, Scene Config tab, the hard-dependency check.
+
+The rest of this plan describes the end state. The pin follower is built first; the token follower reuses its math and adds what is specific to token movement.
 
 ## Ground rules
 
@@ -43,22 +52,32 @@ A check in `tools/` should fail the build on a core call that has a Blacksmith e
 
 A group is stored as a flag on its anchor.
 
-- **Token anchor:** `flags.coffee-pub-puppeteer.group` on the TokenDocument.
-- **Pin anchor:** the same shape in the pin's `config`, via `api.pins`.
-- **Prefab:** an unplaced Blacksmith pin of the Puppeteer type, holding the same shape. Stamping a prefab onto a scene creates the placeables and writes the group onto the chosen token.
+- **Pin anchor (phase 1):** under a Puppeteer key in the pin's `config`, via `api.pins`.
+- **Token anchor (phase 2):** the same shape as `flags.coffee-pub-puppeteer.group` on the TokenDocument.
+- **Prefab (phase 3):** an unplaced Blacksmith pin of the Puppeteer type, holding the same shape. Stamping a prefab onto a scene creates the placeables and writes the group onto the chosen token.
 
 The group holds:
 
 - **Members** as `{ type, id, dx, dy, drot }`. `id` is the embedded document id on the anchor's scene, not a UUID: a UUID names the scene, so it breaks when a scene is duplicated, exported or imported. `dx, dy` are the offset from the anchor's centre in the anchor's own frame (heading zero), and `drot` is the member's rotation relative to the anchor's heading.
 - A **carry-passengers** flag.
 - A **footprint** (width and height at heading zero, centred on the anchor, defaulting to the token's own size).
-- A **heading** for pin-anchored groups only, since a pin has no rotation of its own.
+- A **heading** for pin-anchored groups only, since a pin has no rotation of its own. A token-anchored group takes its heading from the token.
 
 Offsets are stored in the anchor's frame, not the scene's, and positions are always computed absolutely from the anchor's committed state: `anchor.rotation + drot`, normalised for the `AngleField`, never `rotation += delta`. Applying a move is then one rotation and one translation per member, with no accumulated drift from repeated deltas.
 
 A token created from another token (copy, duplicate, drag from the sidebar) carries the flag with it. `preCreateToken` strips it, otherwise two vehicles would drive the same parts. Scene duplication needs no handling because members are scene-relative ids.
 
-## The follower
+## The pin follower (phase 1)
+
+Runs only on the client that is `game.users.activeGM`. It acts when a Puppeteer pin's position is committed (a drag ends or the pin is updated) and when the group's heading changes through the rotate action. The anchor centre is the pin's `x, y` and the heading is the stored one, both read from committed state, never from a position that is still being dragged. It is driven by Foundry's `updateScene` on the active GM, not by `pins.on('updated')`: Blacksmith's pin events fire only on the client that performed the write, so a second GM's drag would never reach the active GM. When the pins flag changes, the follower compares each group's anchor pin with the state it last applied and moves the members if they differ. `dragEnd` is not used to trigger writes.
+
+The math and the per-type writes are the table below, minus the passenger row. Writes go out as one `updateEmbeddedDocuments` call per document type and carry `{ puppeteer: { follower: true } }` so nothing the follower writes is mistaken for a user edit.
+
+**Concurrency.** Hook Manager callbacks are started back to back and not awaited, so two updates in quick succession (a move, then a rotation-only update 127 ms later) would run their member writes concurrently. The follower serialises writes per group with a promise chain, and each write is computed from committed state, so the last update always lands last.
+
+**Rotating.** The GM rotates a group from the Group Editor (a numeric heading and plus or minus steps) and from toolbar buttons, which write the new heading to the pin's config. A drag handle on the canvas is a later refinement.
+
+## The token follower (phase 2)
 
 One `updateToken` hook, registered through the Hook Manager. It acts only on the client that is `game.users.activeGM`, the same election `gmRequest` uses, so exactly one client writes and every Coffee Pub module agrees on who that is. It ignores updates where no field in `TokenDocument.MOVEMENT_FIELDS` or `rotation` changed (elevation and level are already movement fields), ignores tokens with no group flag, and ignores updates tagged as its own.
 
@@ -68,7 +87,7 @@ One `updateToken` hook, registered through the Hook Manager. It acts only on the
 
 For each member it computes the new position from the anchor's new centre and heading, and writes members in one `updateEmbeddedDocuments` call per document type, with `animate: false` so the batch does not fight the token's own animation.
 
-**Passengers are displaced, not moved.** A passenger's `x, y` change goes through the same v14 movement pipeline as any token, which applies wall and terrain constraints (`constrainOptions`) unless told otherwise. A cart carrying a passenger past a wall would stop the passenger or reject the update. The follower therefore writes passenger tokens with the constraints switched off (`ignoreWalls` and `ignoreCost`) or through the displace path core uses for teleport, undo and paste. Which of the two is correct is item 1 in `TODO.md`.
+**Passengers are displaced, not moved.** A passenger's `x, y` change goes through the same v14 movement pipeline as any token, which applies wall and terrain constraints (`constrainOptions`) unless told otherwise. A cart carrying a passenger past a wall would stop the passenger or reject the update. The follower therefore writes passenger tokens with the constraints switched off (`ignoreWalls` and `ignoreCost`) or through the displace path core uses for teleport, undo and paste. Which of the two is correct is settled when passengers are built.
 
 Per type:
 
@@ -96,17 +115,29 @@ Read from the installed source, not observed behaviour.
 - Scenes have Levels. Tile, Drawing, AmbientLight, AmbientSound, Wall and Note carry a `levels` set, and a Token has a single `level`. Members and the anchor must be on compatible levels, and a move that changes `level` or `elevation` has to decide what members do.
 - Rotation is an `AngleField` on Tile, Drawing and AmbientLight. AmbientSound has none.
 
-Item 1 in `TODO.md` is to confirm these with a throwaway macro before building.
+A throwaway macro confirmed the movement behaviour; the results are under Observed.
+
+## Blacksmith answers
+
+From the Blacksmith session, read from its code (`manager-hooks.js`, `manager-pins.js`, `manager-pins-renderer.js`), not run live. The repo's `documentation/` is the source of truth; the wiki is a mirror pushed by `sync-wiki.yml`.
+
+- **Hook Manager.** Callbacks run in priority order from one Foundry handler and async callbacks are not awaited. A throw is caught and logged per callback, so the others still run. Arguments pass through unchanged. `throttleMs` is leading-edge and per registration, so it drops calls (two tokens inside the window lose one) and `debounceMs` keeps only the last: set neither. There is no supported active-GM pattern; the in-callback check `game.users.activeGM?.isSelf` is the intended way. `canCancel` defaults to false, so `preCreateToken` mutates through `document.updateSource` and returns nothing.
+- **Pin storage.** `config` is a free-form bag, persisted for placed pins (in one scene flag shared by all pins of the scene and all modules) and unplaced pins (world setting `pinsUnplaced`). No size limit is enforced, but the shared scene flag is the real constraint, so keep it small. `update()` shallow-merges `config`, so a nested object under our key is replaced whole. Use one top-level key, `config.puppeteer`.
+- **Pin events.** `dragEnd` fires after the save resolves, with the committed x and y, and only on the dragging client. `dragMove` fires continuously on the dragging client only and needs `{ dragEvents: true }`; it can drive a visual preview there but must not write documents. `setLivePosition` is for a pin moving on a clock and is not needed for a drag. `updated` and `blacksmith.pins.updated` fire inline on the client that performed the write and are not broadcast.
+- **Pins have no rotation**, and Blacksmith has no plan to add one. The heading is ours, rotated through our own UI.
+- **Writes.** Only a GM writes pins (placed or unplaced); a non-GM with edit rights goes through `requestGM`. Puppeteer writes only from the active GM.
 
 ## Decided
 
 - **Passenger rule.** A token is carried when it is inside the footprint and explicitly marked boarded. Footprint alone would drag a token swimming beside a ship. Boarding goes through `gmRequest`.
 - **No GM.** Warn through a toast and let the move through. Refusing it would make a vehicle unusable whenever the GM steps away.
-- **Pin-anchored heading.** A pin has no rotation. The group stores its own heading, changed by a rotate action in the Group Editor; dragging the pin translates the group.
+- **Pin-anchored heading.** A pin has no rotation. The group stores its own heading, changed by a rotate action in the Group Editor and the toolbar; dragging the pin translates the group.
+- **Heading is ours.** Blacksmith will not add a rotation to pins, so the heading lives in Puppeteer's data and its own rotate UI.
+- **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall, Note and MeasuredTemplate. Token members and token anchors arrive in phase 2.
 
 ## Observed
 
-One drag in v14.369 as the GM, with a throwaway macro that wrote a tile and a light from each `updateToken`.
+These concern a token anchor, so they apply from phase 2. One drag in v14.369 as the GM, with a throwaway macro that wrote a tile and a light from each `updateToken`.
 
 - **A multi-waypoint move is one position update.** A drag with 4 passed waypoints arrived as a single `updateToken` with `x, y, rotation` changed. Paused, stopped and constrained moves were not tried.
 - **Rotation can follow in a second update.** 127 ms later, same `movementId`, a rotation-only update (80.5 degrees, then 26.6). The follower must handle each update on its own and always use the committed `rotation`.
@@ -123,8 +154,8 @@ One drag in v14.369 as the GM, with a throwaway macro that wrote a tile and a li
 
 ## Capture
 
-"Capture area" on the anchor: the GM drags a rectangle and every placeable of a supported type whose centre is inside, across all layers, becomes a member, with offsets computed from the anchor's current position and heading (un-rotated into the anchor's frame). "Add selected" and "Remove member" cover single elements. Members deleted from the scene are pruned through the delete hooks.
+"Capture area" on the anchor (the pin in phase 1): the GM drags a rectangle and every placeable of a supported type whose centre is inside, across all layers, becomes a member, with offsets computed from the anchor's current position and heading (un-rotated into the anchor's frame). "Add selected" and "Remove member" cover single elements. Members deleted from the scene are pruned through the delete hooks.
 
 ## Order
 
-The sequence is in `TODO.md`. Prove the follow mechanism before anything else, because every other piece depends on it.
+The sequence is in `TODO.md`.

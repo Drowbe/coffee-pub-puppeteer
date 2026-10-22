@@ -9,4 +9,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [14.0.0]
 
 ### Added
+- **Bootstrap.** Puppeteer waits for Blacksmith, refuses to start if its ready stage failed or any API member it uses is missing, registers its console label and registers itself with Blacksmith.
 - **Module scaffold.** Folder layout, release and wiki workflows, and the design plan. No feature code yet.
