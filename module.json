@@ -11,11 +11,10 @@
   "changelog": "CHANGELOG.md",
   "license": "LICENSE",
   "compatibility": {
-    "minimum": "13",
+    "minimum": "14",
     "verified": "14",
     "maximum": "14"
   },
-  "socket": true,
   "library": false,
   "authors": [
     {

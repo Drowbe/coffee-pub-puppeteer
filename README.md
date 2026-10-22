@@ -1,6 +1,5 @@
 # Coffee Pub Puppeteer
 
-![Foundry v13](https://img.shields.io/badge/foundry-v13-yellow)
 ![Foundry v14](https://img.shields.io/badge/foundry-v14-green)
 ![MIT License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -12,7 +11,7 @@ This module is in design. Nothing is built yet.
 ## Requirements
 
 - [Coffee Pub Blacksmith](https://github.com/Drowbe/coffee-pub-blacksmith) **14.4.1 or newer**.
-- Foundry VTT v13 or v14.
+- Foundry VTT v14.
 
 ## Documentation
 
