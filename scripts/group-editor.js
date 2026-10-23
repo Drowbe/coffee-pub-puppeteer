@@ -20,7 +20,8 @@ const TYPE_ICON = {
     AmbientLight: 'fa-solid fa-lightbulb',
     AmbientSound: 'fa-solid fa-volume-high',
     Wall: 'fa-solid fa-grip-lines',
-    Note: 'fa-solid fa-note-sticky'
+    Note: 'fa-solid fa-note-sticky',
+    Region: 'fa-solid fa-draw-polygon'
 };
 
 // Which groups have their member list open. Module level so it survives a redraw and a close and reopen.
@@ -32,7 +33,8 @@ const TYPE_PLURAL = {
     AmbientLight: 'Lights',
     AmbientSound: 'Sounds',
     Wall: 'Walls',
-    Note: 'Notes'
+    Note: 'Notes',
+    Region: 'Regions'
 };
 
 const TYPE_LABEL = {
@@ -41,7 +43,8 @@ const TYPE_LABEL = {
     AmbientLight: 'Light',
     AmbientSound: 'Sound',
     Wall: 'Wall',
-    Note: 'Note'
+    Note: 'Note',
+    Region: 'Region'
 };
 
 /** Run an editor action, and say so (console and notification) if it fails, instead of failing silently. */
@@ -339,7 +342,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         return run('Capture area', async () => {
             const result = await captureArea(canvas.scene, groupId);
             if (!result) return;
-            say(result.added ? 'Members added' : 'Nothing new in that box', `${result.added} added${result.skipped ? `, ${result.skipped} skipped (already members)` : ''}.`);
+            say(result.added ? 'Members added' : 'Nothing new in that box', `${result.added} added${result.skipped ? `, ${result.skipped} skipped (already members)` : ''}.${result.unsupported.length ? ` Not added: ${result.unsupported.join('; ')}.` : ''}`);
         });
     }
 
@@ -403,9 +406,9 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
 
     _addSelected(groupId) {
         return run('Add selected', async () => {
-            const { added, skipped } = await addSelected(canvas.scene, groupId);
-            if (!added && !skipped) say('Nothing selected', 'Select tiles, lights, sounds, walls, drawings or notes first.');
-            else say('Members added', `${added} added${skipped ? `, ${skipped} skipped (already members or not supported)` : ''}.`);
+            const { added, skipped, unsupported } = await addSelected(canvas.scene, groupId);
+            if (!added && !skipped) say('Nothing selected', 'Select tiles, lights, sounds, walls, drawings, notes or regions first.');
+            else say('Members added', `${added} added${skipped ? `, ${skipped} skipped (already members or not supported)` : ''}.${unsupported.length ? ` Not added: ${unsupported.join('; ')}.` : ''}`);
         });
     }
 

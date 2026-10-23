@@ -14,7 +14,8 @@
 
 **Phase 1: pin-anchored groups of scene elements (no tokens)**
 
-1. Phase 1 is working in Foundry: groups, drag and rotate, Centre Pivot, hand edits, names, the bounds overlay
+1. Regions as members are written and simulated, not yet run in Foundry: add a region with Add Selected, then move and turn the group. Capture Area cannot pick Regions until Blacksmith's area pick lists them (requested).
+   Phase 1 is working in Foundry: groups, drag and rotate, Centre Pivot, hand edits, names, the bounds overlay
    and the Group Editor. Not yet checked there: the Library (Save, Stamp, Import) and Capture Area, which
    uses Blacksmith's `canvas.pickArea` (in Blacksmith's working tree, not released). A group whose anchor pin was
    deleted is flagged in the editor and can be deleted there; nothing removes it automatically.

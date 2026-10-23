@@ -47,7 +47,10 @@ for (const file of files) {
             if (seen.has(name)) problems.push(`${file}: imports ${name} twice from ./${target}`);
             seen.add(name);
             const declared = new RegExp(`export\\s+(async\\s+)?(function|const|let|class)\\s+${name}\\b`);
-            if (!declared.test(exported)) problems.push(`${file}: ./${target} does not export ${name}`);
+            // `export { a, b }` lists count too, including re-exports.
+            const listed = [...exported.matchAll(/export\s*\{([^}]*)\}/g)]
+                .some((m) => m[1].split(',').map((n) => n.trim().split(/\s+as\s+/).pop()).includes(name));
+            if (!declared.test(exported) && !listed) problems.push(`${file}: ./${target} does not export ${name}`);
         }
     }
 }

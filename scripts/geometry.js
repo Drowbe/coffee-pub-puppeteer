@@ -4,30 +4,12 @@
 // clockwise, 0 facing down (Foundry's rotation convention). Members store their position as an offset
 // from the anchor's centre in the anchor's own frame, so applying a move is one rotation and one
 // translation computed from the anchor's committed state, never an accumulation of deltas.
+import { normAngle, rotate, toFrame, fromFrame } from './frame.js';
+import { captureShapes, applyShapes, shapesExtent, UnsupportedMemberError } from './region-shapes.js';
 
-export const MEMBER_TYPES = Object.freeze(['Tile', 'Drawing', 'AmbientLight', 'AmbientSound', 'Wall', 'Note']);
+export { normAngle, rotate, toFrame, fromFrame, UnsupportedMemberError };
 
-export const normAngle = (degrees) => ((degrees % 360) + 360) % 360;
-
-/** Rotate a vector clockwise by `degrees` in y-down screen space. */
-export function rotate(x, y, degrees) {
-    const r = (degrees * Math.PI) / 180;
-    const cos = Math.cos(r);
-    const sin = Math.sin(r);
-    return { x: x * cos - y * sin, y: x * sin + y * cos };
-}
-
-/** A scene point as an offset from the anchor's centre, in the anchor's frame (heading zero). */
-export function toFrame(point, anchor) {
-    const o = rotate(point.x - anchor.x, point.y - anchor.y, -anchor.heading);
-    return { dx: o.x, dy: o.y };
-}
-
-/** The scene point for an offset in the anchor's frame. */
-export function fromFrame(offset, anchor) {
-    const p = rotate(offset.dx, offset.dy, anchor.heading);
-    return { x: anchor.x + p.x, y: anchor.y + p.y };
-}
+export const MEMBER_TYPES = Object.freeze(['Tile', 'Drawing', 'AmbientLight', 'AmbientSound', 'Wall', 'Note', 'Region']);
 
 export function sameAnchor(a, b, epsilon = 1e-6) {
     return !!a && !!b
@@ -89,6 +71,10 @@ const handlers = {
             return update;
         }
     },
+    region: {
+        capture: (type, data, anchor) => captureShapes(data, anchor),
+        apply: (type, member, data, anchor) => applyShapes(member, data, anchor)
+    },
     wall: {
         capture(type, data, anchor) {
             const [x1, y1, x2, y2] = data.c;
@@ -105,7 +91,7 @@ const handlers = {
     }
 };
 
-const kindOf = { Tile: 'point', Drawing: 'box', AmbientLight: 'point', AmbientSound: 'point', Note: 'point', Wall: 'wall' };
+const kindOf = { Tile: 'point', Drawing: 'box', AmbientLight: 'point', AmbientSound: 'point', Note: 'point', Wall: 'wall', Region: 'region' };
 
 function handler(type) {
     const kind = kindOf[type];
@@ -121,6 +107,7 @@ function handler(type) {
  * @returns {{x: number, y: number}[]}
  */
 export function memberExtent(type, data) {
+    if (type === 'Region') return shapesExtent(data);
     if (type === 'Wall') {
         const [x1, y1, x2, y2] = data.c;
         return [{ x: x1, y: y1 }, { x: x2, y: y2 }];
@@ -184,6 +171,53 @@ export function groupBounds(points, anchor) {
  */
 export function captureMember(type, id, data, anchor) {
     return { type, id, ...handler(type).capture(type, data, anchor) };
+}
+
+// ---- comparing poses ---------------------------------------------------------------------------------
+
+const turnedApart = (a, b) => {
+    const d = Math.abs((((a - b) % 360) + 360) % 360);
+    return Math.min(d, 360 - d) > 0.5;
+};
+
+// Whether two values of a region's shapes differ by more than a pixel (or half a degree for a rotation).
+function shapesDiffer(a, b, key = '') {
+    if (typeof a === 'number' && typeof b === 'number') {
+        return key.endsWith('rotation') ? turnedApart(a, b) : !(Math.abs(a - b) <= 1);
+    }
+    if (Array.isArray(a) || Array.isArray(b)) {
+        if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return true;
+        return a.some((value, i) => shapesDiffer(value, b[i], key));
+    }
+    if (a && b && typeof a === 'object' && typeof b === 'object') {
+        const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+        return [...keys].some((k) => shapesDiffer(a[k], b[k], k));
+    }
+    return a !== b;
+}
+
+/** Whether a document's saved pose differs from the pose an update asked for (a pixel, half a degree). */
+export function poseDiffers(wanted, actual) {
+    const off = (a, b) => !(Math.abs(a - b) <= 1);
+    return ('x' in wanted && off(actual.x, wanted.x))
+        || ('y' in wanted && off(actual.y, wanted.y))
+        || ('rotation' in wanted && turnedApart(actual.rotation, wanted.rotation))
+        || (!!wanted.c && wanted.c.some((value, i) => off(actual.c[i], value)))
+        || (!!wanted.shapes && shapesDiffer(wanted.shapes, actual.shapes));
+}
+
+const maxDelta = (a, b) => {
+    if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b);
+    if (Array.isArray(a) && Array.isArray(b)) return a.reduce((m, v, i) => Math.max(m, maxDelta(v, b[i])), 0);
+    if (a && b && typeof a === 'object' && typeof b === 'object') return Object.keys(a).reduce((m, k) => Math.max(m, maxDelta(a[k], b[k])), 0);
+    return 0;
+};
+
+/** How far a document is, in pixels, from the pose an update asked for. For diagnosis. */
+export function poseOffset(type, expected, actual) {
+    if (type === 'Wall') return Math.max(...expected.c.map((v, i) => Math.abs(v - actual.c[i])));
+    if (type === 'Region') return maxDelta(expected.shapes, actual.shapes);
+    return Math.hypot(expected.x - actual.x, expected.y - actual.y);
 }
 
 /** Re-record a member against a new anchor, keeping anything of the member's that is not geometry (its name). */

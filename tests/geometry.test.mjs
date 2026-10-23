@@ -157,7 +157,7 @@ test('sameAnchor compares position and normalised heading', () => {
 
 test('a type that cannot be a member is refused', () => {
     assert.throws(() => captureMember('Token', 'x', {}, { x: 0, y: 0, heading: 0 }), /cannot be a group member/);
-    assert.deepEqual([...MEMBER_TYPES].sort(), ['AmbientLight', 'AmbientSound', 'Drawing', 'Note', 'Tile', 'Wall']);
+    assert.deepEqual([...MEMBER_TYPES].sort(), ['AmbientLight', 'AmbientSound', 'Drawing', 'Note', 'Region', 'Tile', 'Wall']);
 });
 
 test('a tile hangs from its anchor point: its corners follow the anchor, and turn about it', () => {

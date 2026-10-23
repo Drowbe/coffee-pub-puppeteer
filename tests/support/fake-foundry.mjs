@@ -54,7 +54,7 @@ export function installFakes({ dropOptions = false } = {}) {
         flags: {},
         grid: { size: 100, sizeX: 100, sizeY: 100 },
         tokens: new Map(),
-        collections: { Tile: new Map(), Drawing: new Map(), AmbientLight: new Map(), AmbientSound: new Map(), Wall: new Map(), Note: new Map() },
+        collections: { Tile: new Map(), Drawing: new Map(), AmbientLight: new Map(), AmbientSound: new Map(), Wall: new Map(), Note: new Map(), Region: new Map() },
         getFlag(module, key) { return this.flags[module]?.[key]; },
         getEmbeddedCollection(type) { return this.collections[type]; },
         async update(flat) {
@@ -102,7 +102,7 @@ export function installFakes({ dropOptions = false } = {}) {
             return docs;
         },
         add(type, id, data) {
-            const doc = { id, documentName: type, parent: this, _source: structuredClone({ _id: id, ...data }) };
+            const doc = { id, name: data.name, documentName: type, parent: this, _source: structuredClone({ _id: id, ...data }) };
             this.collections[type].set(id, doc);
             return doc;
         }

@@ -119,6 +119,7 @@ Per type:
 | AmbientSound | `x`, `y` | none |
 | Wall | both endpoints in `c`, rotated about the anchor centre | endpoints carry it |
 | Note | `x`, `y` | none |
+| Region | every shape in `shapes`, by its own rule (below) | each shape that has a `rotation` turns with the group |
 | Passenger Token | `x`, `y` of its centre, converted back to top-left | `rotation` the same way |
 
 **A tile's `x, y` is not its top-left corner.** In v14 a tile carries a texture anchor (`texture.anchorX`, `anchorY`, default 0.5), the mesh is drawn with that anchor at `x, y`, and it turns about that point. So with the default a tile's `x, y` is its centre. Its pose is a point and a heading, exactly like a light, and its width, height and anchor only matter for drawing its outline. A Drawing is different: its `x, y` is the top-left of an unrotated box that turns about its centre. Reading a tile as top-left put every tile half its size out of place, which only shows once a group turns or is stamped.
@@ -157,7 +158,7 @@ From the Blacksmith session, read from its code (`manager-hooks.js`, `manager-pi
 - **See the group.** Each tool shows its own objects one layer at a time, so nothing shows a group as one thing. An optional overlay (per user, off by default) draws the oriented box that holds the members, the pivot and the heading, on Blacksmith's utilities layer.
 - **Members have names.** A member record can carry a `label`. It is not geometry, so a hand edit or a Centre Pivot keeps it, and a template carries it.
 - **Heading is ours.** Blacksmith will not add a rotation to pins, so the heading lives in Puppeteer's data and its own rotate UI.
-- **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall and Note. MeasuredTemplate is not a core document in v14. Token members and token anchors arrive in phase 2.
+- **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall, Note and Region. MeasuredTemplate is not a core document in v14. Token members and token anchors arrive in phase 2.
 
 ## Observed
 
@@ -176,7 +177,21 @@ These concern a token anchor, so they apply from phase 2. One drag in v14.369 as
 3. Snapping. Rotated members will not sit on grid positions, which is correct, but a snapped anchor with an unsnapped member offset needs to be allowed.
 4. Undo (Ctrl+Z) and a paused or constrained move were not tried. Both must leave members where the token committed.
 5. Does duplicating a scene keep the ids of its embedded documents? Groups reference members by id inside a scene flag, so a duplicate that regenerates ids would need the records remapped. Untested.
-6. Regions (v12 and later) are not covered. They carry shapes and a `levels` set, and could be members later.
+
+## Regions
+
+A region has no position of its own. It holds a list of shapes, so a region member records one entry per shape and carries each by its own rule (`scripts/region-shapes.js`):
+
+| Shape | Carried by |
+|---|---|
+| rectangle | its anchor point `x, y` (the anchor fractions say where on the rectangle that is), turning about it, like a tile |
+| ellipse, cone, line | `x, y` and `rotation` |
+| circle, ring | `x, y` |
+| polygon | every vertex, and its `origin` if it has one |
+| emanation | its base shape, by the rule for that shape |
+| token, grid | not carried: tied to a token's footprint or to grid cells, so they cannot be turned freely. A region with one is refused with a reason. |
+
+Fields Puppeteer does not own (`hole`, `gridBased`, sizes, behaviours, colour) are left as they are. The shapes of the region as saved are the source of truth: if the GM adds, removes or reshapes a shape by hand, the region is re-recorded like any hand edit. Blacksmith's area pick does not list Regions yet, so Regions are added with Add Selected, and Capture Area passes only the types the pick knows.
 
 ## Capture
 

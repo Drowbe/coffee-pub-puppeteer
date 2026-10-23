@@ -102,6 +102,7 @@ function draw() {
         // Each member where the group believes it is, so a member drawn away from its object is plain to see.
         g.lineStyle(2, MEMBER_COLOUR, 0.9);
         for (const { extent } of outlines) {
+            if (extent.length === 0) continue;
             if (extent.length === 1) {
                 g.drawCircle(extent[0].x, extent[0].y, 9);
             } else if (extent.length === 2) {

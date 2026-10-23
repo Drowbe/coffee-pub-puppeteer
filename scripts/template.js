@@ -56,7 +56,9 @@ export function validateTemplate(template) {
         if (!member.data || typeof member.data !== 'object') fail(`member ${i} has no data`);
         const placed = member.type === 'Wall'
             ? Array.isArray(member.c) && member.c.length === 4 && member.c.every(Number.isFinite)
-            : Number.isFinite(member.dx) && Number.isFinite(member.dy);
+            : member.type === 'Region'
+                ? Array.isArray(member.shapes)
+                : Number.isFinite(member.dx) && Number.isFinite(member.dy);
         if (!placed) fail(`member ${i} has no position`);
     });
     return template;

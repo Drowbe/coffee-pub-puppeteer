@@ -7,7 +7,7 @@
 // that is still being dragged or animated.
 import { MODULE_ID, MODULE_NAME, BLACKSMITH_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
-import { MEMBER_TYPES, recaptureMember, memberUpdate, sameAnchor } from './geometry.js';
+import { MEMBER_TYPES, recaptureMember, memberUpdate, sameAnchor, poseDiffers as differs } from './geometry.js';
 import { getGroup, getGroups, patchGroup } from './store.js';
 import { anchorState } from './anchor.js';
 
@@ -122,7 +122,8 @@ const EDIT_FIELDS = {
     AmbientLight: ['x', 'y', 'rotation'],
     AmbientSound: ['x', 'y'],
     Wall: ['c'],
-    Note: ['x', 'y']
+    Note: ['x', 'y'],
+    Region: ['shapes']
 };
 
 /**
@@ -187,19 +188,6 @@ async function recapture(scene, groupId, type, id) {
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": re-recorded ${type} ${id} after a manual edit`, member, true, false);
 }
 
-// Whether a document's saved pose differs from the pose an update asked for (a pixel, half a degree).
-function differs(wanted, actual) {
-    const off = (a, b) => !(Math.abs(a - b) <= 1);
-    const turned = (a, b) => {
-        const d = Math.abs((((a - b) % 360) + 360) % 360);
-        return Math.min(d, 360 - d) > 0.5;
-    };
-    return ('x' in wanted && off(actual.x, wanted.x))
-        || ('y' in wanted && off(actual.y, wanted.y))
-        || ('rotation' in wanted && turned(actual.rotation, wanted.rotation))
-        || (!!wanted.c && wanted.c.some((value, i) => off(actual.c[i], value)));
-}
-
 // Something else (another module's hook, a constraint) can change or refuse a member's move after we ask for
 // it. Count and log those, so the caller can say so instead of leaving a group that quietly drifts apart.
 function countNotTaken(scene, type, batch) {
@@ -210,7 +198,7 @@ function countNotTaken(scene, type, batch) {
         count += 1;
         console.warn(`${MODULE_ID}: ${type} ${wanted._id} did not take the position Puppeteer wrote`, {
             requested: wanted,
-            actual: { x: actual.x, y: actual.y, rotation: actual.rotation, c: actual.c }
+            actual: { x: actual.x, y: actual.y, rotation: actual.rotation, c: actual.c, shapes: actual.shapes }
         });
     }
     return count;

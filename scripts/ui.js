@@ -105,13 +105,13 @@ function registerPinMenu(blacksmith) {
     item('capture-area', 'Capture Area into Group', 'fa-solid fa-vector-square', 9, async (groupId) => {
         const result = await captureArea(canvas.scene, groupId);
         if (!result) return;
-        toast.show({ title: result.added ? 'Members added' : 'Nothing new in that box', subtitle: `${result.added} added${result.skipped ? `, ${result.skipped} skipped` : ''}.`, icon: 'fa-solid fa-up-down-left-right', duration: 4 });
+        toast.show({ title: result.added ? 'Members added' : 'Nothing new in that box', subtitle: `${result.added} added${result.skipped ? `, ${result.skipped} skipped` : ''}.${result.unsupported.length ? ` Not added: ${result.unsupported.join('; ')}.` : ''}`, icon: 'fa-solid fa-up-down-left-right', duration: 6 });
     });
     item('add-selected', 'Add Selected to Group', 'fa-solid fa-plus', 10, async (groupId) => {
-        const { added, skipped } = await addSelected(canvas.scene, groupId);
+        const { added, skipped, unsupported } = await addSelected(canvas.scene, groupId);
         toast.show(!added && !skipped
-            ? { title: 'Nothing selected', subtitle: 'Select tiles, lights, sounds, walls, drawings or notes first.', icon: 'fa-solid fa-up-down-left-right', duration: 4 }
-            : { title: 'Members added', subtitle: `${added} added${skipped ? `, ${skipped} skipped` : ''}.`, icon: 'fa-solid fa-up-down-left-right', duration: 4 });
+            ? { title: 'Nothing selected', subtitle: 'Select tiles, lights, sounds, walls, drawings, notes or regions first.', icon: 'fa-solid fa-up-down-left-right', duration: 4 }
+            : { title: 'Members added', subtitle: `${added} added${skipped ? `, ${skipped} skipped` : ''}.${unsupported.length ? ` Not added: ${unsupported.join('; ')}.` : ''}`, icon: 'fa-solid fa-up-down-left-right', duration: 6 });
     });
     item('remove-selected', 'Remove Selected from Group', 'fa-solid fa-minus', 11, async (groupId) => {
         const removed = await removeSelected(canvas.scene, groupId);

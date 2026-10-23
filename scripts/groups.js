@@ -3,7 +3,7 @@
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
-    MEMBER_TYPES, captureMember, recaptureMember, memberExtent, memberUpdate, extentCentre, groupBounds, sameAnchor, normAngle
+    MEMBER_TYPES, UnsupportedMemberError, captureMember, recaptureMember, memberExtent, memberUpdate, poseOffset, extentCentre, groupBounds, sameAnchor, normAngle
 } from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
 import { syncGroup, runExclusive, apply } from './follower.js';
@@ -186,15 +186,21 @@ export async function addMembers(scene, groupId, documents) {
     const anchor = appliedAnchor(group);
 
     const added = [];
+    const unsupported = [];
     for (const doc of documents) {
         const type = doc.documentName;
         if (!MEMBER_TYPES.includes(type) || have.has(`${type}:${doc.id}`)) continue;
-        added.push(captureMember(type, doc.id, doc._source, anchor));
+        try {
+            added.push(captureMember(type, doc.id, doc._source, anchor));
+        } catch (error) {
+            if (!(error instanceof UnsupportedMemberError)) throw error;
+            unsupported.push(`${type} "${doc.name ?? doc.id}" has ${error.message}`);
+        }
     }
     const skipped = documents.length - added.length;
     if (added.length) await patchGroup(scene, groupId, { members: [...group.members, ...added] });
-    utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": added ${added.length}, skipped ${skipped}`, { anchor, added }, true, false);
-    return { added: added.length, skipped };
+    utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": added ${added.length}, skipped ${skipped}`, { anchor, added, unsupported }, true, false);
+    return { added: added.length, skipped, unsupported };
 }
 
 /**
@@ -203,8 +209,10 @@ export async function addMembers(scene, groupId, documents) {
  */
 export async function captureArea(scene, groupId, { containment = 'centre' } = {}) {
     requireGroup(scene, groupId);
+    // Ask only for the types Blacksmith's area pick knows; it refuses a name it does not.
+    const known = getBlacksmith().canvas.pickTypes ?? MEMBER_TYPES;
     const picked = await getBlacksmith().canvas.pickArea({
-        types: [...MEMBER_TYPES],
+        types: MEMBER_TYPES.filter((type) => known.includes(type)),
         containment,
         levels: 'current',
         prompt: 'Drag a box around everything that belongs to the group. Esc to cancel.'
@@ -215,7 +223,7 @@ export async function captureArea(scene, groupId, { containment = 'centre' } = {
 
 /** Add whatever is selected, on any layer of the canvas that can hold a member. */
 export function addSelected(scene, groupId) {
-    const layers = [canvas.tiles, canvas.drawings, canvas.lighting, canvas.sounds, canvas.walls, canvas.notes];
+    const layers = [canvas.tiles, canvas.drawings, canvas.lighting, canvas.sounds, canvas.walls, canvas.notes, canvas.regions];
     const documents = layers.flatMap((layer) => layer?.controlled ?? []).map((placeable) => placeable.document);
     return addMembers(scene, groupId, documents);
 }
@@ -223,7 +231,7 @@ export function addSelected(scene, groupId) {
 /** Remove whatever is selected, on any layer, from the group. Returns how many members went. */
 export async function removeSelected(scene, groupId) {
     const group = requireGroup(scene, groupId);
-    const layers = [canvas.tiles, canvas.drawings, canvas.lighting, canvas.sounds, canvas.walls, canvas.notes];
+    const layers = [canvas.tiles, canvas.drawings, canvas.lighting, canvas.sounds, canvas.walls, canvas.notes, canvas.regions];
     const picked = new Set(layers.flatMap((layer) => layer?.controlled ?? [])
         .map((placeable) => `${placeable.document.documentName}:${placeable.document.id}`));
     const members = group.members.filter((m) => !picked.has(`${m.type}:${m.id}`));
@@ -294,10 +302,8 @@ export function diagnoseGroup(scene, groupId) {
         if (!doc) return { type: member.type, id: member.id, label: member.label, state: 'missing' };
         points.push(...memberExtent(member.type, doc._source));
         const expected = memberUpdate(member, doc._source, anchor);
-        const actual = { x: doc._source.x, y: doc._source.y, rotation: doc._source.rotation, c: doc._source.c };
-        const off = member.type === 'Wall'
-            ? Math.max(...expected.c.map((v, i) => Math.abs(v - actual.c[i])))
-            : Math.hypot(expected.x - actual.x, expected.y - actual.y);
+        const actual = { x: doc._source.x, y: doc._source.y, rotation: doc._source.rotation, c: doc._source.c, shapes: doc._source.shapes };
+        const off = poseOffset(member.type, expected, actual);
         // Where Foundry is drawing it, against where its saved data says it is. They should agree.
         const shown = doc.object?.bounds;
         const shownBounds = shown ? { x: Math.round(shown.x), y: Math.round(shown.y), width: Math.round(shown.width), height: Math.round(shown.height) } : null;
