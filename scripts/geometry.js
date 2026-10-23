@@ -110,6 +110,38 @@ function handler(type) {
 }
 
 /**
+ * The points that mark the extent of a member in the scene: a box's four corners (turned about its
+ * centre), a wall's two ends, or a single point for the rest.
+ * @param {string} type
+ * @param {object} data  The document's source data.
+ * @returns {{x: number, y: number}[]}
+ */
+export function memberExtent(type, data) {
+    if (type === 'Wall') {
+        const [x1, y1, x2, y2] = data.c;
+        return [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+    }
+    if (kindOf[type] === 'box') {
+        const { width, height } = boxSize[type](data);
+        const cx = data.x + width / 2;
+        const cy = data.y + height / 2;
+        return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => {
+            const r = rotate((sx * width) / 2, (sy * height) / 2, data.rotation ?? 0);
+            return { x: cx + r.x, y: cy + r.y };
+        });
+    }
+    return [{ x: data.x, y: data.y }];
+}
+
+/** The centre of the box that holds every point. */
+export function extentCentre(points) {
+    if (!points.length) throw new Error('Puppeteer: no points to centre');
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+}
+
+/**
  * Record a document as a member of a group anchored at `anchor`.
  * @param {string} type   One of MEMBER_TYPES.
  * @param {string} id     The embedded document id on the anchor's scene.

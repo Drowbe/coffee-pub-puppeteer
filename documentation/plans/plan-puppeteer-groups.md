@@ -136,6 +136,7 @@ From the Blacksmith session, read from its code (`manager-hooks.js`, `manager-pi
 - **Passenger rule.** A token is carried when it is inside the footprint and explicitly marked boarded. Footprint alone would drag a token swimming beside a ship. Boarding goes through `gmRequest`.
 - **No GM.** Warn through a toast and let the move through. Refusing it would make a vehicle unusable whenever the GM steps away.
 - **Pin-anchored heading.** A pin has no rotation. The group stores its own heading, changed by a rotate action in the Group Editor and the toolbar; dragging the pin translates the group.
+- **A manual edit redefines the member.** When the GM moves, turns or resizes a member by hand, the group re-records its offset against the anchor state the members currently occupy. Otherwise the record keeps the old offset and the next move snaps the member back to it, which looks like the group tearing apart. The follower's own writes are told apart by a marker option and, as a second guard, by the member already sitting where the record puts it. Capturing new members first lets the follower finish, so offsets are measured against where the pin really is.
 - **Heading is ours.** Blacksmith will not add a rotation to pins, so the heading lives in Puppeteer's data and its own rotate UI.
 - **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall and Note. MeasuredTemplate is not a core document in v14. Token members and token anchors arrive in phase 2.
 

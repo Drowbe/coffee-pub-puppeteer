@@ -2,7 +2,7 @@
 // window. Everything registers through Blacksmith.
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './bootstrap.js';
-import { captureArea, addSelected, removeSelected, selectMembers, rotateBy, createGroup } from './groups.js';
+import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup } from './groups.js';
 
 export const EDITOR_WINDOW = `${MODULE_ID}-group-editor`;
 
@@ -103,7 +103,20 @@ function registerPinMenu(blacksmith) {
         const removed = await removeSelected(canvas.scene, groupId);
         toast.show({ title: removed ? 'Members removed' : 'Nothing to remove', subtitle: removed ? `${removed} removed.` : 'None of the selected items are in this group.', icon: 'fa-solid fa-up-down-left-right', duration: 4 });
     });
-    item('select-members', 'Select Group Members', 'fa-solid fa-object-group', 12, async (groupId) => selectMembers(canvas.scene, groupId));
+    item('select-members', 'Select Group Members', 'fa-solid fa-object-group', 12, async (groupId) => {
+        const { type, selected, counts } = selectMembers(canvas.scene, groupId);
+        const others = Object.entries(counts).filter(([t]) => t !== type).map(([t, n]) => `${n} ${t}`).join(', ');
+        toast.show({
+            title: type ? `Selected ${selected} ${type}${selected === 1 ? '' : 's'}` : 'No members to select',
+            subtitle: others ? `Foundry selects one layer at a time. Also in this group: ${others}. Use the Group Editor to select those.` : undefined,
+            icon: 'fa-solid fa-up-down-left-right',
+            duration: 6
+        });
+    });
+    item('centre-pivot', 'Move Pivot to Group Centre', 'fa-solid fa-bullseye', 12.5, async (groupId) => {
+        const anchor = await recenterPivot(canvas.scene, groupId);
+        toast.show({ title: anchor ? 'Pivot centred' : 'Nothing to centre on', subtitle: anchor ? 'Nothing moved.' : 'The group has no members yet.', icon: 'fa-solid fa-up-down-left-right', duration: 4 });
+    });
     item('rotate-cw', 'Rotate Group 90° Clockwise', 'fa-solid fa-rotate-right', 13, (groupId) => rotateBy(canvas.scene, groupId, 90));
     item('rotate-ccw', 'Rotate Group 90° Counter-clockwise', 'fa-solid fa-rotate-left', 14, (groupId) => rotateBy(canvas.scene, groupId, -90));
     item('open-editor', 'Open Group Editor', 'fa-solid fa-sliders', 15, async () => blacksmith.openWindow(EDITOR_WINDOW));

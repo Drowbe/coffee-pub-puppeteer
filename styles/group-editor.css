@@ -46,8 +46,6 @@
     list-style: none;
     margin: 6px 0 0;
     padding: 0;
-    max-height: 180px;
-    overflow-y: auto;
 }
 
 .puppeteer-group-editor .puppeteer-member {
@@ -77,4 +75,15 @@
 .puppeteer-group-editor .puppeteer-member-none {
     opacity: 0.8;
     padding: 8px;
+}
+
+.puppeteer-group-editor .puppeteer-warning {
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    border: 1px solid rgba(200, 120, 0, 0.6);
+    border-radius: 4px;
+}
+
+.puppeteer-group-editor .puppeteer-chip {
+    white-space: nowrap;
 }

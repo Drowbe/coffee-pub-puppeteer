@@ -5,7 +5,7 @@ import { BlacksmithWindowBaseV2 } from '/modules/coffee-pub-blacksmith/api/black
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './bootstrap.js';
 import {
-    createGroup, captureArea, addSelected, removeSelected, removeMember, selectMembers, renameGroup,
+    createGroup, captureArea, recenterPivot, addSelected, removeSelected, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups
 } from './groups.js';
 
@@ -18,6 +18,18 @@ const TYPE_ICON = {
     AmbientSound: 'fa-solid fa-volume-high',
     Wall: 'fa-solid fa-grip-lines',
     Note: 'fa-solid fa-note-sticky'
+};
+
+// Which groups have their member list open. Module level so it survives a redraw and a close and reopen.
+const expanded = new Set();
+
+const TYPE_PLURAL = {
+    Tile: 'Tiles',
+    Drawing: 'Drawings',
+    AmbientLight: 'Lights',
+    AmbientSound: 'Sounds',
+    Wall: 'Walls',
+    Note: 'Notes'
 };
 
 const TYPE_LABEL = {
@@ -61,9 +73,10 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         newGroup: (event, target, win) => win._newGroup(),
         rotate: (event, target, win) => win._rotate(target.dataset.groupId, Number(target.dataset.degrees)),
         captureArea: (event, target, win) => win._captureArea(target.dataset.groupId),
+        recenterPivot: (event, target, win) => win._recenterPivot(target.dataset.groupId),
         addSelected: (event, target, win) => win._addSelected(target.dataset.groupId),
         removeSelected: (event, target, win) => win._removeSelected(target.dataset.groupId),
-        selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId),
+        selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId, target.dataset.type || null),
         panTo: (event, target, win) => win._panTo(target.dataset.groupId),
         deleteGroup: (event, target, win) => win._deleteGroup(target.dataset.groupId),
         removeMember: (event, target, win) => win._removeMember(target.dataset.groupId, target.dataset.type, target.dataset.id)
@@ -115,6 +128,13 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         for (const input of this.element.querySelectorAll('input[data-field]')) {
             input.addEventListener('change', () => this._commitField(input));
         }
+        // Remember which member lists are open, so a redraw does not collapse them.
+        for (const details of this.element.querySelectorAll('details[data-group-id]')) {
+            details.addEventListener('toggle', () => {
+                if (details.open) expanded.add(details.dataset.groupId);
+                else expanded.delete(details.dataset.groupId);
+            });
+        }
     }
 
     _onClose(options) {
@@ -164,12 +184,26 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 </li>`;
         }).join('');
 
+        const counts = {};
+        for (const member of group.members) counts[member.type] = (counts[member.type] ?? 0) + 1;
+        const chips = Object.entries(counts).map(([type, count]) => `
+            <button type="button" class="blacksmith-window-btn-secondary puppeteer-chip" data-action="selectMembers"
+                data-group-id="${id}" data-type="${esc(type)}" data-tooltip="Select these ${esc(TYPE_PLURAL[type] ?? type)} on the canvas">
+                <i class="${TYPE_ICON[type] ?? 'fa-solid fa-circle'}"></i> ${esc(TYPE_PLURAL[type] ?? type)} ${count}
+            </button>`).join('');
+        const pinMissing = group.anchor.type === 'pin' && !getBlacksmith().pins.exists(group.anchor.id, { sceneId: scene.id });
+        const warning = pinMissing
+            ? '<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>'
+            : '';
+
         return `
         <section class="puppeteer-group" data-group-id="${id}">
             <div class="puppeteer-group-head">
                 <input type="text" class="puppeteer-group-name" data-field="name" data-group-id="${id}" value="${esc(group.name)}">
                 <span class="puppeteer-group-count">${group.members.length} member${group.members.length === 1 ? '' : 's'}</span>
             </div>
+            ${warning}
+            ${chips ? `<div class="puppeteer-group-row puppeteer-group-types">${chips}</div>` : ''}
             <div class="puppeteer-group-row">
                 <label class="puppeteer-heading">Heading
                     <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(group.heading * 100) / 100}" min="0" max="360" step="1">°
@@ -180,13 +214,13 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
                 ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}
                 ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
-                ${button('selectMembers', 'fa-solid fa-object-group', 'Select Members')}
                 ${button('panTo', 'fa-solid fa-location-crosshairs', 'Go To Pin')}
+                ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
                 <button type="button" class="blacksmith-window-btn-critical" data-action="deleteGroup" data-group-id="${id}">
                     <i class="fa-solid fa-trash"></i> Delete
                 </button>
             </div>
-            <details class="puppeteer-group-members">
+            <details class="puppeteer-group-members" data-group-id="${id}"${expanded.has(group.id) ? ' open' : ''}>
                 <summary>Members</summary>
                 <ul>${members || '<li class="puppeteer-member-none">No members yet.</li>'}</ul>
             </details>
@@ -223,6 +257,13 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         });
     }
 
+    _recenterPivot(groupId) {
+        return run('Centre pivot', async () => {
+            const anchor = await recenterPivot(canvas.scene, groupId);
+            say(anchor ? 'Pivot centred' : 'Nothing to centre on', anchor ? 'The pin now sits at the centre of the group. Nothing moved.' : 'The group has no members yet.');
+        });
+    }
+
     _addSelected(groupId) {
         return run('Add selected', async () => {
             const { added, skipped } = await addSelected(canvas.scene, groupId);
@@ -238,8 +279,8 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         });
     }
 
-    _selectMembers(groupId) {
-        return run('Select members', async () => selectMembers(canvas.scene, groupId));
+    _selectMembers(groupId, type) {
+        return run('Select members', async () => selectMembers(canvas.scene, groupId, type));
     }
 
     _panTo(groupId) {

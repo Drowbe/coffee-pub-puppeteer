@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    MEMBER_TYPES, normAngle, rotate, toFrame, fromFrame, sameAnchor, captureMember, memberUpdate
+    MEMBER_TYPES, normAngle, rotate, toFrame, fromFrame, sameAnchor, captureMember, memberUpdate, memberExtent, extentCentre
 } from '../scripts/geometry.js';
 
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} is not within ${eps} of ${b}`);
@@ -133,4 +133,52 @@ test('sameAnchor compares position and normalised heading', () => {
 test('a type that cannot be a member is refused', () => {
     assert.throws(() => captureMember('Token', 'x', {}, { x: 0, y: 0, heading: 0 }), /cannot be a group member/);
     assert.deepEqual([...MEMBER_TYPES].sort(), ['AmbientLight', 'AmbientSound', 'Drawing', 'Note', 'Tile', 'Wall']);
+});
+
+test('a box reports its four corners, turned about its centre', () => {
+    const flat = memberExtent('Tile', { x: 100, y: 200, width: 400, height: 100, rotation: 0 });
+    assert.deepEqual(flat.map((p) => [Math.round(p.x), Math.round(p.y)]), [[100, 200], [500, 200], [500, 300], [100, 300]]);
+
+    // Turned 90 degrees about its centre (300, 250) it stands up: 100 wide, 400 tall.
+    const upright = memberExtent('Tile', { x: 100, y: 200, width: 400, height: 100, rotation: 90 });
+    const c = extentCentre(upright);
+    near(c.x, 300, 1e-6);
+    near(c.y, 250, 1e-6);
+    near(Math.max(...upright.map((p) => p.y)) - Math.min(...upright.map((p) => p.y)), 400, 1e-6);
+    near(Math.max(...upright.map((p) => p.x)) - Math.min(...upright.map((p) => p.x)), 100, 1e-6);
+});
+
+test('walls report their ends and point types report their point', () => {
+    assert.deepEqual(memberExtent('Wall', { c: [0, 10, 30, 50] }), [{ x: 0, y: 10 }, { x: 30, y: 50 }]);
+    assert.deepEqual(memberExtent('AmbientLight', { x: 7, y: 9, rotation: 0 }), [{ x: 7, y: 9 }]);
+    assert.deepEqual(memberExtent('Drawing', { x: 0, y: 0, shape: { width: 10, height: 20 }, rotation: 0 }).length, 4);
+});
+
+test('extentCentre is the middle of the bounding box, not the average of the points', () => {
+    // Three points bunched at one end: the average would sit near them, the box centre does not.
+    const c = extentCentre([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 100, y: 20 }]);
+    assert.deepEqual(c, { x: 50, y: 10 });
+    assert.throws(() => extentCentre([]), /no points/);
+});
+
+test('re-anchoring on the extent centre leaves every member where it already is', () => {
+    const old = { x: 0, y: 0, heading: 37 };
+    const data = [
+        ['Tile', { x: 1000, y: 800, width: 600, height: 300, rotation: 20 }],
+        ['AmbientLight', { x: 900, y: 700, rotation: 40 }],
+        ['Wall', { c: [1500, 900, 1700, 900] }]
+    ];
+    const members = data.map(([type, d]) => captureMember(type, type, d, old));
+    // Put each member at its recorded place for the old anchor, then re-anchor on the centre of what is there.
+    const placed = members.map((m, i) => ({ ...data[i][1], ...memberUpdate(m, data[i][1], old) }));
+    const points = placed.flatMap((d, i) => memberExtent(data[i][0], d));
+    const c = extentCentre(points);
+    const anchor = { x: Math.round(c.x), y: Math.round(c.y), heading: old.heading };
+    const again = data.map(([type], i) => captureMember(type, type, placed[i], anchor));
+    // Applying the new records for the new anchor reproduces the same placement.
+    again.forEach((m, i) => {
+        const u = memberUpdate(m, placed[i], anchor);
+        if (u.c) assert.deepEqual(u.c, placed[i].c);
+        else { near(u.x, placed[i].x, 1); near(u.y, placed[i].y, 1); }
+    });
 });

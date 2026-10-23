@@ -2,8 +2,9 @@
 // macros all call these, so there is one place that knows how a group is changed.
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './bootstrap.js';
-import { MEMBER_TYPES, captureMember, normAngle } from './geometry.js';
+import { MEMBER_TYPES, captureMember, memberExtent, extentCentre, normAngle } from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
+import { syncGroup, runExclusive, apply } from './follower.js';
 
 export const PIN_TYPE = 'group';
 const PIN_ICON = 'fa-solid fa-up-down-left-right';
@@ -75,6 +76,9 @@ export async function createGroup(scene, point, { name = 'Group' } = {}) {
  */
 export async function addMembers(scene, groupId, documents) {
     const { utils } = getBlacksmith();
+    // Offsets are measured against the anchor the members currently sit at. Let the follower finish first,
+    // so that is the pin's real position and not one a drag has just left behind.
+    await syncGroup(scene, groupId);
     const group = requireGroup(scene, groupId);
     const have = new Set(group.members.map((m) => `${m.type}:${m.id}`));
     const anchor = appliedAnchor(group);
@@ -87,7 +91,7 @@ export async function addMembers(scene, groupId, documents) {
     }
     const skipped = documents.length - added.length;
     if (added.length) await patchGroup(scene, groupId, { members: [...group.members, ...added] });
-    utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": added ${added.length}, skipped ${skipped}`, null, true, false);
+    utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": added ${added.length}, skipped ${skipped}`, { anchor, added }, true, false);
     return { added: added.length, skipped };
 }
 
@@ -125,16 +129,31 @@ export async function removeSelected(scene, groupId) {
     return group.members.length - members.length;
 }
 
-/** Select the group's members on the canvas, so the GM can see what the group holds. */
-export function selectMembers(scene, groupId) {
+/**
+ * Select the group's members of one type, and switch to that type's layer. Foundry selects one layer at a
+ * time, so a group spanning tiles, lights and walls cannot be selected whole. With no `type`, the layer
+ * in use is preferred, then the first type the group has.
+ * @returns {{type: string|null, selected: number, counts: Object<string, number>}}
+ */
+export function selectMembers(scene, groupId, type = null) {
     const group = requireGroup(scene, groupId);
-    let first = true;
-    for (const member of group.members) {
+    const present = group.members.filter((m) => scene.getEmbeddedCollection(m.type).get(m.id));
+    const counts = {};
+    for (const member of present) counts[member.type] = (counts[member.type] ?? 0) + 1;
+
+    const active = canvas.activeLayer?.constructor?.documentName;
+    const chosen = type ?? (counts[active] ? active : Object.keys(counts)[0] ?? null);
+    if (!chosen) return { type: null, selected: 0, counts };
+
+    canvas.getLayerByEmbeddedName(chosen)?.activate();
+    let selected = 0;
+    for (const member of present.filter((m) => m.type === chosen)) {
         const placeable = scene.getEmbeddedCollection(member.type).get(member.id)?.object;
         if (!placeable) continue;
-        placeable.control({ releaseOthers: first });
-        first = false;
+        placeable.control({ releaseOthers: selected === 0 });
+        selected += 1;
     }
+    return { type: chosen, selected, counts };
 }
 
 export async function renameGroup(scene, groupId, name) {
@@ -164,12 +183,43 @@ export function rotateBy(scene, groupId, degrees) {
     return setHeading(scene, groupId, group.heading + degrees);
 }
 
+/**
+ * Move the pivot (the pin) to the centre of what the group holds, without moving any member. Every member's
+ * offset is re-recorded against the new pivot. Done inside the group's queue, and in this order (record,
+ * then pin), so the follower never sees a pin that disagrees with the record and moves the members.
+ * @returns {Promise<{x: number, y: number, heading: number}|null>} The new anchor, or null when the group has no members.
+ */
+export function recenterPivot(scene, groupId) {
+    const { pins, utils } = getBlacksmith();
+    requireGroup(scene, groupId);
+    return runExclusive(scene, groupId, async () => {
+        await apply(scene, groupId);                 // members are where the record puts them
+        const group = requireGroup(scene, groupId);
+        const present = group.members
+            .map((member) => [member, scene.getEmbeddedCollection(member.type).get(member.id)])
+            .filter(([, doc]) => doc);
+        if (!present.length) return null;
+
+        const centre = extentCentre(present.flatMap(([member, doc]) => memberExtent(member.type, doc._source)));
+        const anchor = { x: Math.round(centre.x), y: Math.round(centre.y), heading: group.heading };
+        const members = present.map(([member, doc]) => captureMember(member.type, member.id, doc._source, anchor));
+
+        await patchGroup(scene, groupId, { members, applied: anchor });
+        if (group.anchor.type === 'pin') await pins.update(group.anchor.id, { x: anchor.x, y: anchor.y }, { sceneId: scene.id });
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": pivot moved to the centre of its ${present.length} member(s)`, anchor, true, false);
+        return anchor;
+    });
+}
+
 /** Delete the record and its pin. The members stay in the scene where they are. */
 export async function deleteGroup(scene, groupId) {
     const { pins } = getBlacksmith();
     const group = requireGroup(scene, groupId);
     await deleteGroupRecord(scene, groupId);
-    if (group.anchor.type === 'pin') await pins.delete(group.anchor.id, { sceneId: scene.id });
+    // The pin may already be gone (deleted by hand); the record is what matters.
+    if (group.anchor.type === 'pin' && pins.exists(group.anchor.id, { sceneId: scene.id })) {
+        await pins.delete(group.anchor.id, { sceneId: scene.id });
+    }
 }
 
 export function listGroups(scene) {
