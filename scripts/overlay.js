@@ -5,6 +5,7 @@ import { MODULE_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, memberExtent, groupBounds, rotate } from './geometry.js';
 import { getGroups } from './store.js';
+import { anchorState } from './anchor.js';
 
 const STORAGE_KEY = `${MODULE_ID}.showBounds`;
 const COLOUR = 0xff9a1f;
@@ -47,6 +48,7 @@ export function registerOverlay() {
             || foundry.utils.hasProperty(changes, 'flags.coffee-pub-blacksmith.pins');
         if (touched) schedule();
     });
+    hook('updateToken', (token) => { if (token.parent?.id === canvas.scene?.id) schedule(); });
     for (const type of MEMBER_TYPES) {
         hook(`update${type}`, (doc) => { if (doc.parent?.id === canvas.scene?.id) schedule(); });
         hook(`delete${type}`, (doc) => { if (doc.parent?.id === canvas.scene?.id) schedule(); });
@@ -77,10 +79,8 @@ function draw() {
     g.clear();
     if (!enabled) return;
 
-    const { pins } = getBlacksmith();
     for (const group of Object.values(getGroups(scene))) {
-        const pin = group.anchor.type === 'pin' ? pins.get(group.anchor.id, { sceneId: scene.id }) : null;
-        const anchor = pin ? { x: pin.x, y: pin.y, heading: group.heading } : { ...group.applied };
+        const anchor = anchorState(scene, group) ?? { ...group.applied };
 
         const points = [];
         const outlines = [];
@@ -120,7 +120,7 @@ function draw() {
         g.moveTo(anchor.x, anchor.y - arm);
         g.lineTo(anchor.x, anchor.y + arm);
         g.drawCircle(anchor.x, anchor.y, 7);
-        const tip = rotate(0, 70, group.heading);
+        const tip = rotate(0, 70, anchor.heading);
         g.lineStyle(4, COLOUR, 1);
         g.moveTo(anchor.x, anchor.y);
         g.lineTo(anchor.x + tip.x, anchor.y + tip.y);

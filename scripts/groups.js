@@ -7,6 +7,7 @@ import {
 } from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
 import { syncGroup, runExclusive, apply } from './follower.js';
+import { anchorState, tokenAnchorState } from './anchor.js';
 import { buildTemplate } from './template.js';
 
 export const PIN_TYPE = 'group';
@@ -35,19 +36,8 @@ function requireGroup(scene, groupId) {
     return group;
 }
 
-/**
- * Make a group anchored on a new pin.
- * @param {Scene} scene
- * @param {{x: number, y: number}} point  Where the pin goes, in scene pixels.
- * @param {{name?: string}} [options]
- * @returns {Promise<object>} The group record.
- */
-export async function createGroup(scene, point, { name = 'Group', heading = 0 } = {}) {
-    const { pins, utils } = getBlacksmith();
-    const x = Math.round(point.x);
-    const y = Math.round(point.y);
-    const id = foundry.utils.randomID();
-    const pin = await pins.create({
+function createPin(scene, groupId, name, x, y) {
+    return getBlacksmith().pins.create({
         id: crypto.randomUUID(),
         moduleId: MODULE_ID,
         type: PIN_TYPE,
@@ -56,8 +46,23 @@ export async function createGroup(scene, point, { name = 'Group', heading = 0 } 
         image: PIN_ICON,
         x,
         y,
-        config: { puppeteer: { groupId: id } }
+        config: { puppeteer: { groupId } }
     }, { sceneId: scene.id });
+}
+
+/**
+ * Make a group anchored on a new pin.
+ * @param {Scene} scene
+ * @param {{x: number, y: number}} point  Where the pin goes, in scene pixels.
+ * @param {{name?: string}} [options]
+ * @returns {Promise<object>} The group record.
+ */
+export async function createGroup(scene, point, { name = 'Group', heading = 0 } = {}) {
+    const { utils } = getBlacksmith();
+    const x = Math.round(point.x);
+    const y = Math.round(point.y);
+    const id = foundry.utils.randomID();
+    const pin = await createPin(scene, id, name, x, y);
 
     const group = {
         id,
@@ -71,6 +76,99 @@ export async function createGroup(scene, point, { name = 'Group', heading = 0 } 
     await saveGroup(scene, group);
     utils.postConsoleAndNotification(MODULE_NAME, `Created group "${name}"`, { groupId: id, pinId: pin.id }, true, false);
     return group;
+}
+
+/**
+ * Make a group that hangs from a token, such as a cart or a ship a player pilots. The group follows the token's
+ * position and heading. The token needs no actor changes; it carries only a flag naming the group.
+ * @param {Scene} scene
+ * @param {TokenDocument} token
+ * @param {{name?: string}} [options]
+ * @returns {Promise<object>} The group record.
+ */
+export async function createTokenGroup(scene, token, { name } = {}) {
+    const { utils } = getBlacksmith();
+    const existing = token.getFlag(MODULE_ID, 'groupId');
+    if (existing && getGroup(scene, existing)?.anchor.id === token.id) {
+        throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} already anchors a group`);
+    }
+    const state = tokenAnchorState(scene, token._source);
+    const group = {
+        id: foundry.utils.randomID(),
+        name: name ?? token.name ?? 'Vehicle',
+        anchor: { type: 'token', id: token.id },
+        version: 2,
+        heading: state.heading,
+        members: [],
+        applied: state
+    };
+    await saveGroup(scene, group);
+    await token.update({ [`flags.${MODULE_ID}.groupId`]: group.id });
+    utils.postConsoleAndNotification(MODULE_NAME, `Created group "${group.name}" on token ${token.id}`, { groupId: group.id, state }, true, false);
+    return group;
+}
+
+/**
+ * Hang an existing group from a token. Nothing in the scene moves: every member is re-recorded against the
+ * token's centre and heading, the group's pin is removed, and from then on the group follows the token.
+ * @returns {Promise<object>} The updated group record.
+ */
+export function attachToToken(scene, groupId, token) {
+    const { pins, utils } = getBlacksmith();
+    const first = requireGroup(scene, groupId);
+    if (first.anchor.type === 'token') return Promise.reject(new Error(`${MODULE_ID}: group "${first.name}" already follows a token`));
+    const taken = token.getFlag(MODULE_ID, 'groupId');
+    if (taken && getGroup(scene, taken)?.anchor.id === token.id) {
+        return Promise.reject(new Error(`${MODULE_ID}: ${token.name ?? 'that token'} already anchors a group`));
+    }
+    return runExclusive(scene, groupId, async () => {
+        await apply(scene, groupId);                     // members are where the record puts them
+        const group = requireGroup(scene, groupId);
+        const state = tokenAnchorState(scene, token._source);
+        const members = group.members
+            .map((member) => [member, scene.getEmbeddedCollection(member.type).get(member.id)])
+            .filter(([, doc]) => doc)
+            .map(([member, doc]) => recaptureMember(member, doc._source, state));
+        const oldAnchor = { ...group.anchor };
+
+        await patchGroup(scene, groupId, { anchor: { type: 'token', id: token.id }, members, applied: state, heading: state.heading });
+        await token.update({ [`flags.${MODULE_ID}.groupId`]: groupId });
+        if (oldAnchor.type === 'pin' && pins.exists(oldAnchor.id, { sceneId: scene.id })) {
+            await pins.delete(oldAnchor.id, { sceneId: scene.id });
+        }
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" now follows token ${token.id}`, state, true, false);
+        return getGroup(scene, groupId);
+    });
+}
+
+/**
+ * Take a group off its token and give it a pin at the token's centre, facing the way the token faces. Nothing
+ * in the scene moves. The token is left as it is, without its flag.
+ * @returns {Promise<object>} The updated group record.
+ */
+export function detachToPin(scene, groupId) {
+    const { utils } = getBlacksmith();
+    if (requireGroup(scene, groupId).anchor.type !== 'token') {
+        return Promise.reject(new Error(`${MODULE_ID}: that group is not on a token`));
+    }
+    return runExclusive(scene, groupId, async () => {
+        await apply(scene, groupId);
+        const group = requireGroup(scene, groupId);
+        const state = anchorState(scene, group) ?? { ...group.applied };
+        const tokenId = group.anchor.id;     // the store updates the record in place, so read this before patching
+        const anchor = { x: Math.round(state.x), y: Math.round(state.y), heading: state.heading };
+        const members = group.members
+            .map((member) => [member, scene.getEmbeddedCollection(member.type).get(member.id)])
+            .filter(([, doc]) => doc)
+            .map(([member, doc]) => recaptureMember(member, doc._source, anchor));
+
+        const pin = await createPin(scene, groupId, group.name, anchor.x, anchor.y);
+        await patchGroup(scene, groupId, { anchor: { type: 'pin', id: pin.id }, members, applied: anchor, heading: anchor.heading });
+        const token = scene.tokens.get(tokenId);
+        if (token?.getFlag(MODULE_ID, 'groupId') === groupId) await token.unsetFlag(MODULE_ID, 'groupId');
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" now hangs from a pin`, anchor, true, false);
+        return getGroup(scene, groupId);
+    });
 }
 
 /**
@@ -185,10 +283,10 @@ export async function renameMember(scene, groupId, type, id, label) {
  * for, where each member should be against where it is, and the group's own bounds. Logged and returned.
  */
 export function diagnoseGroup(scene, groupId) {
-    const { pins, utils } = getBlacksmith();
+    const { utils } = getBlacksmith();
     const group = requireGroup(scene, groupId);
-    const pin = group.anchor.type === 'pin' ? pins.get(group.anchor.id, { sceneId: scene.id }) : null;
-    const anchor = pin ? { x: pin.x, y: pin.y, heading: group.heading } : { ...group.applied };
+    const live = anchorState(scene, group);
+    const anchor = live ?? { ...group.applied };
 
     const points = [];
     const members = group.members.map((member) => {
@@ -215,9 +313,10 @@ export function diagnoseGroup(scene, groupId) {
     const report = {
         name: group.name,
         heading: group.heading,
-        pin: pin && { x: pin.x, y: pin.y },
+        anchorType: group.anchor.type,
+        anchor: live && { x: live.x, y: live.y, heading: live.heading },
         applied: group.applied,
-        pinMatchesApplied: pin ? sameAnchor(group.applied, anchor) : null,
+        anchorMatchesApplied: live ? sameAnchor(group.applied, anchor) : null,
         bounds: bounds && { width: Math.round(bounds.width), height: Math.round(bounds.height), centre: { x: Math.round(bounds.centre.x), y: Math.round(bounds.centre.y) } },
         pivotToBoundsCentre: bounds ? Math.round(Math.hypot(bounds.centre.x - anchor.x, bounds.centre.y - anchor.y)) : null,
         members
@@ -235,14 +334,22 @@ export async function removeMember(scene, groupId, type, id) {
 
 /** Set the heading in degrees (clockwise, 0 facing down). The follower moves the members. */
 export async function setHeading(scene, groupId, degrees) {
-    requireGroup(scene, groupId);
+    const group = requireGroup(scene, groupId);
+    if (group.anchor.type === 'token') {
+        // A vehicle faces where its token faces, so turning the group turns the token, and the follower does the rest.
+        const token = scene.tokens.get(group.anchor.id);
+        if (!token) throw new Error(`${MODULE_ID}: the token of group "${group.name}" is gone`);
+        await token.update({ rotation: normAngle(degrees) });
+        return getGroup(scene, groupId);
+    }
     await patchGroup(scene, groupId, { heading: normAngle(degrees) });
     return getGroup(scene, groupId);
 }
 
 export function rotateBy(scene, groupId, degrees) {
     const group = requireGroup(scene, groupId);
-    return setHeading(scene, groupId, group.heading + degrees);
+    const heading = anchorState(scene, group)?.heading ?? group.heading;
+    return setHeading(scene, groupId, heading + degrees);
 }
 
 /**
@@ -253,7 +360,9 @@ export function rotateBy(scene, groupId, degrees) {
  */
 export function recenterPivot(scene, groupId) {
     const { pins, utils } = getBlacksmith();
-    requireGroup(scene, groupId);
+    if (requireGroup(scene, groupId).anchor.type === 'token') {
+        return Promise.reject(new Error(`${MODULE_ID}: a group on a token pivots on that token, so there is no pivot to move`));
+    }
     return runExclusive(scene, groupId, async () => {
         await apply(scene, groupId);                 // members are where the record puts them
         const group = requireGroup(scene, groupId);
@@ -316,6 +425,11 @@ export async function deleteGroup(scene, groupId) {
     // The pin may already be gone (deleted by hand); the record is what matters.
     if (group.anchor.type === 'pin' && pins.exists(group.anchor.id, { sceneId: scene.id })) {
         await pins.delete(group.anchor.id, { sceneId: scene.id });
+    }
+    // A token keeps living; it only stops pointing at a group that no longer exists.
+    if (group.anchor.type === 'token') {
+        const token = scene.tokens.get(group.anchor.id);
+        if (token?.getFlag(MODULE_ID, 'groupId') === groupId) await token.unsetFlag(MODULE_ID, 'groupId');
     }
 }
 

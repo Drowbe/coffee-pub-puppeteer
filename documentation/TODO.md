@@ -21,8 +21,10 @@
 
 **Phase 2: tokens**
 
-2. Token anchors: the token follower (read `_source`, loop guard, no-GM toast)
-   and the smoothness tween.
+2. Token anchors are written and simulated, not yet run in Foundry: a group on a token follows its position and
+   heading, with the no-GM warning and catch-up when a GM connects. Check with a real token: drag it along a
+   multi-waypoint path, turn it, undo a move (Ctrl+Z), and move it as a player with the GM connected. Still to
+   do: the smoothness tween (members land at the start of the token's glide), and the Actor link for prefabs.
 3. Token members and passengers: footprint plus explicit boarded toggle, boarding through `gmRequest`, and the
    constraint-bypass check (constraints off versus the displace path). Chat card announcements.
 

@@ -52,6 +52,8 @@ export function installFakes({ dropOptions = false } = {}) {
         id: 'S1',
         name: 'Test Scene',
         flags: {},
+        grid: { size: 100, sizeX: 100, sizeY: 100 },
+        tokens: new Map(),
         collections: { Tile: new Map(), Drawing: new Map(), AmbientLight: new Map(), AmbientSound: new Map(), Wall: new Map(), Note: new Map() },
         getFlag(module, key) { return this.flags[module]?.[key]; },
         getEmbeddedCollection(type) { return this.collections[type]; },
@@ -70,6 +72,28 @@ export function installFakes({ dropOptions = false } = {}) {
                 await Promise.resolve();
                 fire(`update${type}`, doc, changes, dropOptions ? {} : options, 'u1');
             }
+        },
+        // A token as v14 stores it: x, y is the top-left of its footprint, width and height are in grid squares.
+        addToken(id, data) {
+            const scene = this;
+            const doc = {
+                id,
+                name: data.name ?? id,
+                documentName: 'Token',
+                parent: scene,
+                _source: structuredClone({ _id: id, width: 1, height: 1, rotation: 0, flags: {}, ...data }),
+                getFlag(scope, key) { return this._source.flags?.[scope]?.[key]; },
+                async update(flat, options = {}) {
+                    const changes = expand(flat);
+                    mergeInto(this._source, changes);
+                    await Promise.resolve();
+                    fire('updateToken', this, changes, options, 'u1');
+                    return this;
+                },
+                unsetFlag(scope, key) { return this.update({ [`flags.${scope}.-=${key}`]: null }); }
+            };
+            scene.tokens.set(id, doc);
+            return doc;
         },
         async createEmbeddedDocuments(type, datas) {
             const docs = datas.map((data) => this.add(type, Math.random().toString(36).slice(2, 18).padEnd(16, 'x'), data));
@@ -105,6 +129,7 @@ export function installFakes({ dropOptions = false } = {}) {
         }
     };
     globalThis.game = {
+        user: { id: 'u1' },
         scenes: [scene],
         settings: { register() {} },
         users: { activeGM: { isSelf: true } },

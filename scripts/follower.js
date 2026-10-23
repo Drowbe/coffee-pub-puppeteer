@@ -1,20 +1,80 @@
-// The pin follower. When a group's anchor pin or heading changes, move its members to match.
+// The follower. When a group's anchor moves or turns, move its members to match.
 //
-// It runs from Foundry's updateScene on the active GM only. Blacksmith's own pin events fire on the client
-// that performed the write, so a second GM dragging a pin would never reach the active GM that way.
-// Every position is computed from committed state (the pin as stored, the heading as stored), never from
-// a position that is still being dragged.
+// A pin-anchored group is followed from Foundry's updateScene, because Blacksmith's own pin events fire on
+// the client that performed the write, so a second GM dragging a pin would never reach the active GM that
+// way. A token-anchored group is followed from updateToken. Either way only the active GM writes, and every
+// position is computed from committed state (the anchor as stored, via anchor.js), never from a position
+// that is still being dragged or animated.
 import { MODULE_ID, MODULE_NAME, BLACKSMITH_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, recaptureMember, memberUpdate, sameAnchor } from './geometry.js';
 import { getGroup, getGroups, patchGroup } from './store.js';
+import { anchorState } from './anchor.js';
 
 // One chain per group, so a move and the rotation that follows it a moment later never write concurrently.
 // Hook Manager callbacks are started back to back and not awaited.
 const chains = new Map();
 
+// What counts as a token moving: Foundry's own movement fields, and its rotation (its heading).
+const TOKEN_FIELDS = [
+    ...(globalThis.TokenDocument?.MOVEMENT_FIELDS ?? ['x', 'y', 'elevation', 'width', 'height', 'depth', 'shape', 'level']),
+    'rotation'
+];
+
+// The mover is told once in a while, not on every step of a long drag.
+let lastNoGmWarning = 0;
+const NO_GM_COOLDOWN_MS = 15000;
+
+function warnNoGm(userId) {
+    if (userId !== game.user?.id) return;
+    const now = Date.now();
+    if (now - lastNoGmWarning < NO_GM_COOLDOWN_MS) return;
+    lastNoGmWarning = now;
+    getBlacksmith().toast.show({
+        title: 'No GM is connected',
+        subtitle: 'The parts of this vehicle will not follow it until a GM is online.',
+        icon: 'fa-solid fa-triangle-exclamation',
+        duration: 8
+    });
+}
+
 export function registerFollower() {
     const { HookManager } = getBlacksmith();
+
+    // A token-anchored group follows its token. The flag on the token only says which group to look at; the
+    // group's own record must name this token as its anchor, so a copied token does not drive the original's parts.
+    HookManager.registerHook({
+        name: 'updateToken',
+        description: 'Puppeteer: move group members when their anchor token moves or turns',
+        context: MODULE_ID,
+        priority: 3,
+        key: `${MODULE_ID}-token-follower`,
+        callback: (token, changes, options, userId) => {
+            if (!TOKEN_FIELDS.some((field) => field in changes)) return;
+            const groupId = token.getFlag(MODULE_ID, 'groupId');
+            if (!groupId) return;
+            if (!game.users.activeGM) { warnNoGm(userId); return; }
+            if (!game.users.activeGM.isSelf) return;
+            if (options?.puppeteer?.follower) return;
+            const scene = token.parent;
+            const group = scene && getGroup(scene, groupId);
+            if (!group || group.anchor.type !== 'token' || group.anchor.id !== token.id) return;
+            syncGroup(scene, groupId);
+        }
+    });
+
+    // A GM coming online finds vehicles that moved while nobody could write their parts.
+    HookManager.registerHook({
+        name: 'userConnected',
+        description: 'Puppeteer: bring groups up to date when a GM comes online',
+        context: MODULE_ID,
+        priority: 4,
+        key: `${MODULE_ID}-gm-online`,
+        callback: (user, connected) => {
+            if (connected && user.isGM && game.users.activeGM?.isSelf) syncAllGroups();
+        }
+    });
+
     HookManager.registerHook({
         name: 'updateScene',
         description: 'Puppeteer: move group members when their anchor pin or heading changes',
@@ -93,6 +153,16 @@ export function syncGroup(scene, groupId) {
     return enqueue(scene, groupId, () => apply(scene, groupId));
 }
 
+/** Bring every group on every scene up to date. Only the active GM writes. */
+export function syncAllGroups() {
+    if (!game.users.activeGM?.isSelf) return Promise.resolve();
+    const jobs = [];
+    for (const scene of game.scenes) {
+        for (const groupId of Object.keys(getGroups(scene))) jobs.push(syncGroup(scene, groupId));
+    }
+    return Promise.all(jobs);
+}
+
 // Re-record one member's offset against the anchor state the group's members currently occupy.
 async function recapture(scene, groupId, type, id) {
     const { utils } = getBlacksmith();
@@ -106,10 +176,10 @@ async function recapture(scene, groupId, type, id) {
     // put there by the follower and is not an edit. This holds even if the follower's own marker on its
     // writes were ever lost on the way to this hook, so a follower write can never be re-recorded.
     const current = group.members[index];
-    const pin = group.anchor.type === 'pin' ? getBlacksmith().pins.get(group.anchor.id, { sceneId: scene.id }) : null;
+    const state = anchorState(scene, group);
     const atApplied = !differs(memberUpdate(current, doc._source, { ...group.applied }), doc._source);
-    const atPin = !!pin && !differs(memberUpdate(current, doc._source, { x: pin.x, y: pin.y, heading: group.heading }), doc._source);
-    if (atApplied || atPin) return;
+    const atAnchor = !!state && !differs(memberUpdate(current, doc._source, state), doc._source);
+    if (atApplied || atAnchor) return;
 
     const member = recaptureMember(current, doc._source, { ...group.applied });
     const members = group.members.map((m, i) => (i === index ? member : m));
@@ -148,14 +218,12 @@ function countNotTaken(scene, type, batch) {
 
 /** Move a group's members to its anchor now. Only call from inside `runExclusive`. */
 export async function apply(scene, groupId) {
-    const { pins, utils } = getBlacksmith();
+    const { utils } = getBlacksmith();
     const group = getGroup(scene, groupId);
-    if (!group || group.anchor.type !== 'pin') return;
+    if (!group) return;
 
-    const pin = pins.get(group.anchor.id, { sceneId: scene.id });
-    if (!pin) return;
-
-    const anchor = { x: pin.x, y: pin.y, heading: group.heading };
+    const anchor = anchorState(scene, group);
+    if (!anchor) return;
     if (sameAnchor(group.applied, anchor)) return;
 
     // Build one update per document type; a member whose document is gone is dropped from the record.
@@ -179,6 +247,8 @@ export async function apply(scene, groupId) {
     }
 
     const patch = { applied: anchor };
+    // A token group faces where its token faces, so the record shows it; a pin group's heading is its own.
+    if (group.anchor.type === 'token') patch.heading = anchor.heading;
     if (keep.length !== group.members.length) patch.members = keep;
     await patchGroup(scene, groupId, patch);
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" moved ${keep.length} member(s)`, anchor, true, false);

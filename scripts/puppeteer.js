@@ -3,12 +3,13 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
+import { registerPinType, createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
 import { registerOverlay, toggleBounds, setBoundsShown } from './overlay.js';
 import { migrateGroups } from './migrate.js';
+import { syncAllGroups } from './follower.js';
 import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate } from './library.js';
 
 Hooks.once('ready', async () => {
@@ -23,6 +24,8 @@ Hooks.once('ready', async () => {
     registerOverlay();
     try {
         await migrateGroups();
+        // Anything that moved while no GM could write its parts catches up now.
+        await syncAllGroups();
     } catch (error) {
         console.error(`${MODULE_ID}: updating older groups failed`, error);
         blacksmith.utils.postConsoleAndNotification('PUPPETEER', `Could not update an older group: ${error.message}`, null, false, true);
@@ -32,6 +35,11 @@ Hooks.once('ready', async () => {
     // Every function takes the scene first so a macro can address any scene; `scene()` is the one in view.
     game.modules.get(MODULE_ID).api = {
         scene: () => canvas.scene,
+        /** Make a group that follows a token, by token document. */
+        createTokenGroup: (token, options = {}) => createTokenGroup(options.scene ?? token.parent, token, { name: options.name }),
+        /** Hang an existing group from a token, or give it back a pin. Nothing in the scene moves. */
+        attachToToken: (groupId, token, scene = token.parent) => attachToToken(scene, groupId, token),
+        detachToPin: (groupId, scene = canvas.scene) => detachToPin(scene, groupId),
         /** Create a group on a new pin at `point`, or at the centre of the view. */
         createGroup: (options = {}) => createGroup(
             options.scene ?? canvas.scene,

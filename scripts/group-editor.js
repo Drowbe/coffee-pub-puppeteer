@@ -5,10 +5,11 @@ import { BlacksmithWindowBaseV2 } from '/modules/coffee-pub-blacksmith/api/black
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
-    createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
+    createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups
 } from './groups.js';
 import { boundsShown, setBoundsShown } from './overlay.js';
+import { anchorState, anchorExists } from './anchor.js';
 import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
@@ -73,6 +74,9 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
 
     static ACTION_HANDLERS = {
         newGroup: (event, target, win) => win._newGroup(),
+        newTokenGroup: (event, target, win) => win._newTokenGroup(),
+        attachToToken: (event, target, win) => win._attachToToken(target.dataset.groupId),
+        detachToPin: (event, target, win) => win._detachToPin(target.dataset.groupId),
         rotate: (event, target, win) => win._rotate(target.dataset.groupId, Number(target.dataset.degrees)),
         captureArea: (event, target, win) => win._captureArea(target.dataset.groupId),
         recenterPivot: (event, target, win) => win._recenterPivot(target.dataset.groupId),
@@ -165,6 +169,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 : `<p class="puppeteer-empty">No groups on this scene. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings or notes on the canvas, then choose <strong>Add Selected</strong> on the group.</p>`)
                 + this._libraryHtml(),
             actionBarLeft: `<button type="button" class="blacksmith-window-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>
+                <button type="button" class="blacksmith-window-btn-secondary" data-action="newTokenGroup" data-tooltip="Make a group that follows the selected token, such as a cart or a ship"><i class="fa-solid fa-horse"></i> On Selected Token</button>
                 <label class="puppeteer-toggle" data-tooltip="Draw the box that holds each group, its pivot and its heading on the canvas"><input type="checkbox" data-field="showBounds"${boundsShown() ? ' checked' : ''}> Show group bounds</label>`
         };
     }
@@ -197,8 +202,8 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 data-tooltip="Rotate ${Math.abs(degrees)}° ${degrees < 0 ? 'counter-clockwise' : 'clockwise'}">
                 <i class="${icon}"></i> ${Math.abs(degrees)}
             </button>`;
-        const button = (action, icon, label) => `
-            <button type="button" class="blacksmith-window-btn-secondary" data-action="${action}" data-group-id="${id}">
+        const button = (action, icon, label, tooltip = '') => `
+            <button type="button" class="blacksmith-window-btn-secondary" data-action="${action}" data-group-id="${id}"${tooltip ? ` data-tooltip="${esc(tooltip)}"` : ''}>
                 <i class="${icon}"></i> ${label}
             </button>`;
 
@@ -225,10 +230,12 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 data-group-id="${id}" data-type="${esc(type)}" data-tooltip="Select these ${esc(TYPE_PLURAL[type] ?? type)} on the canvas">
                 <i class="${TYPE_ICON[type] ?? 'fa-solid fa-circle'}"></i> ${esc(TYPE_PLURAL[type] ?? type)} ${count}
             </button>`).join('');
-        const pinMissing = group.anchor.type === 'pin' && !getBlacksmith().pins.exists(group.anchor.id, { sceneId: scene.id });
-        const warning = pinMissing
-            ? '<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>'
+        const onToken = group.anchor.type === 'token';
+        const lost = !anchorExists(scene, group);
+        const warning = lost
+            ? `<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its ${onToken ? 'token' : 'pin'}, so it cannot be moved. Delete the group and make a new one.</div>`
             : '';
+        const heading = anchorState(scene, group)?.heading ?? group.heading;
 
         return `
         <section class="puppeteer-group" data-group-id="${id}">
@@ -240,7 +247,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
             ${chips ? `<div class="puppeteer-group-row puppeteer-group-types">${chips}</div>` : ''}
             <div class="puppeteer-group-row">
                 <label class="puppeteer-heading">Heading
-                    <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(group.heading * 100) / 100}" min="0" max="360" step="1">°
+                    <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1">°
                 </label>
                 ${step(-90, 'fa-solid fa-rotate-left')}${step(-15, 'fa-solid fa-rotate-left')}${step(15, 'fa-solid fa-rotate-right')}${step(90, 'fa-solid fa-rotate-right')}
             </div>
@@ -248,8 +255,9 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
                 ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}
                 ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
-                ${button('panTo', 'fa-solid fa-location-crosshairs', 'Go To Pin')}
-                ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
+                ${button('panTo', 'fa-solid fa-location-crosshairs', onToken ? 'Go To Token' : 'Go To Pin')}
+                ${onToken ? '' : button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
+                ${onToken ? button('detachToPin', 'fa-solid fa-link-slash', 'Detach from Token', "Stop following the token. A pin is left at the token's centre; nothing moves.") : button('attachToToken', 'fa-solid fa-link', 'Attach to Token', 'Follow the selected token. The pin is removed; nothing moves.')}
                 ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
                 ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
                 <button type="button" class="blacksmith-window-btn-critical" data-action="deleteGroup" data-group-id="${id}">
@@ -281,6 +289,38 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
             if (input.dataset.field === 'memberLabel') return renameMember(scene, groupId, input.dataset.type, input.dataset.id, input.value);
             if (input.dataset.field === 'name') await renameGroup(scene, groupId, input.value);
             if (input.dataset.field === 'heading') await setHeading(scene, groupId, Number(input.value) || 0);
+        });
+    }
+
+    _newTokenGroup() {
+        return run('Create group on token', async () => {
+            const controlled = canvas.tokens.controlled;
+            if (controlled.length !== 1) {
+                say('Select one token', 'Select the token the group should follow, then try again.');
+                return;
+            }
+            const group = await createTokenGroup(canvas.scene, controlled[0].document);
+            say('Group created', `${group.name} follows ${controlled[0].document.name ?? 'the token'}. Select its tiles, lights and walls and choose Add Selected, or use Capture Area.`);
+        });
+    }
+
+    _attachToToken(groupId) {
+        return run('Attach to token', async () => {
+            const controlled = canvas.tokens.controlled;
+            if (controlled.length !== 1) {
+                say('Select one token', 'Select the token this group should follow, then choose Attach to Token.');
+                return;
+            }
+            const token = controlled[0].document;
+            await attachToToken(canvas.scene, groupId, token);
+            say('Group attached', `It now follows ${token.name ?? 'the token'}. Nothing moved, and the group's pin was removed.`);
+        });
+    }
+
+    _detachToPin(groupId) {
+        return run('Detach from token', async () => {
+            await detachToPin(canvas.scene, groupId);
+            say('Group detached', "It no longer follows the token. A pin now sits where the token's centre was, so you can still move the group. Nothing else moved.");
         });
     }
 
@@ -382,8 +422,13 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
 
     _panTo(groupId) {
         return run('Go to pin', async () => {
-            const group = listGroups(canvas.scene).find((g) => g.id === groupId);
+            const scene = canvas.scene;
+            const group = listGroups(scene).find((g) => g.id === groupId);
             if (group?.anchor.type === 'pin') await getBlacksmith().pins.panTo(group.anchor.id, { ping: true });
+            if (group?.anchor.type === 'token') {
+                const state = anchorState(scene, group);
+                if (state) await canvas.animatePan({ x: state.x, y: state.y });
+            }
         });
     }
 

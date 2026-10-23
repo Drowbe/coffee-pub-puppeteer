@@ -97,6 +97,8 @@ The math and the per-type writes are the table below, minus the passenger row. W
 
 ## The token follower (phase 2)
 
+Built (written and simulated; to be checked with a real token). The group record names the token as its anchor and the token carries `flags.coffee-pub-puppeteer.groupId`. The follower trusts the flag only when the record names that same token, so a copied token is inert. The pivot is the middle of the token's footprint and the heading is its rotation, both read from `_source` (see Observed). Turning a token group from the editor turns the token itself. With no GM connected the mover is warned once every 15 seconds, and `syncAllGroups` runs when the world loads and when a GM connects. What follows is the design the code was written from.
+
 One `updateToken` hook, registered through the Hook Manager. It acts only on the client that is `game.users.activeGM`, the same election `gmRequest` uses, so exactly one client writes and every Coffee Pub module agrees on who that is. It ignores updates where no field in `TokenDocument.MOVEMENT_FIELDS` or `rotation` changed (elevation and level are already movement fields), ignores tokens whose `groupId` does not resolve to a record naming that token as its anchor, and ignores updates tagged as its own.
 
 **Loop guard.** Every follower write carries an update option `{ puppeteer: { follower: true } }`. The hook returns on that option. A token that is already a member of a group is refused as an anchor, and a group cannot contain its own anchor, so there is no cycle to walk.
