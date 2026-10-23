@@ -37,6 +37,7 @@ Every Blacksmith surface was read against the Blacksmith 14.4.1 API documentatio
 | Windows | `BlacksmithWindowBaseV2` for the Group Editor (members, footprint, carry toggle, heading for pin groups); `BlacksmithToolWindowBaseV2` for the capture palette. The classes are imported from `/modules/coffee-pub-blacksmith/api/blacksmith-api.js`, never read from `module.api` at class-definition time. Both are registered with `registerWindow` so toolbar, menubar and macros open them by id. |
 | Toolbar | `registerToolbarTool` for Capture Area, Add Selected, Remove Member and Open Group Editor. GM only, on both the Blacksmith and the Foundry toolbars. |
 | Menubar | A toggleable Puppeteer tool that shows or hides the group overlay, and a secondary bar for capture mode (Capture Area, Add Selected, Remove, Done). Menubar notifications report groups whose members have gone missing. |
+| Canvas | `api.canvas.pickArea` for Capture Area: the GM drags a box and every Tile, Drawing, AmbientLight, AmbientSound, Wall and Note whose centre is inside, across all layers, becomes a member. It leaves the GM's selection and active layer alone. Blacksmith added it at Puppeteer's request. |
 | Context menu | `pins.registerContextMenuItem` for Capture and Open Group Editor on Puppeteer pins. `uiContextMenu` for the member rows in the Group Editor. |
 | Chat cards | `chatCards.post` for the boarded and disembarked announcements (public) and the prefab stamp summary (GM whisper, with a count of members skipped and why). |
 | Toast and notifications | Player-facing and GM-facing messages through `api.toast` on a registered `puppeteer` channel, so a GM can switch them off. Console output through `utils.postConsoleAndNotification` with the module id. |
@@ -159,7 +160,7 @@ These concern a token anchor, so they apply from phase 2. One drag in v14.369 as
 
 ## Capture
 
-"Capture area" on the anchor (the pin in phase 1): the GM drags a rectangle and every placeable of a supported type whose centre is inside, across all layers, becomes a member, with offsets computed from the anchor's current position and heading (un-rotated into the anchor's frame). "Add selected" and "Remove member" cover single elements. Members deleted from the scene are pruned through the delete hooks.
+"Capture area" on the anchor (the pin in phase 1): the GM drags a rectangle with Blacksmith's `pickArea` and every placeable of a supported type whose centre is inside, across all layers, becomes a member, with offsets computed from the anchor's current position and heading (un-rotated into the anchor's frame). "Add selected" and "Remove member" cover single elements. Members deleted from the scene are pruned through the delete hooks.
 
 ## Order
 

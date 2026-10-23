@@ -14,9 +14,10 @@
 
 **Phase 1: pin-anchored groups of scene elements (no tokens)**
 
-1. Capture by rectangle, add selected and remove member, through the toolbar and a Group Editor window, with
-   a rotate action (numeric heading and steps). Prune members through the delete hooks, and handle a deleted
-   anchor pin. Today these are only reachable from the console API.
+1. Test the Group Editor, toolbar tools, pin right-click menu and delete-pruning in Foundry (written, not yet
+   run). Then handle a deleted anchor pin (the group record is left behind today).
+   Capture Area uses Blacksmith's `canvas.pickArea`, which is in Blacksmith's working tree and not yet
+   released, so it is untested too. Add Selected stays as a separate way to build a group from a selection.
 
 **Phase 2: tokens**
 

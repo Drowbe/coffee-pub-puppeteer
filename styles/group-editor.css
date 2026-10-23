@@ -1,0 +1,80 @@
+/* The Group Editor. Colours come from Blacksmith's window styling; this file only lays things out. */
+.puppeteer-group-editor .puppeteer-group {
+    margin: 0 0 12px;
+    padding: 10px;
+    border: 1px solid rgba(128, 128, 128, 0.35);
+    border-radius: 6px;
+}
+
+.puppeteer-group-editor .puppeteer-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.puppeteer-group-editor .puppeteer-group-name {
+    flex: 1;
+    font-weight: bold;
+}
+
+.puppeteer-group-editor .puppeteer-group-count {
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+.puppeteer-group-editor .puppeteer-group-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.puppeteer-group-editor .puppeteer-heading {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 6px;
+}
+
+.puppeteer-group-editor .puppeteer-heading input {
+    width: 4.5em;
+}
+
+.puppeteer-group-editor .puppeteer-group-members ul {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.puppeteer-group-editor .puppeteer-member {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 4px;
+}
+
+.puppeteer-group-editor .puppeteer-member span {
+    flex: 1;
+}
+
+.puppeteer-group-editor .puppeteer-member-missing {
+    opacity: 0.55;
+}
+
+.puppeteer-group-editor .puppeteer-member-remove {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    line-height: 1;
+}
+
+.puppeteer-group-editor .puppeteer-empty,
+.puppeteer-group-editor .puppeteer-member-none {
+    opacity: 0.8;
+    padding: 8px;
+}

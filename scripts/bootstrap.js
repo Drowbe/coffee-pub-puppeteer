@@ -13,6 +13,8 @@ const REQUIRED = [
     'utils.registerLogStyle',
     'utils.playSound',
     'gmRequest',
+    'dialog',
+    'canvas.pickArea',
     'toast',
     'chatCards',
     'pins',

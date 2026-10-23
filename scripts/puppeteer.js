@@ -3,8 +3,10 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
+import { registerPinType, createGroup, captureArea, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
 import { registerFollower } from './follower.js';
+import { registerPruning } from './prune.js';
+import { registerUi } from './ui.js';
 
 Hooks.once('ready', async () => {
     const blacksmith = await bootstrap();
@@ -12,6 +14,8 @@ Hooks.once('ready', async () => {
 
     registerPinType();
     registerFollower();
+    registerPruning();
+    registerUi();
 
     // The scripting surface, for macros and for the toolbar and Group Editor, which call the same functions.
     // Every function takes the scene first so a macro can address any scene; `scene()` is the one in view.
@@ -23,6 +27,7 @@ Hooks.once('ready', async () => {
             options.point ?? { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y },
             { name: options.name }
         ),
+        captureArea: (groupId, options = {}, scene = canvas.scene) => captureArea(scene, groupId, options),
         addSelected: (groupId, scene = canvas.scene) => addSelected(scene, groupId),
         addMembers: (groupId, documents, scene = canvas.scene) => addMembers(scene, groupId, documents),
         removeMember: (groupId, type, id, scene = canvas.scene) => removeMember(scene, groupId, type, id),

@@ -91,11 +91,58 @@ export async function addMembers(scene, groupId, documents) {
     return { added: added.length, skipped };
 }
 
+/**
+ * Let the GM drag a box and add everything of a supported type inside it, across every layer in one pick.
+ * @returns {Promise<{added: number, skipped: number}|null>} null when the pick was cancelled.
+ */
+export async function captureArea(scene, groupId, { containment = 'centre' } = {}) {
+    requireGroup(scene, groupId);
+    const picked = await getBlacksmith().canvas.pickArea({
+        types: [...MEMBER_TYPES],
+        containment,
+        levels: 'current',
+        prompt: 'Drag a box around everything that belongs to the group. Esc to cancel.'
+    });
+    if (!picked) return null;
+    return addMembers(scene, groupId, picked.documents);
+}
+
 /** Add whatever is selected, on any layer of the canvas that can hold a member. */
 export function addSelected(scene, groupId) {
     const layers = [canvas.tiles, canvas.drawings, canvas.lighting, canvas.sounds, canvas.walls, canvas.notes];
     const documents = layers.flatMap((layer) => layer?.controlled ?? []).map((placeable) => placeable.document);
     return addMembers(scene, groupId, documents);
+}
+
+/** Remove whatever is selected, on any layer, from the group. Returns how many members went. */
+export async function removeSelected(scene, groupId) {
+    const group = requireGroup(scene, groupId);
+    const layers = [canvas.tiles, canvas.drawings, canvas.lighting, canvas.sounds, canvas.walls, canvas.notes];
+    const picked = new Set(layers.flatMap((layer) => layer?.controlled ?? [])
+        .map((placeable) => `${placeable.document.documentName}:${placeable.document.id}`));
+    const members = group.members.filter((m) => !picked.has(`${m.type}:${m.id}`));
+    if (members.length !== group.members.length) await patchGroup(scene, groupId, { members });
+    return group.members.length - members.length;
+}
+
+/** Select the group's members on the canvas, so the GM can see what the group holds. */
+export function selectMembers(scene, groupId) {
+    const group = requireGroup(scene, groupId);
+    let first = true;
+    for (const member of group.members) {
+        const placeable = scene.getEmbeddedCollection(member.type).get(member.id)?.object;
+        if (!placeable) continue;
+        placeable.control({ releaseOthers: first });
+        first = false;
+    }
+}
+
+export async function renameGroup(scene, groupId, name) {
+    const { pins } = getBlacksmith();
+    const group = requireGroup(scene, groupId);
+    const trimmed = String(name).trim() || group.name;
+    await patchGroup(scene, groupId, { name: trimmed });
+    if (group.anchor.type === 'pin') await pins.update(group.anchor.id, { text: trimmed }, { sceneId: scene.id });
 }
 
 export async function removeMember(scene, groupId, type, id) {
