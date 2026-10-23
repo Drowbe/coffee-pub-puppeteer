@@ -10,6 +10,7 @@ import {
 } from './groups.js';
 import { boundsShown, setBoundsShown } from './overlay.js';
 import { anchorState, anchorExists } from './anchor.js';
+import { groupsTouched } from './store.js';
 import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
@@ -124,7 +125,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
             options: { debounceMs: 100 },
             callback: (scene, changes) => {
                 if (scene.id !== canvas.scene?.id) return;
-                if (foundry.utils.hasProperty(changes, `flags.${MODULE_ID}.groups`)) this.render();
+                if (groupsTouched(changes)) this.render();
             }
         });
         getBlacksmith().HookManager.registerHook({
@@ -451,7 +452,11 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 confirmIcon: 'fa-solid fa-trash',
                 destructive: true
             });
-            if (confirmed) await deleteGroup(scene, groupId);
+            if (confirmed) {
+                await deleteGroup(scene, groupId);
+                // Do not wait for a hook to notice: the list on screen is stale the moment the record is gone.
+                this.render();
+            }
         });
     }
 }

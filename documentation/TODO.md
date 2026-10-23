@@ -14,7 +14,7 @@
 
 **Phase 1: pin-anchored groups of scene elements (no tokens)**
 
-1. Regions as members are written and simulated, not yet run in Foundry: add a region with Add Selected, then move and turn the group. Capture Area cannot pick Regions until Blacksmith's area pick lists them (requested).
+1. Regions as members work in Foundry. Capture Area cannot pick Regions until Blacksmith's area pick lists them (requested); use Add Selected.
    Phase 1 is working in Foundry: groups, drag and rotate, Centre Pivot, hand edits, names, the bounds overlay
    and the Group Editor. Not yet checked there: the Library (Save, Stamp, Import) and Capture Area, which
    uses Blacksmith's `canvas.pickArea` (in Blacksmith's working tree, not released). A group whose anchor pin was
@@ -22,9 +22,8 @@
 
 **Phase 2: tokens**
 
-2. Token anchors are written and simulated, not yet run in Foundry: a group on a token follows its position and
-   heading, with the no-GM warning and catch-up when a GM connects. Check with a real token: drag it along a
-   multi-waypoint path, turn it, undo a move (Ctrl+Z), and move it as a player with the GM connected. Still to
+2. Token anchors work in Foundry for a GM moving and turning the token, including attach and detach. Still to check:
+   a multi-waypoint path, undo (Ctrl+Z), a player moving the token with the GM connected, and the no-GM warning. Still to
    do: the smoothness tween (members land at the start of the token's glide), and the Actor link for prefabs.
 3. Token members and passengers: footprint plus explicit boarded toggle, boarding through `gmRequest`, and the
    constraint-bypass check (constraints off versus the displace path). Chat card announcements.

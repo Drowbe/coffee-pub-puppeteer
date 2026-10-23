@@ -4,7 +4,7 @@
 import { MODULE_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, memberExtent, groupBounds, rotate } from './geometry.js';
-import { getGroups } from './store.js';
+import { getGroups, groupsTouched } from './store.js';
 import { anchorState } from './anchor.js';
 
 const STORAGE_KEY = `${MODULE_ID}.showBounds`;
@@ -44,9 +44,7 @@ export function registerOverlay() {
     hook('canvasTearDown', () => { graphics = null; });
     hook('updateScene', (scene, changes) => {
         if (scene.id !== canvas.scene?.id) return;
-        const touched = foundry.utils.hasProperty(changes, `flags.${MODULE_ID}.groups`)
-            || foundry.utils.hasProperty(changes, 'flags.coffee-pub-blacksmith.pins');
-        if (touched) schedule();
+        if (groupsTouched(changes)) schedule();
     });
     hook('updateToken', (token) => { if (token.parent?.id === canvas.scene?.id) schedule(); });
     for (const type of MEMBER_TYPES) {
