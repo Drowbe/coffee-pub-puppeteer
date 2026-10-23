@@ -14,18 +14,10 @@
 
 **Phase 1: pin-anchored groups of scene elements (no tokens)**
 
-0. Confirm the tile fix in Foundry (rotation and Centre Pivot were reported not working). The cause found: Puppeteer
-   read a v14 tile's `x, y` as its top-left corner, but it is the texture anchor point (the centre by default), so
-   tiles were half their size out. Tile maths, group records (migrated on load) and templates (now version 2) are
-   corrected and covered by tests that run the follower against a simulated scene. Check: with Show group bounds
-   on, every cyan outline should sit on its object; Centre Pivot should put the pin in the middle of the cart;
-   rotating 90 and back should leave everything where it was. If not, `api.diagnose(groupId)` says where each
-   member is.
-1. The Group Editor, toolbar tools, pin menu, delete-pruning and Capture Area are in and mostly checked in
-   Foundry. Still to do: automatically drop a group whose anchor pin was deleted (the editor flags it and
-   Delete now works, but nothing removes it for you).
-   Capture Area uses Blacksmith's `canvas.pickArea`, which is in Blacksmith's working tree and not yet
-   released, so it is untested too. Add Selected stays as a separate way to build a group from a selection.
+1. Phase 1 is working in Foundry: groups, drag and rotate, Centre Pivot, hand edits, names, the bounds overlay
+   and the Group Editor. Not yet checked there: the Library (Save, Stamp, Import) and Capture Area, which
+   uses Blacksmith's `canvas.pickArea` (in Blacksmith's working tree, not released). A group whose anchor pin was
+   deleted is flagged in the editor and can be deleted there; nothing removes it automatically.
 
 **Phase 2: tokens**
 
