@@ -5,7 +5,7 @@ import { BlacksmithWindowBaseV2 } from '/modules/coffee-pub-blacksmith/api/black
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './bootstrap.js';
 import {
-    createGroup, captureArea, recenterPivot, addSelected, removeSelected, removeMember, selectMembers, renameGroup,
+    createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups
 } from './groups.js';
 
@@ -74,6 +74,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         rotate: (event, target, win) => win._rotate(target.dataset.groupId, Number(target.dataset.degrees)),
         captureArea: (event, target, win) => win._captureArea(target.dataset.groupId),
         recenterPivot: (event, target, win) => win._recenterPivot(target.dataset.groupId),
+        exportGroup: (event, target, win) => win._exportGroup(target.dataset.groupId),
         addSelected: (event, target, win) => win._addSelected(target.dataset.groupId),
         removeSelected: (event, target, win) => win._removeSelected(target.dataset.groupId),
         selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId, target.dataset.type || null),
@@ -216,6 +217,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
                 ${button('panTo', 'fa-solid fa-location-crosshairs', 'Go To Pin')}
                 ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
+                ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
                 <button type="button" class="blacksmith-window-btn-critical" data-action="deleteGroup" data-group-id="${id}">
                     <i class="fa-solid fa-trash"></i> Delete
                 </button>
@@ -254,6 +256,16 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
             const result = await captureArea(canvas.scene, groupId);
             if (!result) return;
             say(result.added ? 'Members added' : 'Nothing new in that box', `${result.added} added${result.skipped ? `, ${result.skipped} skipped (already members)` : ''}.`);
+        });
+    }
+
+    _exportGroup(groupId) {
+        return run('Export group', async () => {
+            const template = exportGroup(canvas.scene, groupId);
+            const slug = template.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'group';
+            // Core's file save: Blacksmith has no download helper.
+            foundry.utils.saveDataToFile(JSON.stringify(template, null, 2), 'application/json', `puppeteer-${slug}.json`);
+            say('Template exported', `${template.members.length} member(s) saved to puppeteer-${slug}.json.`);
         });
     }
 

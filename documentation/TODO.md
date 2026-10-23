@@ -32,11 +32,8 @@
 
 **Phase 3: prefabs**
 
-4. Prefab stamping from an unplaced Blacksmith pin.
+4. Prefab stamping: a world-setting library for set pieces and a template on an Actor for vehicles (drop the actor, the GM stamps the group around the token). `exportGroup`, `stampMembers` and JSON export already exist; what is left is the library, the stamp action and the Actor link.
 
 **Phase 4: polish**
 
 5. Menubar tool and secondary bar for capture mode, sounds, toast channel, Scene Config tab.
-6. A check in `tools/` that fails on core calls that have a Blacksmith equivalent (`Hooks.on`,
-   `game.socket`, `ui.notifications`, `AudioHelper`, `ChatMessage.create`, `Dialog`). Start this in
-   phase 1 if the module code is growing without it.

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [14.0.0]
 
 ### Added
+- **Contributor checks.** `node tools/check-scripts.mjs` (scripts parse as ES modules, every import resolves), `node tools/check-blacksmith-only.mjs` (fails on core calls Blacksmith replaces, such as `Hooks.on`, `game.socket`, `ui.notifications`), and `node --test tests/*.test.mjs` (geometry and templates).
+- **Group templates.** A group can be exported as a portable template (offsets and a snapshot of every member), saved as JSON from the Group Editor, and turned into creation data for any pivot and heading. This is the format prefabs will use.
 - **Centre Pivot.** Moves a group's pin to the centre of what it holds without moving any member, so the group turns about its own middle. In the Group Editor and the pin menu.
 - **Manual edits are kept.** Moving, turning or resizing a member by hand updates where it sits in the group, instead of being undone on the next move. Capturing waits for the group to settle first. The follower logs what it writes under Blacksmith debug and warns when a member does not take the position it wrote.
 - **Capture Area.** Drag a box and every tile, drawing, light, sound, wall and note whose centre is inside joins the group, across all layers, using Blacksmith's area pick. Available from the Group Editor and the pin menu.

@@ -12,7 +12,7 @@ Group tiles, lights, sounds, walls, drawings and notes, and move and rotate them
 
 1. **Pin-anchored groups of scene elements.** The GM makes a group on a Blacksmith pin, adds and removes members, and dragging the pin moves the whole group while a rotate action turns it. No tokens anywhere: this proves the model (offsets in the anchor's frame, committed state, one batched write per type) on things that are not actors. Set pieces such as a drawbridge, a barge on rails or a moving stage are the use case.
 2. **Tokens.** A token can anchor a group, so a vehicle a player pilots drags its parts, and tokens can be members, which is how passengers are carried (footprint plus an explicit boarded toggle).
-3. **Prefabs.** Stamp a saved group onto a scene from an unplaced pin.
+3. **Prefabs.** Save a group as a template and stamp it onto a scene as many times as wanted, each stamp an independent copy. Vehicles keep their template on an Actor; set pieces keep theirs in a Puppeteer library.
 4. **Polish.** Menubar tool and secondary bar, sounds, toast channel, Scene Config tab, the hard-dependency check.
 
 The rest of this plan describes the end state. The pin follower is built first; the token follower reuses its math and adds what is specific to token movement.
@@ -42,7 +42,7 @@ Every Blacksmith surface was read against the Blacksmith 14.4.1 API documentatio
 | Chat cards | `chatCards.post` for the boarded and disembarked announcements (public) and the prefab stamp summary (GM whisper, with a count of members skipped and why). |
 | Toast and notifications | Player-facing and GM-facing messages through `api.toast` on a registered `puppeteer` channel, so a GM can switch them off. Console output through `utils.postConsoleAndNotification` with the module id. |
 | Sounds | `utils.playSound` with `BlacksmithConstants` (boarding, capture, stamp). Never a raw path or `AudioHelper`. |
-| Pins | Prefabs and pin-anchored groups. `registerPinTaxonomy` and `registerPinType` for a Puppeteer type with `copyable: false`. `pins.on('dragEnd', ..., { dragEvents: true })` drives pin-anchored groups. `pins.createAsGM` and `pins.updateAsGM` for player-triggered writes. |
+| Pins | The anchor of a pin-anchored group. `registerPinTaxonomy` and `registerPinType` for a Puppeteer type with `copyable: false`, `pins.create` for the pin, `pins.update` and `pins.panTo` from the editor. The follower is driven by `updateScene`, not pin events. Pins are not used to store templates. |
 | Scene Config tab | `registerSceneConfigTab` for the per-scene switch (groups enabled, default carry-passengers). |
 | Handlebars helpers | Used in Puppeteer templates; they exist because Blacksmith is active. |
 | Ruled out | `tokens.registerInteraction`: the only claimable gestures are double-click, and claiming them on a vehicle would displace the sheet and config the GM needs. `rolls`, `requestRoll`, `party`, `inventory`, `effects`, `stats`, `worldclock`, `notes`, `tags`: no job in grouped movement. |
@@ -55,7 +55,7 @@ Groups are records in one scene flag, `flags.coffee-pub-puppeteer.groups`, keyed
 
 - **Pin anchor (phase 1):** the pin's `config.puppeteer` holds only `{ groupId }`. Pin `config` lives in a scene flag shared by every pin and every module in the scene, and `update()` replaces a nested object whole, so a member list kept there would be rewritten on every change.
 - **Token anchor (phase 2):** `flags.coffee-pub-puppeteer.groupId` on the TokenDocument.
-- **Prefab (phase 3):** an unplaced Blacksmith pin of the Puppeteer type whose `config.puppeteer` holds a serialised group record. Stamping a prefab creates the placeables and a new group record.
+- **Prefab (phase 3):** a template, described below. Pins are not used to store templates: a template holds full document data, so one cart can run to tens of kilobytes, and unplaced pins share one world setting and cannot go in a compendium.
 
 One place lists every group, which the Group Editor and the "missing members" notification need. A deleted anchor leaves a record the active GM prunes. A copied token carries the `groupId`, but the record names the original anchor, so the follower ignores the copy and no hook is needed to strip it.
 
@@ -71,6 +71,19 @@ A group record holds:
 Offsets are stored in the anchor's frame, not the scene's, and positions are always computed absolutely from the anchor's committed state: `anchor.rotation + drot`, normalised for the `AngleField`, never `rotation += delta`. Applying a move is then one rotation and one translation per member, with no accumulated drift from repeated deltas.
 
 **Integer coordinates.** `x` and `y` on Tile, AmbientLight, AmbientSound and Note, and every number in a Wall's `c`, are integer fields, so every computed position is rounded before it is written. Drawing `x` and `y` are not integer. Rounding cannot accumulate, because every position is computed afresh from the stored offsets.
+
+## Templates and prefabs
+
+A template is a portable snapshot of a group, kept apart from any scene. It holds each member's offsets from the pivot (in the pivot's own frame, so a template has no heading) and a copy of the member's document data. Fields tied to the source scene are left out: `_id`, `_stats`, and `levels` (ids of the source scene's Levels; empty means every level). `exportGroup` builds one, `stampMembers` turns one into creation data for a pivot and heading, and the Group Editor can save one as JSON. Both are in `scripts/template.js` and tested under Node.
+
+Stamping creates fresh documents and a fresh group record every time, so two carts are two stamps, each with its own pin and members.
+
+Where a template lives depends on what it is:
+
+- **Vehicles (token-anchored):** on an Actor, in its prototype-token flags. Dropping the actor onto a scene creates the token and the active GM stamps the template around it. The Actor supplies the sidebar entry, compendium sharing, independent copies and, with dnd5e, the Vehicle sheet. Groups themselves still need no actor.
+- **Set pieces (pin-anchored):** a Puppeteer library in a world setting, stamped from a Puppeteer window.
+
+Both use the same template format, so a template can move between the two.
 
 ## The pin follower (phase 1)
 

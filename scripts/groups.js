@@ -5,6 +5,7 @@ import { getBlacksmith } from './bootstrap.js';
 import { MEMBER_TYPES, captureMember, memberExtent, extentCentre, normAngle } from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
 import { syncGroup, runExclusive, apply } from './follower.js';
+import { buildTemplate } from './template.js';
 
 export const PIN_TYPE = 'group';
 const PIN_ICON = 'fa-solid fa-up-down-left-right';
@@ -209,6 +210,20 @@ export function recenterPivot(scene, groupId) {
         utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": pivot moved to the centre of its ${present.length} member(s)`, anchor, true, false);
         return anchor;
     });
+}
+
+/**
+ * A portable snapshot of a group: offsets from the pivot and a copy of every member's document data. It
+ * names nothing on this scene, so it can be stamped onto any scene, any number of times.
+ */
+export function exportGroup(scene, groupId) {
+    const group = requireGroup(scene, groupId);
+    const sources = new Map();
+    for (const member of group.members) {
+        const doc = scene.getEmbeddedCollection(member.type).get(member.id);
+        if (doc) sources.set(`${member.type}:${member.id}`, doc._source);
+    }
+    return buildTemplate(group, sources);
 }
 
 /** Delete the record and its pin. The members stay in the scene where they are. */

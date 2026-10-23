@@ -3,7 +3,7 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -29,6 +29,7 @@ Hooks.once('ready', async () => {
         ),
         captureArea: (groupId, options = {}, scene = canvas.scene) => captureArea(scene, groupId, options),
         recenterPivot: (groupId, scene = canvas.scene) => recenterPivot(scene, groupId),
+        exportGroup: (groupId, scene = canvas.scene) => exportGroup(scene, groupId),
         addSelected: (groupId, scene = canvas.scene) => addSelected(scene, groupId),
         addMembers: (groupId, documents, scene = canvas.scene) => addMembers(scene, groupId, documents),
         removeMember: (groupId, type, id, scene = canvas.scene) => removeMember(scene, groupId, type, id),
