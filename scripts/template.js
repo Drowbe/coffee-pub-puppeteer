@@ -7,7 +7,9 @@
 // independent copies.
 import { MEMBER_TYPES, memberUpdate } from './geometry.js';
 
-export const TEMPLATE_VERSION = 1;
+// Version 2: a Tile's offset is its anchor point (x, y), as Foundry v14 defines it. Version 1 files recorded the
+// middle of its rectangle measured from a top-left x, y, which stamps a tile half its size out.
+export const TEMPLATE_VERSION = 2;
 
 // Fields that belong to the source document or the source scene and must not travel:
 //   _id, _stats  identity and bookkeeping of the original

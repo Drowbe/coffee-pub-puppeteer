@@ -87,3 +87,92 @@
 .puppeteer-group-editor .puppeteer-chip {
     white-space: nowrap;
 }
+
+/* The group fills the window, and an open member list takes the space that is left. */
+.puppeteer-group-editor .blacksmith-window-template-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.puppeteer-group-editor .puppeteer-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: min-content;
+}
+
+.puppeteer-group-editor .puppeteer-group-members[open] {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 8em;
+}
+
+.puppeteer-group-editor .puppeteer-group-members[open] ul {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.puppeteer-group-editor .puppeteer-member-name {
+    flex: 1;
+    min-width: 0;
+}
+
+.puppeteer-group-editor .puppeteer-member-gone {
+    flex: 0 0 auto;
+    opacity: 0.8;
+}
+
+.puppeteer-group-editor .puppeteer-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 12px;
+    white-space: nowrap;
+}
+
+.puppeteer-group-editor .puppeteer-library {
+    margin: 12px 0 0;
+    padding: 10px;
+    border: 1px solid rgba(128, 128, 128, 0.35);
+    border-radius: 6px;
+}
+
+.puppeteer-group-editor .puppeteer-library-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.puppeteer-group-editor .puppeteer-library-head h3 {
+    flex: 1;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 1.05rem;
+    line-height: 1.2;
+}
+
+.puppeteer-group-editor .puppeteer-library ul {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+}
+
+.puppeteer-group-editor .puppeteer-template {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+}
+
+.puppeteer-group-editor .puppeteer-template-name {
+    flex: 1;
+    min-width: 0;
+}
+
+.puppeteer-group-editor .puppeteer-template-count {
+    opacity: 0.7;
+    margin-left: 6px;
+}

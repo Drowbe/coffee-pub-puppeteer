@@ -1,7 +1,8 @@
 // Where the GM reaches Puppeteer: toolbar tools, the pin right-click menu, and the registered Group Editor
 // window. Everything registers through Blacksmith.
 import { MODULE_ID, MODULE_NAME } from './constants.js';
-import { getBlacksmith } from './bootstrap.js';
+import { getBlacksmith } from './blacksmith.js';
+import { toggleBounds } from './overlay.js';
 import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup } from './groups.js';
 
 export const EDITOR_WINDOW = `${MODULE_ID}-group-editor`;
@@ -37,6 +38,19 @@ function registerToolbar(blacksmith) {
         onCoffeePub: true,
         onFoundry: true,
         onClick: () => blacksmith.openWindow(EDITOR_WINDOW)
+    });
+
+    blacksmith.registerToolbarTool(`${MODULE_ID}-bounds`, {
+        icon: 'fa-solid fa-border-none',
+        name: `${MODULE_ID}-bounds`,
+        title: 'Show or hide group bounds',
+        zone: 'general',
+        order: 52,
+        moduleId: MODULE_ID,
+        gmOnly: true,
+        onCoffeePub: true,
+        onFoundry: false,
+        onClick: () => toggleBounds()
     });
 
     blacksmith.registerToolbarTool(`${MODULE_ID}-new-group`, {
@@ -115,8 +129,16 @@ function registerPinMenu(blacksmith) {
     });
     item('centre-pivot', 'Move Pivot to Group Centre', 'fa-solid fa-bullseye', 12.5, async (groupId) => {
         const anchor = await recenterPivot(canvas.scene, groupId);
-        toast.show({ title: anchor ? 'Pivot centred' : 'Nothing to centre on', subtitle: anchor ? 'Nothing moved.' : 'The group has no members yet.', icon: 'fa-solid fa-up-down-left-right', duration: 4 });
+        toast.show({
+            title: anchor ? 'Pivot centred' : 'Nothing to centre on',
+            subtitle: anchor
+                ? `Pin ${anchor.from ? `moved from ${anchor.from.x}, ${anchor.from.y} ` : ''}to ${anchor.x}, ${anchor.y}, the middle of a ${anchor.width} by ${anchor.height} group. Nothing else moved.`
+                : 'The group has no members yet.',
+            icon: 'fa-solid fa-up-down-left-right',
+            duration: 8
+        });
     });
+    item('toggle-bounds', 'Show or Hide Group Bounds', 'fa-solid fa-border-none', 12.7, async () => toggleBounds());
     item('rotate-cw', 'Rotate Group 90° Clockwise', 'fa-solid fa-rotate-right', 13, (groupId) => rotateBy(canvas.scene, groupId, 90));
     item('rotate-ccw', 'Rotate Group 90° Counter-clockwise', 'fa-solid fa-rotate-left', 14, (groupId) => rotateBy(canvas.scene, groupId, -90));
     item('open-editor', 'Open Group Editor', 'fa-solid fa-sliders', 15, async () => blacksmith.openWindow(EDITOR_WINDOW));

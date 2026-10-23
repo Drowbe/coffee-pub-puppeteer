@@ -1,8 +1,10 @@
 // Operations on groups: create, add and remove members, rotate, delete. The toolbar, the Group Editor and
 // macros all call these, so there is one place that knows how a group is changed.
 import { MODULE_ID, MODULE_NAME } from './constants.js';
-import { getBlacksmith } from './bootstrap.js';
-import { MEMBER_TYPES, captureMember, memberExtent, extentCentre, normAngle } from './geometry.js';
+import { getBlacksmith } from './blacksmith.js';
+import {
+    MEMBER_TYPES, captureMember, recaptureMember, memberExtent, memberUpdate, extentCentre, groupBounds, sameAnchor, normAngle
+} from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
 import { syncGroup, runExclusive, apply } from './follower.js';
 import { buildTemplate } from './template.js';
@@ -40,7 +42,7 @@ function requireGroup(scene, groupId) {
  * @param {{name?: string}} [options]
  * @returns {Promise<object>} The group record.
  */
-export async function createGroup(scene, point, { name = 'Group' } = {}) {
+export async function createGroup(scene, point, { name = 'Group', heading = 0 } = {}) {
     const { pins, utils } = getBlacksmith();
     const x = Math.round(point.x);
     const y = Math.round(point.y);
@@ -61,9 +63,10 @@ export async function createGroup(scene, point, { name = 'Group' } = {}) {
         id,
         name,
         anchor: { type: 'pin', id: pin.id },
-        heading: 0,
+        version: 2,
+        heading: normAngle(heading),
         members: [],
-        applied: { x, y, heading: 0 }
+        applied: { x, y, heading: normAngle(heading) }
     };
     await saveGroup(scene, group);
     utils.postConsoleAndNotification(MODULE_NAME, `Created group "${name}"`, { groupId: id, pinId: pin.id }, true, false);
@@ -165,6 +168,64 @@ export async function renameGroup(scene, groupId, name) {
     if (group.anchor.type === 'pin') await pins.update(group.anchor.id, { text: trimmed }, { sceneId: scene.id });
 }
 
+/** Name a member, so the member list can say what it is ("Left lantern") and not only what kind it is. */
+export async function renameMember(scene, groupId, type, id, label) {
+    const group = requireGroup(scene, groupId);
+    const text = String(label ?? '').trim();
+    const members = group.members.map((m) => {
+        if (m.type !== type || m.id !== id) return m;
+        const { label: old, ...rest } = m;
+        return text ? { ...rest, label: text } : rest;
+    });
+    await patchGroup(scene, groupId, { members });
+}
+
+/**
+ * Everything needed to see why a group is where it is: the pin, the anchor the members were last placed
+ * for, where each member should be against where it is, and the group's own bounds. Logged and returned.
+ */
+export function diagnoseGroup(scene, groupId) {
+    const { pins, utils } = getBlacksmith();
+    const group = requireGroup(scene, groupId);
+    const pin = group.anchor.type === 'pin' ? pins.get(group.anchor.id, { sceneId: scene.id }) : null;
+    const anchor = pin ? { x: pin.x, y: pin.y, heading: group.heading } : { ...group.applied };
+
+    const points = [];
+    const members = group.members.map((member) => {
+        const doc = scene.getEmbeddedCollection(member.type).get(member.id);
+        if (!doc) return { type: member.type, id: member.id, label: member.label, state: 'missing' };
+        points.push(...memberExtent(member.type, doc._source));
+        const expected = memberUpdate(member, doc._source, anchor);
+        const actual = { x: doc._source.x, y: doc._source.y, rotation: doc._source.rotation, c: doc._source.c };
+        const off = member.type === 'Wall'
+            ? Math.max(...expected.c.map((v, i) => Math.abs(v - actual.c[i])))
+            : Math.hypot(expected.x - actual.x, expected.y - actual.y);
+        // Where Foundry is drawing it, against where its saved data says it is. They should agree.
+        const shown = doc.object?.bounds;
+        const shownBounds = shown ? { x: Math.round(shown.x), y: Math.round(shown.y), width: Math.round(shown.width), height: Math.round(shown.height) } : null;
+        const prepared = { x: doc.x, y: doc.y };
+        return {
+            type: member.type, id: member.id, label: member.label,
+            state: off <= 1 ? 'in place' : 'OUT OF PLACE', offBy: Math.round(off),
+            expected, actual, prepared, shownBounds
+        };
+    });
+
+    const bounds = points.length ? groupBounds(points, anchor) : null;
+    const report = {
+        name: group.name,
+        heading: group.heading,
+        pin: pin && { x: pin.x, y: pin.y },
+        applied: group.applied,
+        pinMatchesApplied: pin ? sameAnchor(group.applied, anchor) : null,
+        bounds: bounds && { width: Math.round(bounds.width), height: Math.round(bounds.height), centre: { x: Math.round(bounds.centre.x), y: Math.round(bounds.centre.y) } },
+        pivotToBoundsCentre: bounds ? Math.round(Math.hypot(bounds.centre.x - anchor.x, bounds.centre.y - anchor.y)) : null,
+        members
+    };
+    utils.postConsoleAndNotification(MODULE_NAME, `Diagnosis of group "${group.name}"`, report, false, false);
+    return report;
+}
+
 export async function removeMember(scene, groupId, type, id) {
     const group = requireGroup(scene, groupId);
     const members = group.members.filter((m) => !(m.type === type && m.id === id));
@@ -196,19 +257,40 @@ export function recenterPivot(scene, groupId) {
     return runExclusive(scene, groupId, async () => {
         await apply(scene, groupId);                 // members are where the record puts them
         const group = requireGroup(scene, groupId);
+        // The store hands out the live record and updates it in place, so keep a copy to restore from.
+        const before = { members: structuredClone(group.members), applied: structuredClone(group.applied) };
         const present = group.members
             .map((member) => [member, scene.getEmbeddedCollection(member.type).get(member.id)])
             .filter(([, doc]) => doc);
         if (!present.length) return null;
 
-        const centre = extentCentre(present.flatMap(([member, doc]) => memberExtent(member.type, doc._source)));
+        const points = present.flatMap(([member, doc]) => memberExtent(member.type, doc._source));
+        const centre = extentCentre(points);
+        const pinBefore = group.anchor.type === 'pin' ? pins.get(group.anchor.id, { sceneId: scene.id }) : null;
         const anchor = { x: Math.round(centre.x), y: Math.round(centre.y), heading: group.heading };
-        const members = present.map(([member, doc]) => captureMember(member.type, member.id, doc._source, anchor));
+        const members = present.map(([member, doc]) => recaptureMember(member, doc._source, anchor));
 
         await patchGroup(scene, groupId, { members, applied: anchor });
-        if (group.anchor.type === 'pin') await pins.update(group.anchor.id, { x: anchor.x, y: anchor.y }, { sceneId: scene.id });
-        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": pivot moved to the centre of its ${present.length} member(s)`, anchor, true, false);
-        return anchor;
+        if (group.anchor.type === 'pin') {
+            await pins.update(group.anchor.id, { x: anchor.x, y: anchor.y }, { sceneId: scene.id });
+            // Do not report success for a move that did not happen: the record now describes the new pivot, so a
+            // pin left behind would make the next move or turn jump the group.
+            const moved = pins.get(group.anchor.id, { sceneId: scene.id });
+            if (!moved || Math.abs(moved.x - anchor.x) > 1 || Math.abs(moved.y - anchor.y) > 1) {
+                await patchGroup(scene, groupId, before);
+                throw new Error(`Blacksmith did not move the pin to ${anchor.x}, ${anchor.y} (it is at ${moved ? `${Math.round(moved.x)}, ${Math.round(moved.y)}` : 'nowhere'}); the group was left as it was`);
+            }
+        }
+        const xs = points.map((p) => p.x);
+        const ys = points.map((p) => p.y);
+        const result = {
+            ...anchor,
+            from: pinBefore ? { x: Math.round(pinBefore.x), y: Math.round(pinBefore.y) } : null,
+            width: Math.round(Math.max(...xs) - Math.min(...xs)),
+            height: Math.round(Math.max(...ys) - Math.min(...ys))
+        };
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": pivot moved to the centre of its ${present.length} member(s)`, result, false, false);
+        return result;
     });
 }
 

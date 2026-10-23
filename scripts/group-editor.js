@@ -3,11 +3,13 @@
 // scripts from loading.
 import { BlacksmithWindowBaseV2 } from '/modules/coffee-pub-blacksmith/api/blacksmith-api.js';
 import { MODULE_ID, MODULE_NAME } from './constants.js';
-import { getBlacksmith } from './bootstrap.js';
+import { getBlacksmith } from './blacksmith.js';
 import {
-    createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, removeMember, selectMembers, renameGroup,
+    createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups
 } from './groups.js';
+import { boundsShown, setBoundsShown } from './overlay.js';
+import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
 
@@ -75,6 +77,11 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         captureArea: (event, target, win) => win._captureArea(target.dataset.groupId),
         recenterPivot: (event, target, win) => win._recenterPivot(target.dataset.groupId),
         exportGroup: (event, target, win) => win._exportGroup(target.dataset.groupId),
+        saveToLibrary: (event, target, win) => win._saveToLibrary(target.dataset.groupId),
+        stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
+        exportTemplate: (event, target, win) => win._exportTemplate(target.dataset.templateId),
+        deleteTemplate: (event, target, win) => win._deleteTemplate(target.dataset.templateId),
+        importTemplate: (event, target, win) => win.element.querySelector('input[data-field="importFile"]')?.click(),
         addSelected: (event, target, win) => win._addSelected(target.dataset.groupId),
         removeSelected: (event, target, win) => win._removeSelected(target.dataset.groupId),
         selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId, target.dataset.type || null),
@@ -153,11 +160,33 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
             subtitle: scene ? scene.name : 'No scene in view',
             showOptionBar: false,
             showTools: false,
-            bodyContent: groups.length
+            bodyContent: (groups.length
                 ? groups.map((group) => this._groupHtml(scene, group)).join('')
-                : `<p class="puppeteer-empty">No groups on this scene. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings or notes on the canvas, then choose <strong>Add Selected</strong> on the group.</p>`,
-            actionBarLeft: `<button type="button" class="blacksmith-window-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>`
+                : `<p class="puppeteer-empty">No groups on this scene. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings or notes on the canvas, then choose <strong>Add Selected</strong> on the group.</p>`)
+                + this._libraryHtml(),
+            actionBarLeft: `<button type="button" class="blacksmith-window-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>
+                <label class="puppeteer-toggle" data-tooltip="Draw the box that holds each group, its pivot and its heading on the canvas"><input type="checkbox" data-field="showBounds"${boundsShown() ? ' checked' : ''}> Show group bounds</label>`
         };
+    }
+
+    _libraryHtml() {
+        const rows = listTemplates().map((template) => `
+            <li class="puppeteer-template">
+                <i class="fa-solid fa-cubes"></i>
+                <span class="puppeteer-template-name">${esc(template.name)} <span class="puppeteer-template-count">${template.members} member${template.members === 1 ? '' : 's'}</span></span>
+                <button type="button" class="blacksmith-window-btn-primary" data-action="stampTemplate" data-template-id="${esc(template.id)}" data-tooltip="Place a copy at the centre of your view"><i class="fa-solid fa-stamp"></i> Stamp</button>
+                <button type="button" class="blacksmith-window-btn-secondary" data-action="exportTemplate" data-template-id="${esc(template.id)}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
+                <button type="button" class="blacksmith-window-btn-critical" data-action="deleteTemplate" data-template-id="${esc(template.id)}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
+            </li>`).join('');
+        return `
+        <section class="puppeteer-library">
+            <div class="puppeteer-library-head">
+                <h3><i class="fa-solid fa-boxes-stacked"></i> Library</h3>
+                <button type="button" class="blacksmith-window-btn-secondary" data-action="importTemplate"><i class="fa-solid fa-file-import"></i> Import</button>
+                <input type="file" accept="application/json,.json" data-field="importFile" hidden>
+            </div>
+            <ul>${rows || '<li class="puppeteer-member-none">Nothing saved yet. Use Save to Library on a group.</li>'}</ul>
+        </section>`;
     }
 
     _groupHtml(scene, group) {
@@ -175,10 +204,14 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
 
         const members = group.members.map((member) => {
             const present = !!scene.getEmbeddedCollection(member.type).get(member.id);
+            const kind = `${TYPE_LABEL[member.type] ?? member.type} ${member.id.slice(0, 6)}`;
             return `
                 <li class="puppeteer-member${present ? '' : ' puppeteer-member-missing'}">
-                    <i class="${TYPE_ICON[member.type] ?? 'fa-solid fa-circle'}"></i>
-                    <span>${esc(TYPE_LABEL[member.type] ?? member.type)} <code>${esc(member.id.slice(0, 6))}</code>${present ? '' : ' (missing)'}</span>
+                    <i class="${TYPE_ICON[member.type] ?? 'fa-solid fa-circle'}" data-tooltip="${esc(TYPE_LABEL[member.type] ?? member.type)}"></i>
+                    <input type="text" class="puppeteer-member-name" data-field="memberLabel" data-group-id="${id}"
+                        data-type="${esc(member.type)}" data-id="${esc(member.id)}"
+                        value="${esc(member.label ?? '')}" placeholder="${esc(kind)}"${present ? '' : ' disabled'}>
+                    ${present ? '' : '<span class="puppeteer-member-gone">missing</span>'}
                     <button type="button" class="puppeteer-member-remove" data-action="removeMember"
                         data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                         data-tooltip="Remove from group"><i class="fa-solid fa-xmark"></i></button>
@@ -217,6 +250,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
                 ${button('panTo', 'fa-solid fa-location-crosshairs', 'Go To Pin')}
                 ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
+                ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
                 ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
                 <button type="button" class="blacksmith-window-btn-critical" data-action="deleteGroup" data-group-id="${id}">
                     <i class="fa-solid fa-trash"></i> Delete
@@ -235,6 +269,16 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         const scene = canvas.scene;
         const groupId = input.dataset.groupId;
         return run('Update group', async () => {
+            if (input.dataset.field === 'showBounds') return setBoundsShown(input.checked);
+            if (input.dataset.field === 'importFile') {
+                const file = input.files?.[0];
+                input.value = '';
+                if (!file) return;
+                const id = await importTemplate(await file.text());
+                say('Template imported', `${getTemplate(id).name} is in the library.`);
+                return this.render();
+            }
+            if (input.dataset.field === 'memberLabel') return renameMember(scene, groupId, input.dataset.type, input.dataset.id, input.value);
             if (input.dataset.field === 'name') await renameGroup(scene, groupId, input.value);
             if (input.dataset.field === 'heading') await setHeading(scene, groupId, Number(input.value) || 0);
         });
@@ -269,10 +313,51 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         });
     }
 
+    _saveToLibrary(groupId) {
+        return run('Save to library', async () => {
+            const id = await saveGroupToLibrary(canvas.scene, groupId);
+            say('Saved to the library', `${getTemplate(id).name} can now be stamped onto any scene.`);
+            this.render();
+        });
+    }
+
+    _stamp(templateId) {
+        return run('Stamp template', async () => {
+            const group = await stampTemplate(canvas.scene, templateId, { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y });
+            say('Template stamped', `${group.name} was placed at the centre of your view.`);
+        });
+    }
+
+    _exportTemplate(templateId) {
+        return run('Export template', async () => {
+            const template = getTemplate(templateId);
+            const slug = template.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'group';
+            // Core's file save: Blacksmith has no download helper.
+            foundry.utils.saveDataToFile(JSON.stringify(template, null, 2), 'application/json', `puppeteer-${slug}.json`);
+        });
+    }
+
+    _deleteTemplate(templateId) {
+        return run('Delete template', async () => {
+            const template = getTemplate(templateId);
+            if (!template) return;
+            const confirmed = await getBlacksmith().dialog.confirm({
+                title: 'Remove from Library',
+                content: `<p>Remove <strong>${esc(template.name)}</strong> from the library? Groups already placed on scenes are not affected.</p>`,
+                confirmLabel: 'Remove',
+                confirmIcon: 'fa-solid fa-trash',
+                destructive: true
+            });
+            if (confirmed) { await deleteTemplate(templateId); this.render(); }
+        });
+    }
+
     _recenterPivot(groupId) {
         return run('Centre pivot', async () => {
             const anchor = await recenterPivot(canvas.scene, groupId);
-            say(anchor ? 'Pivot centred' : 'Nothing to centre on', anchor ? 'The pin now sits at the centre of the group. Nothing moved.' : 'The group has no members yet.');
+            say(anchor ? 'Pivot centred' : 'Nothing to centre on', anchor
+                ? `Pin ${anchor.from ? `moved from ${anchor.from.x}, ${anchor.from.y} ` : ''}to ${anchor.x}, ${anchor.y}, the middle of a ${anchor.width} by ${anchor.height} group. Nothing else moved.`
+                : 'The group has no members yet.');
         });
     }
 

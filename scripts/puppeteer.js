@@ -3,19 +3,30 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
+import { registerOverlay, toggleBounds, setBoundsShown } from './overlay.js';
+import { migrateGroups } from './migrate.js';
+import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate } from './library.js';
 
 Hooks.once('ready', async () => {
     const blacksmith = await bootstrap();
     if (!blacksmith) return;
 
+    registerLibrarySetting();
     registerPinType();
     registerFollower();
     registerPruning();
     registerUi();
+    registerOverlay();
+    try {
+        await migrateGroups();
+    } catch (error) {
+        console.error(`${MODULE_ID}: updating older groups failed`, error);
+        blacksmith.utils.postConsoleAndNotification('PUPPETEER', `Could not update an older group: ${error.message}`, null, false, true);
+    }
 
     // The scripting surface, for macros and for the toolbar and Group Editor, which call the same functions.
     // Every function takes the scene first so a macro can address any scene; `scene()` is the one in view.
@@ -30,6 +41,21 @@ Hooks.once('ready', async () => {
         captureArea: (groupId, options = {}, scene = canvas.scene) => captureArea(scene, groupId, options),
         recenterPivot: (groupId, scene = canvas.scene) => recenterPivot(scene, groupId),
         exportGroup: (groupId, scene = canvas.scene) => exportGroup(scene, groupId),
+        renameMember: (groupId, type, id, label, scene = canvas.scene) => renameMember(scene, groupId, type, id, label),
+        diagnose: (groupId, scene = canvas.scene) => diagnoseGroup(scene, groupId),
+        library: {
+            list: () => listTemplates(),
+            save: (groupId, scene = canvas.scene) => saveGroupToLibrary(scene, groupId),
+            stamp: (templateId, options = {}) => stampTemplate(
+                options.scene ?? canvas.scene,
+                templateId,
+                options.point ?? { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y },
+                { heading: options.heading, name: options.name }
+            ),
+            remove: (templateId) => deleteTemplate(templateId),
+            import: (jsonText) => importTemplate(jsonText)
+        },
+        showBounds: (value) => (value === undefined ? toggleBounds() : setBoundsShown(value)),
         addSelected: (groupId, scene = canvas.scene) => addSelected(scene, groupId),
         addMembers: (groupId, documents, scene = canvas.scene) => addMembers(scene, groupId, documents),
         removeMember: (groupId, type, id, scene = canvas.scene) => removeMember(scene, groupId, type, id),

@@ -14,9 +14,13 @@
 
 **Phase 1: pin-anchored groups of scene elements (no tokens)**
 
-0. Confirm the manual-edit fix in Foundry: capture a tile and lights, drag the tile to a new spot by hand,
-   then move and rotate the group. The tile should keep the spot you gave it relative to the pin. (The earlier
-   rotation report was a tile dragged by hand after capture; its saved offset was stale.)
+0. Confirm the tile fix in Foundry (rotation and Centre Pivot were reported not working). The cause found: Puppeteer
+   read a v14 tile's `x, y` as its top-left corner, but it is the texture anchor point (the centre by default), so
+   tiles were half their size out. Tile maths, group records (migrated on load) and templates (now version 2) are
+   corrected and covered by tests that run the follower against a simulated scene. Check: with Show group bounds
+   on, every cyan outline should sit on its object; Centre Pivot should put the pin in the middle of the cart;
+   rotating 90 and back should leave everything where it was. If not, `api.diagnose(groupId)` says where each
+   member is.
 1. The Group Editor, toolbar tools, pin menu, delete-pruning and Capture Area are in and mostly checked in
    Foundry. Still to do: automatically drop a group whose anchor pin was deleted (the editor flags it and
    Delete now works, but nothing removes it for you).
@@ -32,7 +36,9 @@
 
 **Phase 3: prefabs**
 
-4. Prefab stamping: a world-setting library for set pieces and a template on an Actor for vehicles (drop the actor, the GM stamps the group around the token). `exportGroup`, `stampMembers` and JSON export already exist; what is left is the library, the stamp action and the Actor link.
+4. Prefabs on an Actor for vehicles: a template in the actor's prototype-token flags, so dropping the actor onto
+   a scene lets the active GM stamp the group around the token. The library, Save to Library, Stamp, Import
+   and JSON export for set pieces are built (written and simulated, not yet run in Foundry).
 
 **Phase 4: polish**
 

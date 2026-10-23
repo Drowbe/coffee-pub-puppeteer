@@ -5,8 +5,8 @@
 // Every position is computed from committed state (the pin as stored, the heading as stored), never from
 // a position that is still being dragged.
 import { MODULE_ID, MODULE_NAME, BLACKSMITH_ID } from './constants.js';
-import { getBlacksmith } from './bootstrap.js';
-import { MEMBER_TYPES, captureMember, memberUpdate, sameAnchor } from './geometry.js';
+import { getBlacksmith } from './blacksmith.js';
+import { MEMBER_TYPES, recaptureMember, memberUpdate, sameAnchor } from './geometry.js';
 import { getGroup, getGroups, patchGroup } from './store.js';
 
 // One chain per group, so a move and the rotation that follows it a moment later never write concurrently.
@@ -65,21 +65,27 @@ const EDIT_FIELDS = {
     Note: ['x', 'y']
 };
 
-/** Run `task` after everything already queued for this group, and before anything queued later. */
+/**
+ * Run `task` after everything already queued for this group, and before anything queued later. The caller
+ * gets the task's result, or its error: it asked, so it is the one to say what went wrong.
+ */
 export function runExclusive(scene, groupId, task) {
-    return enqueue(scene, groupId, task);
+    return enqueue(scene, groupId, task, true);
 }
 
-function enqueue(scene, groupId, task) {
+// One failing task must not stop the ones behind it, so the chain always continues. Work nobody is waiting
+// on (a hook reacting to a change) reports its own failure to the GM; work someone awaits hands the error back.
+function enqueue(scene, groupId, task, handBackErrors = false) {
     const key = `${scene.id}:${groupId}`;
-    const next = (chains.get(key) ?? Promise.resolve())
-        .then(task)
-        .catch((error) => {
-            console.error(`${MODULE_ID}: updating group ${groupId} failed`, error);
-        });
-    chains.set(key, next);
-    next.finally(() => { if (chains.get(key) === next) chains.delete(key); });
-    return next;
+    const result = (chains.get(key) ?? Promise.resolve()).then(task);
+    const link = result.catch((error) => {
+        if (handBackErrors) return;
+        console.error(`${MODULE_ID}: updating group ${groupId} failed`, error);
+        getBlacksmith().utils.postConsoleAndNotification(MODULE_NAME, `A group could not be updated: ${error.message}`, null, false, true);
+    });
+    chains.set(key, link);
+    link.finally(() => { if (chains.get(key) === link) chains.delete(key); });
+    return handBackErrors ? result : link;
 }
 
 /** Bring a group's members to where its anchor says they belong, and resolve when that is done. */
@@ -105,7 +111,7 @@ async function recapture(scene, groupId, type, id) {
     const atPin = !!pin && !differs(memberUpdate(current, doc._source, { x: pin.x, y: pin.y, heading: group.heading }), doc._source);
     if (atApplied || atPin) return;
 
-    const member = captureMember(type, id, doc._source, { ...group.applied });
+    const member = recaptureMember(current, doc._source, { ...group.applied });
     const members = group.members.map((m, i) => (i === index ? member : m));
     await patchGroup(scene, groupId, { members });
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": re-recorded ${type} ${id} after a manual edit`, member, true, false);
@@ -124,19 +130,20 @@ function differs(wanted, actual) {
         || (!!wanted.c && wanted.c.some((value, i) => off(actual.c[i], value)));
 }
 
-// Something else (another module, a hook, a constraint) can change a member after we write it. Say so,
-// rather than leaving a group that quietly drifts apart.
-function warnIfNotTaken(scene, type, batch) {
+// Something else (another module's hook, a constraint) can change or refuse a member's move after we ask for
+// it. Count and log those, so the caller can say so instead of leaving a group that quietly drifts apart.
+function countNotTaken(scene, type, batch) {
+    let count = 0;
     for (const wanted of batch) {
         const actual = scene.getEmbeddedCollection(type).get(wanted._id)?._source;
-        if (!actual) continue;
-        if (differs(wanted, actual)) {
-            console.warn(`${MODULE_ID}: ${type} ${wanted._id} did not take the position Puppeteer wrote`, {
-                requested: wanted,
-                actual: { x: actual.x, y: actual.y, rotation: actual.rotation, c: actual.c }
-            });
-        }
+        if (!actual || !differs(wanted, actual)) continue;
+        count += 1;
+        console.warn(`${MODULE_ID}: ${type} ${wanted._id} did not take the position Puppeteer wrote`, {
+            requested: wanted,
+            actual: { x: actual.x, y: actual.y, rotation: actual.rotation, c: actual.c }
+        });
     }
+    return count;
 }
 
 /** Move a group's members to its anchor now. Only call from inside `runExclusive`. */
@@ -162,9 +169,13 @@ export async function apply(scene, groupId) {
         updates.get(member.type).push({ _id: member.id, ...memberUpdate(member, doc._source, anchor) });
     }
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" writing members`, { anchor, updates: Object.fromEntries(updates) }, true, false);
+    let refused = 0;
     for (const [type, batch] of updates) {
         await scene.updateEmbeddedDocuments(type, batch, { puppeteer: { follower: true } });
-        warnIfNotTaken(scene, type, batch);
+        refused += countNotTaken(scene, type, batch);
+    }
+    if (refused) {
+        utils.postConsoleAndNotification(MODULE_NAME, `${refused} member(s) of "${group.name}" did not move where the group asked. Something else, such as another module, is changing them; see the console.`, null, false, true);
     }
 
     const patch = { applied: anchor };

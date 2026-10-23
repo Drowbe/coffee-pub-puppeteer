@@ -111,14 +111,15 @@ Per type:
 
 | Member | Position | Heading |
 |---|---|---|
-| Tile, Drawing | `x`, `y` after rotating the member's centre | `rotation = anchor.rotation + drot` |
+| Tile | `x`, `y`, the tile's anchor point, carried like a light's position | `rotation = anchor.rotation + drot` |
+| Drawing | `x`, `y` after rotating the box's centre | `rotation = anchor.rotation + drot` |
 | AmbientLight | `x`, `y` | `rotation` the same way (matters for directional lights) |
 | AmbientSound | `x`, `y` | none |
 | Wall | both endpoints in `c`, rotated about the anchor centre | endpoints carry it |
 | Note | `x`, `y` | none |
 | Passenger Token | `x`, `y` of its centre, converted back to top-left | `rotation` the same way |
 
-Tile and Drawing positions are top-left of an unrotated box, so rotate the box centre and convert back.
+**A tile's `x, y` is not its top-left corner.** In v14 a tile carries a texture anchor (`texture.anchorX`, `anchorY`, default 0.5), the mesh is drawn with that anchor at `x, y`, and it turns about that point. So with the default a tile's `x, y` is its centre. Its pose is a point and a heading, exactly like a light, and its width, height and anchor only matter for drawing its outline. A Drawing is different: its `x, y` is the top-left of an unrotated box that turns about its centre. Reading a tile as top-left put every tile half its size out of place, which only shows once a group turns or is stamped.
 
 **No GM connected.** The `updateToken` hook also runs on the mover's client. When the token has a group, the mover is not a GM and `game.users.activeGM` is null, that client shows a Blacksmith toast that the parts of the vehicle will not follow. The move is not refused.
 
@@ -131,6 +132,7 @@ Read from the installed source, not observed behaviour.
 - Core animates the token along the path itself (`#onUpdateAnimation`). Other placeables are not animated by core, so members will jump when the update lands unless Puppeteer tweens them. Open question below.
 - Scenes have Levels. Tile, Drawing, AmbientLight, AmbientSound, Wall and Note carry a `levels` set, and a Token has a single `level`. Members and the anchor must be on compatible levels, and a move that changes `level` or `elevation` has to decide what members do.
 - Rotation is an `AngleField` on Tile, Drawing and AmbientLight. AmbientSound has none.
+- A tile is positioned by its texture anchor (`client/canvas/placeables/tile.mjs`: `mesh.position.set(x, y)` with `mesh.anchor.set(anchorX, anchorY)`), so `x, y` is the anchor point, the centre by default, and rotation is about it. A Drawing's `x, y` is the top-left of its box and it turns about the box's centre (`client/documents/drawing.mjs`).
 
 A throwaway macro confirmed the movement behaviour; the results are under Observed.
 
@@ -150,6 +152,8 @@ From the Blacksmith session, read from its code (`manager-hooks.js`, `manager-pi
 - **No GM.** Warn through a toast and let the move through. Refusing it would make a vehicle unusable whenever the GM steps away.
 - **Pin-anchored heading.** A pin has no rotation. The group stores its own heading, changed by a rotate action in the Group Editor and the toolbar; dragging the pin translates the group.
 - **A manual edit redefines the member.** When the GM moves, turns or resizes a member by hand, the group re-records its offset against the anchor state the members currently occupy. Otherwise the record keeps the old offset and the next move snaps the member back to it, which looks like the group tearing apart. The follower's own writes are told apart by a marker option and, as a second guard, by the member already sitting where the record puts it. Capturing new members first lets the follower finish, so offsets are measured against where the pin really is.
+- **See the group.** Each tool shows its own objects one layer at a time, so nothing shows a group as one thing. An optional overlay (per user, off by default) draws the oriented box that holds the members, the pivot and the heading, on Blacksmith's utilities layer.
+- **Members have names.** A member record can carry a `label`. It is not geometry, so a hand edit or a Centre Pivot keeps it, and a template carries it.
 - **Heading is ours.** Blacksmith will not add a rotation to pins, so the heading lives in Puppeteer's data and its own rotate UI.
 - **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall and Note. MeasuredTemplate is not a core document in v14. Token members and token anchors arrive in phase 2.
 

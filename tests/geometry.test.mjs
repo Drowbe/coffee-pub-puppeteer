@@ -75,15 +75,40 @@ test('capture then apply at the same anchor reproduces every member type', () =>
 
 test('moving and rotating the anchor carries a tile rigidly', () => {
     const start = { x: 1000, y: 1000, heading: 0 };
-    // A 100 by 100 tile whose centre is 200 px to the right of the anchor.
-    const data = { x: 1150, y: 950, width: 100, height: 100, rotation: 0 };
+    // A 100 by 100 tile with the default (centred) anchor: x, y is its centre, 200 px to the right of the pivot.
+    const data = { x: 1200, y: 1000, width: 100, height: 100, rotation: 0, texture: { anchorX: 0.5, anchorY: 0.5 } };
     const m = captureMember('Tile', 't', data, start);
 
-    // Turn the anchor 90 degrees clockwise and move it: the tile's centre is now 200 px below it.
+    // Turn the pivot 90 degrees clockwise and move it: the tile is now 200 px below it, turned with it.
     const u = memberUpdate(m, data, { x: 5000, y: 4000, heading: 90 });
-    near(u.x + 50, 5000, 1);
-    near(u.y + 50, 4200, 1);
+    near(u.x, 5000, 1);
+    near(u.y, 4200, 1);
     near(u.rotation, 90);
+});
+
+test('a tile moves as a rigid body whatever its anchor', () => {
+    const start = { x: 2000, y: 2000, heading: 20 };
+    const next = { x: 7000, y: 1000, heading: 135 };
+    for (const [ax, ay] of [[0.5, 0.5], [0, 0], [1, 0.5], [0.2, 0.8]]) {
+        const data = { x: 2300, y: 2100, width: 600, height: 250, rotation: 35, texture: { anchorX: ax, anchorY: ay } };
+        const before = memberExtent('Tile', data);
+        const member = captureMember('Tile', 't', data, start);
+        const after = memberExtent('Tile', { ...data, ...memberUpdate(member, data, next) });
+
+        // The same rigid motion applied to the original corners: turn by the change of heading about the old
+        // pivot, then carry the pivot to the new one.
+        const turn = next.heading - start.heading;
+        before.forEach((corner, i) => {
+            const r = rotate(corner.x - start.x, corner.y - start.y, turn);
+            near(after[i].x, next.x + r.x, 1.5);
+            near(after[i].y, next.y + r.y, 1.5);
+        });
+    }
+});
+
+test('a tile with no anchor data is treated as centred, the v14 default', () => {
+    const corners = memberExtent('Tile', { x: 100, y: 100, width: 40, height: 20, rotation: 0 });
+    assert.deepEqual(corners.map((c) => [c.x, c.y]), [[80, 90], [120, 90], [120, 110], [80, 110]]);
 });
 
 test('a wall turns about the anchor centre', () => {
@@ -135,17 +160,25 @@ test('a type that cannot be a member is refused', () => {
     assert.deepEqual([...MEMBER_TYPES].sort(), ['AmbientLight', 'AmbientSound', 'Drawing', 'Note', 'Tile', 'Wall']);
 });
 
-test('a box reports its four corners, turned about its centre', () => {
-    const flat = memberExtent('Tile', { x: 100, y: 200, width: 400, height: 100, rotation: 0 });
-    assert.deepEqual(flat.map((p) => [Math.round(p.x), Math.round(p.y)]), [[100, 200], [500, 200], [500, 300], [100, 300]]);
+test('a tile hangs from its anchor point: its corners follow the anchor, and turn about it', () => {
+    const at = (ax, ay, rotation = 0) => memberExtent('Tile', { x: 300, y: 250, width: 400, height: 100, rotation, texture: { anchorX: ax, anchorY: ay } });
 
-    // Turned 90 degrees about its centre (300, 250) it stands up: 100 wide, 400 tall.
-    const upright = memberExtent('Tile', { x: 100, y: 200, width: 400, height: 100, rotation: 90 });
+    // Centred anchor: x, y is the middle of the rectangle.
+    assert.deepEqual(at(0.5, 0.5).map((p) => [Math.round(p.x), Math.round(p.y)]), [[100, 200], [500, 200], [500, 300], [100, 300]]);
+    // Top-left anchor: x, y is the top-left corner.
+    assert.deepEqual(at(0, 0).map((p) => [Math.round(p.x), Math.round(p.y)]), [[300, 250], [700, 250], [700, 350], [300, 350]]);
+
+    // Turned 90 degrees about a centred anchor it stands up in place: 100 wide, 400 tall, same centre.
+    const upright = at(0.5, 0.5, 90);
     const c = extentCentre(upright);
     near(c.x, 300, 1e-6);
     near(c.y, 250, 1e-6);
     near(Math.max(...upright.map((p) => p.y)) - Math.min(...upright.map((p) => p.y)), 400, 1e-6);
     near(Math.max(...upright.map((p) => p.x)) - Math.min(...upright.map((p) => p.x)), 100, 1e-6);
+
+    // Turned 90 degrees about a top-left anchor it swings about that corner, which does not move.
+    const swung = at(0, 0, 90);
+    assert.ok(swung.some((p) => Math.hypot(p.x - 300, p.y - 250) < 1e-6));
 });
 
 test('walls report their ends and point types report their point', () => {
@@ -181,4 +214,39 @@ test('re-anchoring on the extent centre leaves every member where it already is'
         if (u.c) assert.deepEqual(u.c, placed[i].c);
         else { near(u.x, placed[i].x, 1); near(u.y, placed[i].y, 1); }
     });
+});
+
+test('the group bounds turn with the group and hold every point', async () => {
+    const { groupBounds } = await import('../scripts/geometry.js');
+    // A 400 x 100 strip lying along x, anchored at its left end, then the whole group faced 90 degrees.
+    const points = [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 100 }, { x: 0, y: 100 }];
+    const flat = groupBounds(points, { x: 0, y: 0, heading: 0 });
+    near(flat.width, 400, 1e-6);
+    near(flat.height, 100, 1e-6);
+    near(flat.centre.x, 200, 1e-6);
+    near(flat.centre.y, 50, 1e-6);
+
+    // Face the anchor 90 degrees: the same points now sit in a frame turned a quarter, so the box that hugs them
+    // in that frame is 100 wide and 400 tall, and its corners are still the points' extremes.
+    const turned = groupBounds(points, { x: 0, y: 0, heading: 90 });
+    near(turned.width, 100, 1e-6);
+    near(turned.height, 400, 1e-6);
+    for (const p of points) {
+        const inside = turned.corners.some((c) => Math.hypot(c.x - p.x, c.y - p.y) < 1e-6);
+        assert.ok(inside, 'a corner of the box is a corner of the strip');
+    }
+    near(turned.centre.x, 200, 1e-6);
+    near(turned.centre.y, 50, 1e-6);
+    assert.throws(() => groupBounds([], { x: 0, y: 0, heading: 0 }), /no points/);
+});
+
+test('recapturing a member keeps its name and anything else that is not geometry', async () => {
+    const { recaptureMember } = await import('../scripts/geometry.js');
+    const anchor = { x: 100, y: 100, heading: 0 };
+    const member = { ...captureMember('AmbientSound', 's', { x: 150, y: 120 }, anchor), label: 'Left lantern' };
+    const again = recaptureMember(member, { x: 200, y: 140 }, anchor);
+    assert.equal(again.label, 'Left lantern');
+    assert.equal(again.dx, 100);
+    assert.equal(again.dy, 40);
+    assert.ok(!('label' in recaptureMember({ ...member, label: undefined }, { x: 1, y: 2 }, anchor)));
 });

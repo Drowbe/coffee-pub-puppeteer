@@ -2,6 +2,7 @@
 // fallback path: a half-working vehicle that strands its parts is worse than no vehicle.
 import { BlacksmithAPI } from '/modules/coffee-pub-blacksmith/api/blacksmith-api.js';
 import { MODULE_ID, MODULE_NAME, BLACKSMITH_ID } from './constants.js';
+import { setBlacksmith } from './blacksmith.js';
 
 // Every member of the Blacksmith API that Puppeteer uses, as a path from `module.api`. The toolbar, window,
 // menubar and scene-config members start as null placeholders, so a non-null test is the right one.
@@ -11,6 +12,8 @@ const REQUIRED = [
     'HookManager',
     'utils.postConsoleAndNotification',
     'utils.registerLogStyle',
+    'utils.getSettingSafely',
+    'utils.setSettingSafely',
     'utils.playSound',
     'gmRequest',
     'dialog',
@@ -29,13 +32,6 @@ const REQUIRED = [
 // Console hue for our log label, 0-360. Blacksmith derives the rest of the colours from it.
 const LOG_HUE = 25;
 
-let blacksmith = null;
-
-/** The Blacksmith API, once bootstrap has succeeded. Throws before that, so a missed call site is loud. */
-export function getBlacksmith() {
-    if (!blacksmith) throw new Error(`${MODULE_ID}: Blacksmith is not available; bootstrap has not completed.`);
-    return blacksmith;
-}
 
 /**
  * Wait for Blacksmith, check that everything Puppeteer uses is present, register the module.
@@ -63,7 +59,7 @@ export async function bootstrap() {
     // The label colours must be registered before the first log line.
     api.utils.registerLogStyle(MODULE_NAME, LOG_HUE);
     api.registerModule(MODULE_ID, { name: MODULE_NAME, version: game.modules.get(MODULE_ID).version });
-    blacksmith = api;
+    setBlacksmith(api);
     api.utils.postConsoleAndNotification(MODULE_NAME, `Module initialized (Blacksmith ${game.modules.get(BLACKSMITH_ID).version}, API ${api.version})`, null, false, false);
     return api;
 }

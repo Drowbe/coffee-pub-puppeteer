@@ -111,5 +111,5 @@ test('a template that cannot be stamped is refused with a reason', () => {
     assert.throws(() => validateTemplate({ ...good, members: [{ type: 'Token', data: {}, dx: 0, dy: 0 }] }), /unsupported type/);
     assert.throws(() => validateTemplate({ ...good, members: [{ type: 'Tile', data: {} }] }), /no position/);
     assert.throws(() => validateTemplate({ ...good, members: [{ type: 'Wall', data: {}, c: [1, 2] }] }), /no position/);
-    assert.throws(() => stampMembers({ ...good, version: 2 }, { x: 0, y: 0, heading: 0 }), /not a usable template/);
+    assert.throws(() => stampMembers({ ...good, version: 1 }, { x: 0, y: 0, heading: 0 }), /not a usable template/);
 });

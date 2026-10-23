@@ -2,7 +2,7 @@
 // something that is gone. Only the active GM writes, and writes are queued so deleting a whole selection
 // at once does not have each prune overwrite the last.
 import { MODULE_ID } from './constants.js';
-import { getBlacksmith } from './bootstrap.js';
+import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES } from './geometry.js';
 import { getGroups, patchGroup } from './store.js';
 

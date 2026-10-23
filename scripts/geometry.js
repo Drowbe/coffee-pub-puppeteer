@@ -40,9 +40,13 @@ export function sameAnchor(a, b, epsilon = 1e-6) {
 // position is computed from the stored offsets, so the rounding never accumulates.
 const whole = Math.round;
 
-// A box position (Tile, Drawing) is the top-left of an unrotated box that turns about its centre.
+// A Drawing's position is the top-left of an unrotated box that turns about its centre.
+//
+// A Tile is different, and in Foundry v14 it is the one that is easy to get wrong: its `x, y` is where its
+// texture anchor sits (the centre by default, the top-left if the anchor is 0, 0), and it turns about that
+// point. So a Tile's pose is just a point and a heading, like a light; its width, height and anchor only
+// matter for drawing its outline (see memberExtent).
 const boxSize = {
-    Tile: (data) => ({ width: data.width, height: data.height }),
     Drawing: (data) => ({ width: data.shape?.width ?? 0, height: data.shape?.height ?? 0 })
 };
 
@@ -101,7 +105,7 @@ const handlers = {
     }
 };
 
-const kindOf = { Tile: 'box', Drawing: 'box', AmbientLight: 'point', AmbientSound: 'point', Note: 'point', Wall: 'wall' };
+const kindOf = { Tile: 'point', Drawing: 'box', AmbientLight: 'point', AmbientSound: 'point', Note: 'point', Wall: 'wall' };
 
 function handler(type) {
     const kind = kindOf[type];
@@ -110,8 +114,8 @@ function handler(type) {
 }
 
 /**
- * The points that mark the extent of a member in the scene: a box's four corners (turned about its
- * centre), a wall's two ends, or a single point for the rest.
+ * The points that mark the extent of a member in the scene: a tile's or drawing's four corners (turned about
+ * the point each one turns about), a wall's two ends, or a single point for the rest.
  * @param {string} type
  * @param {object} data  The document's source data.
  * @returns {{x: number, y: number}[]}
@@ -120,6 +124,17 @@ export function memberExtent(type, data) {
     if (type === 'Wall') {
         const [x1, y1, x2, y2] = data.c;
         return [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+    }
+    if (type === 'Tile') {
+        // The rectangle hangs from the anchor point (x, y): the anchor is a fraction of the width and height.
+        const ax = data.texture?.anchorX ?? 0.5;
+        const ay = data.texture?.anchorY ?? 0.5;
+        const width = data.width ?? 0;
+        const height = data.height ?? 0;
+        return [[-ax, -ay], [1 - ax, -ay], [1 - ax, 1 - ay], [-ax, 1 - ay]].map(([fx, fy]) => {
+            const r = rotate(fx * width, fy * height, data.rotation ?? 0);
+            return { x: data.x + r.x, y: data.y + r.y };
+        });
     }
     if (kindOf[type] === 'box') {
         const { width, height } = boxSize[type](data);
@@ -142,7 +157,25 @@ export function extentCentre(points) {
 }
 
 /**
- * Record a document as a member of a group anchored at `anchor`.
+ * The group's oriented bounding box: the smallest rectangle, turned with the group, that holds every point.
+ * @param {{x: number, y: number}[]} points
+ * @param {{x: number, y: number, heading: number}} anchor
+ * @returns {{corners: {x: number, y: number}[], width: number, height: number, centre: {x: number, y: number}}}
+ */
+export function groupBounds(points, anchor) {
+    if (!points.length) throw new Error('Puppeteer: no points to bound');
+    const framed = points.map((p) => toFrame(p, anchor));
+    const xs = framed.map((f) => f.dx);
+    const ys = framed.map((f) => f.dy);
+    const x0 = Math.min(...xs);
+    const x1 = Math.max(...xs);
+    const y0 = Math.min(...ys);
+    const y1 = Math.max(...ys);
+    const corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([dx, dy]) => fromFrame({ dx, dy }, anchor));
+    return { corners, width: x1 - x0, height: y1 - y0, centre: fromFrame({ dx: (x0 + x1) / 2, dy: (y0 + y1) / 2 }, anchor) };
+}
+
+/** Record a document as a member of a group anchored at `anchor`.
  * @param {string} type   One of MEMBER_TYPES.
  * @param {string} id     The embedded document id on the anchor's scene.
  * @param {object} data   The document's source data (`doc._source` or `doc.toObject()`).
@@ -151,6 +184,12 @@ export function extentCentre(points) {
  */
 export function captureMember(type, id, data, anchor) {
     return { type, id, ...handler(type).capture(type, data, anchor) };
+}
+
+/** Re-record a member against a new anchor, keeping anything of the member's that is not geometry (its name). */
+export function recaptureMember(member, data, anchor) {
+    const fresh = captureMember(member.type, member.id, data, anchor);
+    return member.label ? { ...fresh, label: member.label } : fresh;
 }
 
 /**
