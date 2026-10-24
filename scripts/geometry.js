@@ -5,7 +5,7 @@
 // from the anchor's centre in the anchor's own frame, so applying a move is one rotation and one
 // translation computed from the anchor's committed state, never an accumulation of deltas.
 import { normAngle, rotate, toFrame, fromFrame } from './frame.js';
-import { captureShapes, applyShapes, shapesExtent, UnsupportedMemberError } from './region-shapes.js';
+import { captureShapes, applyShapes, shapesExtent, shapeOutlines, shapesOutOfStep, UnsupportedMemberError } from './region-shapes.js';
 
 export { normAngle, rotate, toFrame, fromFrame, UnsupportedMemberError };
 
@@ -133,6 +133,21 @@ export function memberExtent(type, data) {
         });
     }
     return [{ x: data.x, y: data.y }];
+}
+
+/**
+ * The outlines to draw for a member: one list of points for most types, one per shape for a region.
+ * @returns {{x: number, y: number}[][]}
+ */
+export function memberOutlines(type, data) {
+    if (type === 'Region') return shapeOutlines(data);
+    const extent = memberExtent(type, data);
+    return extent.length ? [extent] : [];
+}
+
+/** Whether a member's record no longer fits its document (only a region's shapes can change that way). */
+export function memberOutOfStep(member, data) {
+    return member.type === 'Region' && shapesOutOfStep(member, data);
 }
 
 /** The centre of the box that holds every point. */

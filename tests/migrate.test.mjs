@@ -42,7 +42,7 @@ test('an older group has its tile re-recorded from where the tile is, and is mar
     await settle();
 
     const group = scene.getFlag('coffee-pub-puppeteer', 'groups').g1;
-    assert.equal(group.version, 2);
+    assert.equal(group.version, 3);
     const tile = group.members.find((m) => m.type === 'Tile');
     near(tile.dx, 5000 - 5530);
     near(tile.dy, 3000 - 3500);

@@ -3,7 +3,7 @@
 // without this there is no way to see the group as one thing. Off by default; the choice is per user.
 import { MODULE_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
-import { MEMBER_TYPES, memberExtent, groupBounds, rotate } from './geometry.js';
+import { MEMBER_TYPES, memberExtent, memberOutlines, groupBounds, rotate } from './geometry.js';
 import { getGroups, groupsTouched } from './store.js';
 import { anchorState } from './anchor.js';
 
@@ -85,9 +85,8 @@ function draw() {
         for (const member of group.members) {
             const doc = scene.getEmbeddedCollection(member.type).get(member.id);
             if (!doc) continue;
-            const extent = memberExtent(member.type, doc._source);
-            points.push(...extent);
-            outlines.push({ type: member.type, extent });
+            points.push(...memberExtent(member.type, doc._source));
+            outlines.push(...memberOutlines(member.type, doc._source));
         }
         if (!points.length) continue;
 
@@ -99,8 +98,7 @@ function draw() {
 
         // Each member where the group believes it is, so a member drawn away from its object is plain to see.
         g.lineStyle(2, MEMBER_COLOUR, 0.9);
-        for (const { extent } of outlines) {
-            if (extent.length === 0) continue;
+        for (const extent of outlines) {
             if (extent.length === 1) {
                 g.drawCircle(extent[0].x, extent[0].y, 9);
             } else if (extent.length === 2) {

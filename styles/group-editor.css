@@ -247,3 +247,43 @@
     color: var(--blacksmith-tool-text-muted);
     margin-left: 6px;
 }
+
+/* The id of a member stays in view next to its name: renaming a member never changes it. */
+.puppeteer-group-editor .puppeteer-member-id {
+    flex: 0 0 auto;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: var(--blacksmith-tool-text-muted);
+    font-family: monospace;
+    font-size: 0.8em;
+    cursor: copy;
+}
+
+.puppeteer-group-editor .puppeteer-member-id:hover {
+    color: var(--blacksmith-tool-accent);
+}
+
+/* The icon of a member is a button: click to select it on the canvas, Shift-click to add to the selection. */
+.puppeteer-group-editor .puppeteer-member-select {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--blacksmith-tool-text);
+    cursor: pointer;
+}
+
+.puppeteer-group-editor .puppeteer-member-select:hover:not(:disabled) {
+    border-color: var(--blacksmith-tool-accent);
+    background: var(--blacksmith-tool-surface-hover);
+    color: var(--blacksmith-tool-accent);
+}
+
+.puppeteer-group-editor .puppeteer-member-select:disabled {
+    cursor: default;
+    opacity: 0.5;
+}

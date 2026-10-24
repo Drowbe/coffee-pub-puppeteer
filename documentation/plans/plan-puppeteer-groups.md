@@ -66,7 +66,7 @@ A group record holds:
 - **Members** as `{ type, id, dx, dy, drot }`. `id` is the embedded document id on the anchor's scene, not a UUID: a UUID names the scene, so it breaks when a scene is duplicated, exported or imported. `dx, dy` are the offset from the anchor's centre in the anchor's own frame (heading zero), and `drot` is the member's rotation relative to the anchor's heading.
 - A **carry-passengers** flag.
 - A **footprint** (width and height at heading zero, centred on the anchor, defaulting to the token's own size).
-- A **heading** for pin-anchored groups, since a pin has no rotation of its own. A token-anchored group takes its heading from the token.
+- A **heading** that mirrors where the anchor faces: the pin's `rotation`, or the token's rotation.
 
 Offsets are stored in the anchor's frame, not the scene's, and positions are always computed absolutely from the anchor's committed state: `anchor.rotation + drot`, normalised for the `AngleField`, never `rotation += delta`. Applying a move is then one rotation and one translation per member, with no accumulated drift from repeated deltas.
 
@@ -157,7 +157,7 @@ From the Blacksmith session, read from its code (`manager-hooks.js`, `manager-pi
 - **A manual edit redefines the member.** When the GM moves, turns or resizes a member by hand, the group re-records its offset against the anchor state the members currently occupy. Otherwise the record keeps the old offset and the next move snaps the member back to it, which looks like the group tearing apart. The follower's own writes are told apart by a marker option and, as a second guard, by the member already sitting where the record puts it. Capturing new members first lets the follower finish, so offsets are measured against where the pin really is.
 - **See the group.** Each tool shows its own objects one layer at a time, so nothing shows a group as one thing. An optional overlay (per user, off by default) draws the oriented box that holds the members, the pivot and the heading, on Blacksmith's utilities layer.
 - **Members have names.** A member record can carry a `label`. It is not geometry, so a hand edit or a Centre Pivot keeps it, and a template carries it.
-- **Heading is ours.** Blacksmith will not add a rotation to pins, so the heading lives in Puppeteer's data and its own rotate UI.
+- **A pin group faces where its pin faces.** Blacksmith added an optional `rotation` to pins (degrees clockwise, 0 facing down, two decimals), turned with Shift + mouse wheel over a selected pin at 5 degrees a notch and saved once, 400 ms after the last notch. A pin type opts in with `rotatable: true` in its taxonomy, which Puppeteer sets. The group's heading is read from `pin.rotation`; the editor's heading field and rotate buttons write the same field, so they and the wheel always agree. The follower sees a turn the way it sees a drag, through `updateScene`. The record's `heading` mirrors the pin for display. Older groups, whose heading lived in the record, hand it to their pin once at load (record version 3), before the follower starts listening.
 - **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall, Note and Region. MeasuredTemplate is not a core document in v14. Token members and token anchors arrive in phase 2.
 
 ## Observed
@@ -172,7 +172,10 @@ These concern a token anchor, so they apply from phase 2. One drag in v14.369 as
 
 ## Open questions
 
-1. Smoothness. A per-frame tween of the placeables' display (not the documents), driven by that duration, would fix the jump, and the socket channel exists to start it on every client. It needs the duration confirmed on a GM client when a player moves, and a check that `_movement` (underscore-prefixed) is the right thing to depend on.
+1. Smoothness is built (`scripts/tween.js`), and needs a real token to confirm. It does not use a duration or the socket channel. Foundry steps the token document's own `x`, `y` and `rotation` every frame while it animates (the committed values stay in `_source`) and announces each frame through `refreshToken`. Each frame, on every client, the tiles, drawings and notes of the token's group are drawn where their records put them for the token's displayed pose, with the same maths the follower uses; the documents are untouched. A short hold in each member's own `refresh` hook puts the tweened pose back when Foundry redraws it from the follower's write, so it does not flash at the destination. Lights, walls, sounds and regions take part in perception and cannot be animated by moving a sprite, so they still update at the start. A pin group has no animation to follow, so it is smoothed in two other ways:
+
+- **While a pin is dragged,** Blacksmith reports the pin's live position on every move (`dragMove`, on the client that is dragging), and the members follow the pointer on that screen.
+- **When a pin moves or turns** (a drop, a Shift + wheel notch, the editor's rotate buttons), the follower puts where the group was (`group.applied`) in the options of its writes. Every client eases the anchor from there to where the pin is now over about a third of a second, and recomputes the members from the eased anchor each frame, so a turn swings them along arcs and not chords. The client that just dragged skips it, because its screen is already at the destination; a second move during a glide eases on from where the group is drawn.
 2. Levels. Should a group follow the anchor between levels, or stay put?
 3. Snapping. Rotated members will not sit on grid positions, which is correct, but a snapped anchor with an unsnapped member offset needs to be allowed.
 4. Undo (Ctrl+Z) and a paused or constrained move were not tried. Both must leave members where the token committed.

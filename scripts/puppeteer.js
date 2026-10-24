@@ -10,6 +10,7 @@ import { registerUi } from './ui.js';
 import { registerOverlay, toggleBounds, setBoundsShown } from './overlay.js';
 import { migrateGroups } from './migrate.js';
 import { registerTokenRemoval } from './token-removed.js';
+import { registerTween } from './tween.js';
 import { syncAllGroups } from './follower.js';
 import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate } from './library.js';
 
@@ -19,11 +20,10 @@ Hooks.once('ready', async () => {
 
     registerLibrarySetting();
     registerPinType();
-    registerFollower();
-    registerPruning();
-    registerUi();
-    registerOverlay();
-    registerTokenRemoval();
+
+    // Older groups are brought up to date before anything listens for changes. Otherwise a scene update that lands
+    // first would read a group's pin by the new rules while its record still follows the old ones, and swing the
+    // group, before the migration had handed its heading to the pin.
     try {
         await migrateGroups();
         // Anything that moved while no GM could write its parts catches up now.
@@ -32,6 +32,13 @@ Hooks.once('ready', async () => {
         console.error(`${MODULE_ID}: updating older groups failed`, error);
         blacksmith.utils.postConsoleAndNotification('PUPPETEER', `Could not update an older group: ${error.message}`, null, false, true);
     }
+
+    registerFollower();
+    registerPruning();
+    registerUi();
+    registerOverlay();
+    registerTokenRemoval();
+    registerTween();
 
     // The scripting surface, for macros and for the toolbar and Group Editor, which call the same functions.
     // Every function takes the scene first so a macro can address any scene; `scene()` is the one in view.

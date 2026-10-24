@@ -255,3 +255,81 @@ test('a region survives being saved to the library and stamped', async () => {
     assert.equal(copy._source.name, 'Camp');
     assert.equal(groups.listGroups(scene).length, 2);
 });
+
+// ---- a region with a cutout ------------------------------------------------------------------------------
+
+test('a region with several shapes is drawn as one outline per shape, not one line through all of them', async () => {
+    const { memberOutlines } = await import('../scripts/geometry.js');
+    const data = regionData([
+        { type: 'rectangle', x: 100, y: 100, width: 400, height: 300, anchorX: 0, anchorY: 0, rotation: 0 },
+        { type: 'polygon', points: [200, 150, 300, 160, 250, 260], origin: null, hole: true }
+    ]);
+    const outlines = memberOutlines('Region', data);
+    assert.equal(outlines.length, 2);
+    assert.equal(outlines[0].length, 4, 'the rectangle has its four corners');
+    assert.equal(outlines[1].length, 3, 'the cutout has its own three vertices');
+    // A tile or a light is still one outline.
+    assert.equal(memberOutlines('AmbientLight', { x: 1, y: 2 }).length, 1);
+    assert.deepEqual(memberOutlines('Region', regionData([])), []);
+});
+
+test('the kind of change a cutout makes is recognised: a shape added, swapped, or a polygon reshaped', async () => {
+    const { memberOutOfStep } = await import('../scripts/geometry.js');
+    const base = regionData([
+        { type: 'rectangle', x: 100, y: 100, width: 400, height: 300, anchorX: 0, anchorY: 0, rotation: 0 },
+        { type: 'polygon', points: [200, 150, 300, 160, 250, 260], origin: null }
+    ]);
+    const member = captureMember('Region', 'R', base, start);
+    assert.equal(memberOutOfStep(member, base), false);
+
+    const added = structuredClone(base);
+    added.shapes.push({ type: 'circle', x: 1, y: 1, radius: 5 });
+    assert.equal(memberOutOfStep(member, added), true, 'a shape added');
+
+    const reshaped = structuredClone(base);
+    reshaped.shapes[1].points = [200, 150, 300, 160, 280, 220, 250, 260];
+    assert.equal(memberOutOfStep(member, reshaped), true, 'a polygon with more vertices');
+
+    const swapped = structuredClone(base);
+    swapped.shapes[0] = { type: 'ellipse', x: 100, y: 100, radiusX: 40, radiusY: 30, rotation: 0 };
+    assert.equal(memberOutOfStep(member, swapped), true, 'a shape of another type');
+
+    // Moving a vertex without adding one is not a change of kind: the offsets still fit.
+    const nudged = structuredClone(base);
+    nudged.shapes[1].points[0] += 5;
+    assert.equal(memberOutOfStep(member, nudged), false);
+    assert.equal(memberOutOfStep({ type: 'Tile' }, base), false, 'only regions can fall out of step');
+});
+
+test('a region cut out by hand after it joined a group moves with the group without mixing old and new shapes', async () => {
+    const { scene, pins, group, area, settle } = await camp();
+
+    // The GM cuts a hole in the region. Foundry replaces the region's shapes: a polygon with a different
+    // number of vertices, in a place the record has never seen. Block the usual re-recording so the follower
+    // itself must cope when it is asked to move the region.
+    const cut = [
+        { type: 'rectangle', x: 1800, y: 1300, width: 500, height: 400, anchorX: 0, anchorY: 0, rotation: 0 },
+        { type: 'polygon', points: [1900, 1400, 2100, 1380, 2200, 1500, 2050, 1600, 1920, 1550], origin: null, hole: true }
+    ];
+    area._source.shapes = structuredClone(cut);              // the document changes, no hook runs
+
+    await pins.update(group.anchor.id, { x: 2300, y: 1400 });
+    await settle();
+
+    // Every shape, new ones included, has moved by exactly the change of the pin (300, -100), and nothing was
+    // carried from the old record.
+    const shapes = area._source.shapes;
+    assert.equal(shapes.length, 2);
+    near(shapes[0].x, 1800 + 300);
+    near(shapes[0].y, 1300 - 100);
+    assert.equal(shapes[1].points.length, 10, 'the cutout keeps its five vertices');
+    for (let i = 0; i < 10; i += 2) {
+        near(shapes[1].points[i], cut[1].points[i] + 300, 1e-6);
+        near(shapes[1].points[i + 1], cut[1].points[i + 1] - 100, 1e-6);
+    }
+    assert.equal(shapes[1].hole, true, 'it is still a cutout');
+
+    // And the record now describes the new shapes, so a turn works from them too.
+    const record = scene.getFlag('coffee-pub-puppeteer', 'groups')[group.id].members.find((m) => m.type === 'Region');
+    assert.equal(record.shapes[1].pts.length, 10);
+});

@@ -6,7 +6,7 @@ import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
-    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup
+    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember
 } from './groups.js';
 import { boundsShown, toggleBounds } from './overlay.js';
 import { syncAllGroups } from './follower.js';
@@ -86,6 +86,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
 
     static ACTION_HANDLERS = {
         setTab: (event, target, win) => win._setTab(target.dataset.tab),
+        copyUuid: (event, target, win) => win._copyUuid(target.dataset.uuid),
+        selectMember: (event, target, win) => win._selectMember(target.dataset.type, target.dataset.id, event.shiftKey),
         syncAll: (event, target, win) => win._syncAll(),
         diagnose: (event, target, win) => win._diagnose(target.dataset.groupId),
         newGroup: (event, target, win) => win._newGroup(),
@@ -284,11 +286,16 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const kind = `${TYPE_LABEL[member.type] ?? member.type} ${member.id.slice(0, 6)}`;
             return `
                 <li class="puppeteer-member${present ? '' : ' puppeteer-member-missing'}">
-                    <i class="${TYPE_ICON[member.type] ?? 'fa-solid fa-circle'}" data-tooltip="${esc(TYPE_LABEL[member.type] ?? member.type)}"></i>
+                    <button type="button" class="puppeteer-member-select" data-action="selectMember" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
+                        data-tooltip="Select this ${esc((TYPE_LABEL[member.type] ?? member.type).toLowerCase())} on the canvas (Shift to add to the selection)"${present ? '' : ' disabled'}>
+                        <i class="${TYPE_ICON[member.type] ?? 'fa-solid fa-circle'}"></i>
+                    </button>
                     <input type="text" class="puppeteer-member-name" data-field="memberLabel" data-group-id="${id}"
                         data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                         value="${esc(member.label ?? '')}" placeholder="${esc(kind)}"${present ? '' : ' disabled'}>
                     ${present ? '' : '<span class="puppeteer-member-gone">missing</span>'}
+                    <button type="button" class="puppeteer-member-id" data-action="copyUuid" data-uuid="${esc(`${scene.uuid}.${member.type}.${member.id}`)}"
+                        data-tooltip="${esc(`${scene.uuid}.${member.type}.${member.id}`)} (click to copy)">${esc(member.id)}</button>
                     <button type="button" class="puppeteer-member-remove" data-action="removeMember"
                         data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                         data-tooltip="Remove from group"><i class="fa-solid fa-xmark"></i></button>
@@ -505,6 +512,19 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
 
     _removeMember(groupId, type, id) {
         return run('Remove member', () => removeMember(canvas.scene, groupId, type, id));
+    }
+
+    _selectMember(type, id, add) {
+        return run('Select member', async () => {
+            if (!selectMember(canvas.scene, type, id, { add })) say('Not on the canvas', 'That object is not on the scene in view.');
+        });
+    }
+
+    _copyUuid(uuid) {
+        return run('Copy UUID', async () => {
+            await game.clipboard.copyPlainText(uuid);
+            say('UUID copied', uuid);
+        });
     }
 
     _setTab(id) {

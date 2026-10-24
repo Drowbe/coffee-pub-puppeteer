@@ -7,9 +7,10 @@
 // that is still being dragged or animated.
 import { MODULE_ID, MODULE_NAME, BLACKSMITH_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
-import { MEMBER_TYPES, recaptureMember, memberUpdate, sameAnchor, poseDiffers as differs } from './geometry.js';
+import { MEMBER_TYPES, recaptureMember, memberUpdate, memberOutOfStep, sameAnchor, poseDiffers as differs } from './geometry.js';
 import { getGroup, getGroups, patchGroup } from './store.js';
 import { anchorState } from './anchor.js';
+import { glideOptions } from './tween.js';
 
 // One chain per group, so a move and the rotation that follows it a moment later never write concurrently.
 // Hook Manager callbacks are started back to back and not awaited.
@@ -214,10 +215,20 @@ export async function apply(scene, groupId) {
     if (!anchor) return;
     if (sameAnchor(group.applied, anchor)) return;
 
+    // A region whose shapes were changed by hand since it was recorded (a cutout adds or reshapes shapes) is
+    // recorded again where it stands, before anything is carried, so old geometry is never mixed with new.
+    let rerecorded = false;
+    const recorded = group.members.map((member) => {
+        const doc = scene.getEmbeddedCollection(member.type).get(member.id);
+        if (!doc || !memberOutOfStep(member, doc._source)) return member;
+        rerecorded = true;
+        return recaptureMember(member, doc._source, { ...group.applied });
+    });
+
     // Build one update per document type; a member whose document is gone is dropped from the record.
     const updates = new Map();
     const keep = [];
-    for (const member of group.members) {
+    for (const member of recorded) {
         const doc = scene.getEmbeddedCollection(member.type).get(member.id);
         if (!doc) continue;
         keep.push(member);
@@ -225,9 +236,12 @@ export async function apply(scene, groupId) {
         updates.get(member.type).push({ _id: member.id, ...memberUpdate(member, doc._source, anchor) });
     }
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" writing members`, { anchor, updates: Object.fromEntries(updates) }, true, false);
+    // Where the group was, so every client can ease from there to where it is now (pin groups only; a token
+    // already animates itself). It is read before the record is changed below.
+    const glide = glideOptions(group);
     let refused = 0;
     for (const [type, batch] of updates) {
-        await scene.updateEmbeddedDocuments(type, batch, { puppeteer: { follower: true } });
+        await scene.updateEmbeddedDocuments(type, batch, { puppeteer: { follower: true, ...(glide ? { glide } : {}) } });
         refused += countNotTaken(scene, type, batch);
     }
     if (refused) {
@@ -235,9 +249,9 @@ export async function apply(scene, groupId) {
     }
 
     const patch = { applied: anchor };
-    // A token group faces where its token faces, so the record shows it; a pin group's heading is its own.
-    if (group.anchor.type === 'token') patch.heading = anchor.heading;
-    if (keep.length !== group.members.length) patch.members = keep;
+    // The record shows which way the group faces, which is where its pin or token faces.
+    patch.heading = anchor.heading;
+    if (rerecorded || keep.length !== group.members.length) patch.members = keep;
     await patchGroup(scene, groupId, patch);
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" moved ${keep.length} member(s)`, anchor, true, false);
 }

@@ -20,7 +20,8 @@ export function registerPinType() {
     pins.registerPinTaxonomy(MODULE_ID, {
         pinCategories: {
             // Not copyable: a copied pin would point at the same group record.
-            [PIN_TYPE]: { label: 'Puppeteer Group', tags: ['group'], copyable: false }
+            // Rotatable: Shift + mouse wheel over a selected pin turns the whole group.
+            [PIN_TYPE]: { label: 'Puppeteer Group', tags: ['group'], copyable: false, rotatable: true }
         }
     });
 }
@@ -36,7 +37,7 @@ function requireGroup(scene, groupId) {
     return group;
 }
 
-function createPin(scene, groupId, name, x, y) {
+function createPin(scene, groupId, name, x, y, rotation = 0) {
     return getBlacksmith().pins.create({
         id: crypto.randomUUID(),
         moduleId: MODULE_ID,
@@ -46,6 +47,7 @@ function createPin(scene, groupId, name, x, y) {
         image: PIN_ICON,
         x,
         y,
+        rotation,
         config: { puppeteer: { groupId } }
     }, { sceneId: scene.id });
 }
@@ -62,16 +64,18 @@ export async function createGroup(scene, point, { name = 'Group', heading = 0 } 
     const x = Math.round(point.x);
     const y = Math.round(point.y);
     const id = foundry.utils.randomID();
-    const pin = await createPin(scene, id, name, x, y);
+    const pin = await createPin(scene, id, name, x, y, normAngle(heading));
+    // Blacksmith keeps two decimals, so the heading is what it stored, not what was asked for.
+    const stored = pin.rotation ?? normAngle(heading);
 
     const group = {
         id,
         name,
         anchor: { type: 'pin', id: pin.id },
-        version: 2,
-        heading: normAngle(heading),
+        version: 3,
+        heading: stored,
         members: [],
-        applied: { x, y, heading: normAngle(heading) }
+        applied: { x, y, heading: stored }
     };
     await saveGroup(scene, group);
     utils.postConsoleAndNotification(MODULE_NAME, `Created group "${name}"`, { groupId: id, pinId: pin.id }, true, false);
@@ -97,7 +101,7 @@ export async function createTokenGroup(scene, token, { name } = {}) {
         id: foundry.utils.randomID(),
         name: name ?? token.name ?? 'Vehicle',
         anchor: { type: 'token', id: token.id },
-        version: 2,
+        version: 3,
         heading: state.heading,
         members: [],
         applied: state
@@ -156,13 +160,14 @@ export function detachToPin(scene, groupId) {
         const group = requireGroup(scene, groupId);
         const state = anchorState(scene, group) ?? { ...group.applied };
         const tokenId = group.anchor.id;     // the store updates the record in place, so read this before patching
-        const anchor = { x: Math.round(state.x), y: Math.round(state.y), heading: state.heading };
+        // The pin first, so the heading the members are recorded against is the one Blacksmith stored for it.
+        const pin = await createPin(scene, groupId, group.name, Math.round(state.x), Math.round(state.y), normAngle(state.heading));
+        const anchor = { x: Math.round(state.x), y: Math.round(state.y), heading: pin.rotation ?? normAngle(state.heading) };
         const members = group.members
             .map((member) => [member, scene.getEmbeddedCollection(member.type).get(member.id)])
             .filter(([, doc]) => doc)
             .map(([member, doc]) => recaptureMember(member, doc._source, anchor));
 
-        const pin = await createPin(scene, groupId, group.name, anchor.x, anchor.y);
         await patchGroup(scene, groupId, { anchor: { type: 'pin', id: pin.id }, members, applied: anchor, heading: anchor.heading });
         const token = scene.tokens.get(tokenId);
         if (token?.getFlag(MODULE_ID, 'groupId') === groupId) await token.unsetFlag(MODULE_ID, 'groupId');
@@ -237,6 +242,35 @@ export async function removeSelected(scene, groupId) {
     const members = group.members.filter((m) => !picked.has(`${m.type}:${m.id}`));
     if (members.length !== group.members.length) await patchGroup(scene, groupId, { members });
     return group.members.length - members.length;
+}
+
+// Whether the middle of a placeable is inside the part of the scene on screen, with a margin.
+function onScreen(placeable) {
+    const bounds = placeable.bounds;
+    if (!bounds) return true;
+    const scale = canvas.stage.scale.x || 1;
+    const halfWidth = canvas.app.screen.width / scale / 2;
+    const halfHeight = canvas.app.screen.height / scale / 2;
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+    return Math.abs(cx - canvas.stage.pivot.x) < halfWidth * 0.9 && Math.abs(cy - canvas.stage.pivot.y) < halfHeight * 0.9;
+}
+
+/**
+ * Select one member on the canvas: switch to its layer and select it, adding to the selection when asked, and bring
+ * it into view if it is off screen.
+ * @returns {boolean} false when the object is not on the canvas.
+ */
+export function selectMember(scene, type, id, { add = false, pan = true } = {}) {
+    const placeable = scene.getEmbeddedCollection(type).get(id)?.object;
+    if (!placeable) return false;
+    canvas.getLayerByEmbeddedName(type)?.activate();
+    placeable.control({ releaseOthers: !add });
+    if (pan && !onScreen(placeable)) {
+        const bounds = placeable.bounds;
+        canvas.animatePan({ x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, duration: 300 });
+    }
+    return true;
 }
 
 /**
@@ -348,7 +382,9 @@ export async function setHeading(scene, groupId, degrees) {
         await token.update({ rotation: normAngle(degrees) });
         return getGroup(scene, groupId);
     }
-    await patchGroup(scene, groupId, { heading: normAngle(degrees) });
+    // A pin group faces where its pin faces. Turning it here and turning the pin with Shift + wheel are the same
+    // write, and the follower does the rest.
+    await getBlacksmith().pins.update(group.anchor.id, { rotation: normAngle(degrees) }, { sceneId: scene.id });
     return getGroup(scene, groupId);
 }
 
@@ -382,7 +418,7 @@ export function recenterPivot(scene, groupId) {
         const points = present.flatMap(([member, doc]) => memberExtent(member.type, doc._source));
         const centre = extentCentre(points);
         const pinBefore = group.anchor.type === 'pin' ? pins.get(group.anchor.id, { sceneId: scene.id }) : null;
-        const anchor = { x: Math.round(centre.x), y: Math.round(centre.y), heading: group.heading };
+        const anchor = { x: Math.round(centre.x), y: Math.round(centre.y), heading: pinBefore?.rotation ?? group.heading };
         const members = present.map(([member, doc]) => recaptureMember(member, doc._source, anchor));
 
         await patchGroup(scene, groupId, { members, applied: anchor });

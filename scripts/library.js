@@ -8,7 +8,7 @@ import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, normAngle } from './geometry.js';
 import { stampMembers, validateTemplate } from './template.js';
-import { createGroup, exportGroup } from './groups.js';
+import { createGroup, deleteGroup, exportGroup } from './groups.js';
 import { patchGroup } from './store.js';
 
 const KEY = 'library';
@@ -82,11 +82,11 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
     if (!source) throw new Error(`Puppeteer: no template ${template} in the library`);
     validateTemplate(source);
 
-    const anchor = { x: Math.round(point.x), y: Math.round(point.y), heading: normAngle(heading) };
+    // The group and its pin first, empty, so the follower has nothing to move while the members arrive. The members
+    // are then placed for the heading Blacksmith stored on the pin, which is what the follower will use.
+    const group = await createGroup(scene, point, { name: name ?? source.name, heading });
+    const anchor = { ...group.applied };
     const stamped = stampMembers(source, anchor);
-
-    // The group and its pin first, empty, so the follower has nothing to move while the members arrive.
-    const group = await createGroup(scene, anchor, { name: name ?? source.name, heading: anchor.heading });
 
     const byType = new Map();
     stamped.forEach((entry, index) => {
@@ -94,11 +94,18 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
         byType.get(entry.type).push({ index, data: entry.data });
     });
     const created = new Array(stamped.length);
-    for (const type of MEMBER_TYPES) {
-        const items = byType.get(type);
-        if (!items) continue;
-        const docs = await scene.createEmbeddedDocuments(type, items.map((item) => item.data));
-        docs.forEach((doc, i) => { created[items[i].index] = doc; });
+    try {
+        for (const type of MEMBER_TYPES) {
+            const items = byType.get(type);
+            if (!items) continue;
+            const docs = await scene.createEmbeddedDocuments(type, items.map((item) => item.data));
+            docs.forEach((doc, i) => { created[items[i].index] = doc; });
+        }
+    } catch (error) {
+        // Do not leave half a stamp behind: remove what was made and the empty group, then say what went wrong.
+        for (const doc of created.filter(Boolean)) await scene.deleteEmbeddedDocuments(doc.documentName, [doc.id]).catch(() => {});
+        await deleteGroup(scene, group.id).catch(() => {});
+        throw error;
     }
 
     // The template's own offsets are exactly what the stamp used, so they are the new group's offsets.

@@ -165,3 +165,27 @@ function shapeExtent(shape) {
 export function shapesExtent(data) {
     return (data.shapes ?? []).flatMap(shapeExtent);
 }
+
+/** One outline per shape, so a region with several shapes (a cutout, say) can be drawn as what it is. */
+export function shapeOutlines(data) {
+    return (data.shapes ?? []).map(shapeExtent).filter((points) => points.length > 0);
+}
+
+// Whether a recorded shape no longer matches the kind of shape it was recorded from.
+function differsInKind(record, shape) {
+    if (!record || record.type !== shape?.type) return true;
+    if (shape.type === 'polygon') return record.pts.length !== shape.points.length || !!record.origin !== !!shape.origin;
+    if (shape.type === 'emanation') return differsInKind(record.base, shape.base);
+    return false;
+}
+
+/**
+ * Whether a region's shapes have changed in kind since they were recorded: a shape added or taken away, swapped for
+ * another type, or a polygon given a different number of vertices (which is what a cutout does). Carrying such a
+ * region from the old record would mix old geometry with new, so it has to be recorded again first.
+ */
+export function shapesOutOfStep(record, data) {
+    const shapes = data.shapes ?? [];
+    const recorded = record.shapes ?? [];
+    return shapes.length !== recorded.length || shapes.some((shape, i) => differsInKind(recorded[i], shape));
+}

@@ -37,7 +37,7 @@ test('a group made on a token records the token and flags it', async () => {
     const { scene, token, group } = await cart();
     assert.equal(group.anchor.type, 'token');
     assert.equal(group.anchor.id, 'K1');
-    assert.equal(group.version, 2);
+    assert.equal(group.version, 3);
     assert.equal(token.getFlag('coffee-pub-puppeteer', 'groupId'), group.id);
     assert.deepEqual(scene.getFlag('coffee-pub-puppeteer', 'groups')[group.id].applied, { x: 5050, y: 3050, heading: 0 });
 });

@@ -20,11 +20,19 @@
    uses Blacksmith's `canvas.pickArea` (in Blacksmith's working tree, not released). A group whose anchor pin was
    deleted is flagged in the editor and can be deleted there; nothing removes it automatically.
 
+**Pin rotation is in, and needs a real canvas.** Blacksmith's pin rotation is built in its working tree (not run
+on a canvas, not released) and Puppeteer reads a pin group's heading from it. Check: select a group's pin and
+Shift + wheel over the board; the whole group should turn about the pin, 5 degrees a notch, and the editor's
+heading field should follow. Puppeteer then needs a Blacksmith version that has it, so the Blacksmith minimum in
+`module.json` has to be raised when that is released.
+
 **Phase 2: tokens**
 
 2. Token anchors work in Foundry for a GM moving and turning the token, including attach and detach. Still to check:
-   a multi-waypoint path, undo (Ctrl+Z), a player moving the token with the GM connected, and the no-GM warning. Still to
-   do: the smoothness tween (members land at the start of the token's glide), and the Actor link for prefabs.
+   a multi-waypoint path, undo (Ctrl+Z), a player moving the token with the GM connected, and the no-GM warning.
+   The smoothness tween is written and simulated: tiles, drawings and notes should glide with the token, follow
+   a pin as it is dragged, and ease when a pin moves or turns; lights, walls, sounds and regions still jump at the
+   start of the move. Still to do: the Actor link for prefabs.
 3. Token members and passengers: footprint plus explicit boarded toggle, boarding through `gmRequest`, and the
    constraint-bypass check (constraints off versus the displace path). Chat card announcements.
 

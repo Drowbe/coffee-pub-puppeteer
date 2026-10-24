@@ -124,6 +124,9 @@ export function installFakes({ dropOptions = false } = {}) {
         async update(id, patch) { await scene.update({ [FLAG]: list().map((p) => (p.id === id ? { ...p, ...patch } : p)) }); },
         async delete(id) { await scene.update({ [FLAG]: list().filter((p) => p.id !== id) }); },
         async panTo() { return true; },
+        // Handlers, so a test can play the part of Blacksmith reporting a drag.
+        handlers: [],
+        on(type, handler, options) { this.handlers.push({ type, handler, options }); return () => {}; },
         registerPinType() {}, registerPinTaxonomy() {}, registerContextMenuItem() {}
     };
 
@@ -142,7 +145,7 @@ export function installFakes({ dropOptions = false } = {}) {
         users: { activeGM: { isSelf: true } },
         modules: new Map([['coffee-pub-puppeteer', { version: 'test' }]])
     };
-    globalThis.canvas = { stage: { pivot: { x: 0, y: 0 } } };
+    globalThis.canvas = { scene, stage: { pivot: { x: 0, y: 0 } } };
 
     const settings = new Map();
     setBlacksmith({
@@ -159,5 +162,16 @@ export function installFakes({ dropOptions = false } = {}) {
     // Let everything queued (hooks, the follower's chain, flag writes) run to the end.
     const settle = async () => { for (let i = 0; i < 60; i += 1) await new Promise((r) => setImmediate(r)); };
 
-    return { scene, pins, hooks, fire, settle };
+    // A stand-in for the canvas animation ticker, advanced by hand, and a clock that moves only when told to.
+    const ticker = {
+        fns: new Set(),
+        add(fn) { this.fns.add(fn); },
+        remove(fn) { this.fns.delete(fn); },
+        run() { for (const fn of [...this.fns]) fn(); }
+    };
+    globalThis.canvas.app = { ticker };
+    globalThis.PIXI = { UPDATE_PRIORITY: { LOW: -25 } };
+    const emitPin = (type, event) => pins.handlers.filter((h) => h.type === type).forEach((h) => h.handler(event));
+
+    return { scene, pins, hooks, fire, settle, ticker, emitPin };
 }
