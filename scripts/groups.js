@@ -423,10 +423,16 @@ export function exportGroup(scene, groupId) {
     return buildTemplate(group, sources);
 }
 
-/** Delete the record and its pin. The members stay in the scene where they are. */
-export async function deleteGroup(scene, groupId) {
+/**
+ * Delete the group: its record, its pin, and a token's link to it. The members stay in the scene where they are,
+ * unless `removeMembers` is set, in which case they are deleted from the scene too.
+ * @returns {Promise<{removed: number}>} How many members were deleted from the scene.
+ */
+export async function deleteGroup(scene, groupId, { removeMembers = false } = {}) {
     const { pins } = getBlacksmith();
     const group = requireGroup(scene, groupId);
+    // The store updates records in place, so take what is needed before the record goes.
+    const parts = group.members.map((member) => ({ type: member.type, id: member.id }));
     await deleteGroupRecord(scene, groupId);
     // The pin may already be gone (deleted by hand); the record is what matters.
     if (group.anchor.type === 'pin' && pins.exists(group.anchor.id, { sceneId: scene.id })) {
@@ -437,6 +443,22 @@ export async function deleteGroup(scene, groupId) {
         const token = scene.tokens.get(group.anchor.id);
         if (token?.getFlag(MODULE_ID, 'groupId') === groupId) await token.unsetFlag(MODULE_ID, 'groupId');
     }
+
+    // The record is gone first, so removing the parts does not make the delete hooks look for them in a group.
+    let removed = 0;
+    if (removeMembers) {
+        const byType = new Map();
+        for (const part of parts) {
+            if (!scene.getEmbeddedCollection(part.type).get(part.id)) continue;
+            if (!byType.has(part.type)) byType.set(part.type, []);
+            byType.get(part.type).push(part.id);
+        }
+        for (const [type, ids] of byType) {
+            await scene.deleteEmbeddedDocuments(type, ids);
+            removed += ids.length;
+        }
+    }
+    return { removed };
 }
 
 export function listGroups(scene) {

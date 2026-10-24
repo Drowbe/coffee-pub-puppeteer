@@ -1,14 +1,15 @@
 // The Group Editor: every group on the scene in view, its members, its heading, and the actions on them.
 // Loaded on demand by the window registry (see ui.js), so a Blacksmith failure cannot stop the module's
 // scripts from loading.
-import { BlacksmithWindowBaseV2 } from '/modules/coffee-pub-blacksmith/api/blacksmith-api.js';
+import { BlacksmithToolWindowBaseV2 } from '/modules/coffee-pub-blacksmith/api/blacksmith-api.js';
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
-    setHeading, rotateBy, deleteGroup, listGroups
+    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup
 } from './groups.js';
-import { boundsShown, setBoundsShown } from './overlay.js';
+import { boundsShown, toggleBounds } from './overlay.js';
+import { syncAllGroups } from './follower.js';
 import { anchorState, anchorExists } from './anchor.js';
 import { groupsTouched } from './store.js';
 import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate } from './library.js';
@@ -63,20 +64,30 @@ function say(title, subtitle) {
     getBlacksmith().toast.show({ title, subtitle, icon: 'fa-solid fa-up-down-left-right', duration: 4 });
 }
 
-export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
+// Which tab is showing. Remembered for the session and across reloads, per user.
+const TAB_KEY = `${MODULE_ID}.editorTab`;
+const TABS = ['groups', 'library', 'tools'];
+let tab = (() => {
+    try { return localStorage.getItem(TAB_KEY); } catch { return null; }
+})();
+if (!TABS.includes(tab)) tab = 'groups';
+
+// A tool window: it is kept open over the canvas while the GM selects objects and drags pins, which is what
+// Blacksmith's tool base is for. It brings the Light, Dark and Glass themes and the compact title bar.
+export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     static DEFAULT_OPTIONS = {
         id: `${MODULE_ID}-group-editor`,
         classes: ['puppeteer-group-editor'],
-        position: { width: 560, height: 640 },
+        position: { width: 540, height: 680 },
         window: { title: 'Puppeteer Groups', resizable: true, minimizable: true },
+        toolTheme: 'dark',
         windowSizeConstraints: { minWidth: 440, minHeight: 320 }
     };
 
-    static PARTS = {
-        body: { template: 'modules/coffee-pub-blacksmith/templates/window-template.hbs' }
-    };
-
     static ACTION_HANDLERS = {
+        setTab: (event, target, win) => win._setTab(target.dataset.tab),
+        syncAll: (event, target, win) => win._syncAll(),
+        diagnose: (event, target, win) => win._diagnose(target.dataset.groupId),
         newGroup: (event, target, win) => win._newGroup(),
         newTokenGroup: (event, target, win) => win._newTokenGroup(),
         attachToToken: (event, target, win) => win._attachToToken(target.dataset.groupId),
@@ -158,56 +169,113 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         return super._onClose?.(options);
     }
 
+    /** The icon button in the title bar that shows or hides the group bounds on the canvas. */
+    getToolHeaderActions() {
+        return [{
+            id: 'bounds',
+            icon: 'fa-solid fa-border-none',
+            label: 'Show group bounds: draw the box that holds each group, its pivot and its heading on the canvas',
+            active: boundsShown(),
+            onClick: () => { toggleBounds(); this.render(); }
+        }];
+    }
+
     async getData() {
         const scene = canvas.scene;
         const groups = scene ? listGroups(scene) : [];
+        const library = listTemplates();
+        const footer = {
+            groups: `<button type="button" class="puppeteer-btn puppeteer-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>
+                <button type="button" class="puppeteer-btn" data-action="newTokenGroup" data-tooltip="Make a group that follows the selected token, such as a cart or a ship"><i class="fa-solid fa-horse"></i> On Selected Token</button>`,
+            library: `<button type="button" class="puppeteer-btn" data-action="importTemplate"><i class="fa-solid fa-file-import"></i> Import</button>
+                <input type="file" accept="application/json,.json" data-field="importFile" hidden>`,
+            tools: ''
+        }[tab];
+        const body = {
+            groups: () => this._groupsHtml(scene, groups),
+            library: () => this._libraryHtml(library),
+            tools: () => this._toolsHtml(scene, groups)
+        }[tab]();
+
         return {
             appId: this.id,
-            headerIcon: 'fa-solid fa-up-down-left-right',
-            windowTitle: 'Puppeteer Groups',
-            subtitle: scene ? scene.name : 'No scene in view',
-            showOptionBar: false,
-            showTools: false,
-            bodyContent: (groups.length
-                ? groups.map((group) => this._groupHtml(scene, group)).join('')
-                : `<p class="puppeteer-empty">No groups on this scene. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings or notes on the canvas, then choose <strong>Add Selected</strong> on the group.</p>`)
-                + this._libraryHtml(),
-            actionBarLeft: `<button type="button" class="blacksmith-window-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>
-                <button type="button" class="blacksmith-window-btn-secondary" data-action="newTokenGroup" data-tooltip="Make a group that follows the selected token, such as a cart or a ship"><i class="fa-solid fa-horse"></i> On Selected Token</button>
-                <label class="puppeteer-toggle" data-tooltip="Draw the box that holds each group, its pivot and its heading on the canvas"><input type="checkbox" data-field="showBounds"${boundsShown() ? ' checked' : ''}> Show group bounds</label>`
+            showToolBar: true,
+            toolBarLeft: this._tabsHtml(groups.length, library.length),
+            bodyContent: body,
+            toolFooterLeft: footer,
+            showToolFooter: !!footer
         };
     }
 
-    _libraryHtml() {
-        const rows = listTemplates().map((template) => `
+    _tabsHtml(groupCount, libraryCount) {
+        const button = (id, icon, label, count) => `
+            <button type="button" class="puppeteer-tab${tab === id ? ' is-active' : ''}" data-action="setTab" data-tab="${id}">
+                <i class="${icon}"></i> ${label}${count === null ? '' : ` <span class="puppeteer-tab-count">${count}</span>`}
+            </button>`;
+        return `<nav class="puppeteer-tabs">${button('groups', 'fa-solid fa-up-down-left-right', 'Groups', groupCount)}${button('library', 'fa-solid fa-boxes-stacked', 'Library', libraryCount)}${button('tools', 'fa-solid fa-screwdriver-wrench', 'Tools', null)}</nav>`;
+    }
+
+    _groupsHtml(scene, groups) {
+        if (!scene) return '<p class="puppeteer-empty">There is no scene in view.</p>';
+        if (!groups.length) {
+            return `<p class="puppeteer-empty">No groups on <strong>${esc(scene.name)}</strong>. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings, notes or regions on the canvas, then choose <strong>Add Selected</strong> on the group. Or select a token and choose <strong>On Selected Token</strong> to make a group that follows it.</p>`;
+        }
+        return groups.map((group) => this._groupHtml(scene, group)).join('');
+    }
+
+    _libraryHtml(templates) {
+        const rows = templates.map((template) => `
             <li class="puppeteer-template">
                 <i class="fa-solid fa-cubes"></i>
                 <span class="puppeteer-template-name">${esc(template.name)} <span class="puppeteer-template-count">${template.members} member${template.members === 1 ? '' : 's'}</span></span>
-                <button type="button" class="blacksmith-window-btn-primary" data-action="stampTemplate" data-template-id="${esc(template.id)}" data-tooltip="Place a copy at the centre of your view"><i class="fa-solid fa-stamp"></i> Stamp</button>
-                <button type="button" class="blacksmith-window-btn-secondary" data-action="exportTemplate" data-template-id="${esc(template.id)}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
-                <button type="button" class="blacksmith-window-btn-critical" data-action="deleteTemplate" data-template-id="${esc(template.id)}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
+                <button type="button" class="puppeteer-btn puppeteer-btn-primary" data-action="stampTemplate" data-template-id="${esc(template.id)}" data-tooltip="Place a copy at the centre of your view"><i class="fa-solid fa-stamp"></i> Stamp</button>
+                <button type="button" class="puppeteer-btn" data-action="exportTemplate" data-template-id="${esc(template.id)}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
+                <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteTemplate" data-template-id="${esc(template.id)}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
             </li>`).join('');
         return `
-        <section class="puppeteer-library">
-            <div class="puppeteer-library-head">
-                <h3><i class="fa-solid fa-boxes-stacked"></i> Library</h3>
-                <button type="button" class="blacksmith-window-btn-secondary" data-action="importTemplate"><i class="fa-solid fa-file-import"></i> Import</button>
-                <input type="file" accept="application/json,.json" data-field="importFile" hidden>
-            </div>
-            <ul>${rows || '<li class="puppeteer-member-none">Nothing saved yet. Use Save to Library on a group.</li>'}</ul>
+        <section class="puppeteer-panel">
+            <p>Saved copies of groups. A template is not tied to any scene: <strong>Stamp</strong> puts a fresh, independent copy on this scene, as many times as you like. Make one with <strong>Save to Library</strong> on a group.</p>
+            <ul>${rows || '<li class="puppeteer-member-none">Nothing saved yet.</li>'}</ul>
+        </section>`;
+    }
+
+    _toolsHtml(scene, groups) {
+        const rows = groups.map((group) => `
+            <li class="puppeteer-template">
+                <i class="${group.anchor.type === 'token' ? 'fa-solid fa-horse' : 'fa-solid fa-thumbtack'}"></i>
+                <span class="puppeteer-template-name">${esc(group.name)} <span class="puppeteer-template-count">${group.members.length} member${group.members.length === 1 ? '' : 's'}, on a ${group.anchor.type}</span></span>
+                <button type="button" class="puppeteer-btn" data-action="diagnose" data-group-id="${esc(group.id)}" data-tooltip="Write where this group's anchor and every part is, against where it should be, to the browser console (F12)"><i class="fa-solid fa-stethoscope"></i> Diagnose</button>
+            </li>`).join('');
+        const puppeteer = game.modules.get(MODULE_ID);
+        const blacksmith = game.modules.get('coffee-pub-blacksmith');
+        return `
+        <section class="puppeteer-panel">
+            <h3>Bring groups up to date</h3>
+            <p>Move every group's parts to where its pin or token is now. This happens by itself while a GM is connected; use it after a token moved while no GM was online and you want to be sure.</p>
+            <button type="button" class="puppeteer-btn" data-action="syncAll"><i class="fa-solid fa-rotate"></i> Update all groups</button>
+        </section>
+        <section class="puppeteer-panel">
+            <h3>Diagnosis</h3>
+            <p>If a group is not where you expect, a report of where its anchor and every part is, against where it should be, goes to the browser console (F12).</p>
+            <ul>${rows || `<li class="puppeteer-member-none">No groups on ${esc(scene?.name ?? 'this scene')}.</li>`}</ul>
+        </section>
+        <section class="puppeteer-panel">
+            <h3>About</h3>
+            <p>Puppeteer ${esc(puppeteer?.version)} on Blacksmith ${esc(blacksmith?.version)} (API ${esc(blacksmith?.api?.version)}).</p>
+            <p>Show or hide the group bounds with the dotted-box icon in this window's title bar.</p>
         </section>`;
     }
 
     _groupHtml(scene, group) {
         const id = esc(group.id);
         const step = (degrees, icon) => `
-            <button type="button" class="blacksmith-window-btn-secondary puppeteer-step" data-action="rotate"
+            <button type="button" class="puppeteer-btn puppeteer-step" data-action="rotate"
                 data-group-id="${id}" data-degrees="${degrees}"
                 data-tooltip="Rotate ${Math.abs(degrees)}° ${degrees < 0 ? 'counter-clockwise' : 'clockwise'}">
                 <i class="${icon}"></i> ${Math.abs(degrees)}
             </button>`;
         const button = (action, icon, label, tooltip = '') => `
-            <button type="button" class="blacksmith-window-btn-secondary" data-action="${action}" data-group-id="${id}"${tooltip ? ` data-tooltip="${esc(tooltip)}"` : ''}>
+            <button type="button" class="puppeteer-btn" data-action="${action}" data-group-id="${id}"${tooltip ? ` data-tooltip="${esc(tooltip)}"` : ''}>
                 <i class="${icon}"></i> ${label}
             </button>`;
 
@@ -230,7 +298,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         const counts = {};
         for (const member of group.members) counts[member.type] = (counts[member.type] ?? 0) + 1;
         const chips = Object.entries(counts).map(([type, count]) => `
-            <button type="button" class="blacksmith-window-btn-secondary puppeteer-chip" data-action="selectMembers"
+            <button type="button" class="puppeteer-btn puppeteer-chip" data-action="selectMembers"
                 data-group-id="${id}" data-type="${esc(type)}" data-tooltip="Select these ${esc(TYPE_PLURAL[type] ?? type)} on the canvas">
                 <i class="${TYPE_ICON[type] ?? 'fa-solid fa-circle'}"></i> ${esc(TYPE_PLURAL[type] ?? type)} ${count}
             </button>`).join('');
@@ -264,7 +332,7 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
                 ${onToken ? button('detachToPin', 'fa-solid fa-link-slash', 'Detach from Token', "Stop following the token. A pin is left at the token's centre; nothing moves.") : button('attachToToken', 'fa-solid fa-link', 'Attach to Token', 'Follow the selected token. The pin is removed; nothing moves.')}
                 ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
                 ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
-                <button type="button" class="blacksmith-window-btn-critical" data-action="deleteGroup" data-group-id="${id}">
+                <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteGroup" data-group-id="${id}">
                     <i class="fa-solid fa-trash"></i> Delete
                 </button>
             </div>
@@ -281,7 +349,6 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         const scene = canvas.scene;
         const groupId = input.dataset.groupId;
         return run('Update group', async () => {
-            if (input.dataset.field === 'showBounds') return setBoundsShown(input.checked);
             if (input.dataset.field === 'importFile') {
                 const file = input.files?.[0];
                 input.value = '';
@@ -440,23 +507,66 @@ export class GroupEditorWindow extends BlacksmithWindowBaseV2 {
         return run('Remove member', () => removeMember(canvas.scene, groupId, type, id));
     }
 
+    _setTab(id) {
+        if (!TABS.includes(id) || id === tab) return;
+        tab = id;
+        try { localStorage.setItem(TAB_KEY, id); } catch { /* a remembered tab is a convenience */ }
+        return this.render();
+    }
+
+    _syncAll() {
+        return run('Update all groups', async () => {
+            await syncAllGroups();
+            say('Groups brought up to date', 'Every group\'s parts now match its pin or token.');
+        });
+    }
+
+    _diagnose(groupId) {
+        return run('Diagnose group', async () => {
+            const report = diagnoseGroup(canvas.scene, groupId);
+            const late = report.members.filter((m) => m.state !== 'in place').length;
+            say('Diagnosis written to the console', late ? `${late} part${late === 1 ? ' is' : 's are'} out of place. Open the console (F12) to read it.` : 'Every part is in place. Open the console (F12) to read the report.');
+        });
+    }
+
     _deleteGroup(groupId) {
         return run('Delete group', async () => {
             const scene = canvas.scene;
             const group = listGroups(scene).find((g) => g.id === groupId);
             if (!group) return;
-            const confirmed = await getBlacksmith().dialog.confirm({
-                title: 'Delete Group',
-                content: `<p>Delete <strong>${esc(group.name)}</strong>? Its ${group.members.length} member(s) stay in the scene where they are; only the group and its pin are removed.</p>`,
-                confirmLabel: 'Delete Group',
-                confirmIcon: 'fa-solid fa-trash',
-                destructive: true
-            });
-            if (confirmed) {
-                await deleteGroup(scene, groupId);
-                // Do not wait for a hook to notice: the list on screen is stale the moment the record is gone.
-                this.render();
+            const { dialog } = getBlacksmith();
+            const parts = group.members.length;
+
+            let removeMembers = false;
+            if (parts === 0) {
+                const confirmed = await dialog.confirm({
+                    title: 'Delete Group',
+                    content: `<p>Delete <strong>${esc(group.name)}</strong>? It has no parts.</p>`,
+                    confirmLabel: 'Delete Group',
+                    confirmIcon: 'fa-solid fa-trash',
+                    destructive: true
+                });
+                if (!confirmed) return;
+            } else {
+                const { action, value } = await dialog.wait({
+                    title: 'Delete Group',
+                    content: `<p>Delete <strong>${esc(group.name)}</strong>? It holds ${parts} part${parts === 1 ? '' : 's'} (tiles, lights, walls, sounds, regions).</p>`,
+                    buttons: [
+                        { action: 'cancel', label: 'Cancel', icon: 'fa-solid fa-xmark', default: true },
+                        { action: 'group', label: 'Delete group only', icon: 'fa-solid fa-link-slash' },
+                        { action: 'all', label: `Delete group and ${parts} part${parts === 1 ? '' : 's'}`, icon: 'fa-solid fa-trash', destructive: true }
+                    ],
+                    closeValue: null
+                });
+                if (action !== dialog.ACTIONS.SUBMIT) return;
+                if (value !== 'group' && value !== 'all') return;
+                removeMembers = value === 'all';
             }
+
+            const { removed } = await deleteGroup(scene, groupId, { removeMembers });
+            say(removeMembers ? 'Group and parts deleted' : 'Group deleted', removeMembers ? `${removed} part${removed === 1 ? '' : 's'} removed from the scene.` : 'Its parts are still on the scene.');
+            // Do not wait for a hook to notice: the list on screen is stale the moment the record is gone.
+            this.render();
         });
     }
 }

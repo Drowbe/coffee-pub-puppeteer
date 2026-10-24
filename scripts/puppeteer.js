@@ -9,6 +9,7 @@ import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
 import { registerOverlay, toggleBounds, setBoundsShown } from './overlay.js';
 import { migrateGroups } from './migrate.js';
+import { registerTokenRemoval } from './token-removed.js';
 import { syncAllGroups } from './follower.js';
 import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate } from './library.js';
 
@@ -22,6 +23,7 @@ Hooks.once('ready', async () => {
     registerPruning();
     registerUi();
     registerOverlay();
+    registerTokenRemoval();
     try {
         await migrateGroups();
         // Anything that moved while no GM could write its parts catches up now.

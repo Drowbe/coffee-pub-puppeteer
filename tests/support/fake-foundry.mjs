@@ -95,6 +95,13 @@ export function installFakes({ dropOptions = false } = {}) {
             scene.tokens.set(id, doc);
             return doc;
         },
+        async deleteEmbeddedDocuments(type, ids) {
+            const docs = ids.map((id) => this.collections[type].get(id)).filter(Boolean);
+            for (const doc of docs) this.collections[type].delete(doc.id);
+            await Promise.resolve();
+            for (const doc of docs) fire(`delete${type}`, doc, {}, 'u1');
+            return docs;
+        },
         async createEmbeddedDocuments(type, datas) {
             const docs = datas.map((data) => this.add(type, Math.random().toString(36).slice(2, 18).padEnd(16, 'x'), data));
             await Promise.resolve();
@@ -129,7 +136,7 @@ export function installFakes({ dropOptions = false } = {}) {
         }
     };
     globalThis.game = {
-        user: { id: 'u1' },
+        user: { id: 'u1', isGM: true },
         scenes: [scene],
         settings: { register() {} },
         users: { activeGM: { isSelf: true } },

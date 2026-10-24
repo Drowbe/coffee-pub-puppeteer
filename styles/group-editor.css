@@ -1,9 +1,97 @@
-/* The Group Editor. Colours come from Blacksmith's window styling; this file only lays things out. */
+/*
+ * The Group Editor is a Blacksmith tool window, so it takes every colour from the tool window's own variables
+ * (--blacksmith-tool-*). That is what lets it follow Light, Dark and Glass with no theme rules of its own.
+ * This file only lays things out.
+ */
+
+/* ---- tabs ------------------------------------------------------------------------------------------- */
+.puppeteer-group-editor .puppeteer-tabs {
+    display: flex;
+    gap: 2px;
+}
+
+.puppeteer-group-editor .puppeteer-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0;
+    background: transparent;
+    color: var(--blacksmith-tool-text-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.puppeteer-group-editor .puppeteer-tab:hover {
+    background: var(--blacksmith-tool-surface-hover);
+    color: var(--blacksmith-tool-text);
+}
+
+.puppeteer-group-editor .puppeteer-tab.is-active {
+    background: var(--blacksmith-tool-surface-selected);
+    border-bottom-color: var(--blacksmith-tool-accent);
+    color: var(--blacksmith-tool-accent);
+}
+
+.puppeteer-group-editor .puppeteer-tab-count {
+    min-width: 1.4em;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--blacksmith-tool-surface-sunken);
+    color: var(--blacksmith-tool-text-muted);
+    font-size: 0.85em;
+    text-align: center;
+}
+
+/* ---- buttons ---------------------------------------------------------------------------------------- */
+.puppeteer-group-editor .puppeteer-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--blacksmith-tool-divider);
+    border-radius: 4px;
+    background: var(--blacksmith-tool-surface-raised);
+    color: var(--blacksmith-tool-text);
+    font: inherit;
+    line-height: 1.3;
+    cursor: pointer;
+}
+
+.puppeteer-group-editor .puppeteer-btn:hover {
+    background: var(--blacksmith-tool-surface-hover);
+    border-color: var(--blacksmith-tool-accent);
+}
+
+.puppeteer-group-editor .puppeteer-btn-primary {
+    border-color: var(--blacksmith-tool-accent);
+    color: var(--blacksmith-tool-accent);
+    font-weight: bold;
+}
+
+.puppeteer-group-editor .puppeteer-btn-critical:hover {
+    border-color: rgb(200, 70, 60);
+    color: rgb(200, 70, 60);
+}
+
+/* ---- layout: the body fills the window, a group fills the body, an open member list fills the group ---- */
+.puppeteer-group-editor .blacksmith-window-tool-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .puppeteer-group-editor .puppeteer-group {
-    margin: 0 0 12px;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: min-content;
     padding: 10px;
-    border: 1px solid rgba(128, 128, 128, 0.35);
+    border: 1px solid var(--blacksmith-tool-divider);
     border-radius: 6px;
+    background: var(--blacksmith-tool-surface-sunken);
 }
 
 .puppeteer-group-editor .puppeteer-group-head {
@@ -19,7 +107,7 @@
 }
 
 .puppeteer-group-editor .puppeteer-group-count {
-    opacity: 0.75;
+    color: var(--blacksmith-tool-text-muted);
     white-space: nowrap;
 }
 
@@ -42,63 +130,8 @@
     width: 4.5em;
 }
 
-.puppeteer-group-editor .puppeteer-group-members ul {
-    list-style: none;
-    margin: 6px 0 0;
-    padding: 0;
-}
-
-.puppeteer-group-editor .puppeteer-member {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 2px 4px;
-}
-
-.puppeteer-group-editor .puppeteer-member span {
-    flex: 1;
-}
-
-.puppeteer-group-editor .puppeteer-member-missing {
-    opacity: 0.55;
-}
-
-.puppeteer-group-editor .puppeteer-member-remove {
-    flex: 0 0 auto;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    line-height: 1;
-}
-
-.puppeteer-group-editor .puppeteer-empty,
-.puppeteer-group-editor .puppeteer-member-none {
-    opacity: 0.8;
-    padding: 8px;
-}
-
-.puppeteer-group-editor .puppeteer-warning {
-    margin: 0 0 8px;
-    padding: 6px 8px;
-    border: 1px solid rgba(200, 120, 0, 0.6);
-    border-radius: 4px;
-}
-
 .puppeteer-group-editor .puppeteer-chip {
     white-space: nowrap;
-}
-
-/* The group fills the window, and an open member list takes the space that is left. */
-.puppeteer-group-editor .blacksmith-window-template-body {
-    display: flex;
-    flex-direction: column;
-}
-
-.puppeteer-group-editor .puppeteer-group {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: min-content;
 }
 
 .puppeteer-group-editor .puppeteer-group-members[open] {
@@ -108,10 +141,23 @@
     min-height: 8em;
 }
 
+.puppeteer-group-editor .puppeteer-group-members ul {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+}
+
 .puppeteer-group-editor .puppeteer-group-members[open] ul {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+}
+
+.puppeteer-group-editor .puppeteer-member {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 4px;
 }
 
 .puppeteer-group-editor .puppeteer-member-name {
@@ -121,40 +167,65 @@
 
 .puppeteer-group-editor .puppeteer-member-gone {
     flex: 0 0 auto;
-    opacity: 0.8;
+    color: var(--blacksmith-tool-text-muted);
 }
 
-.puppeteer-group-editor .puppeteer-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: 12px;
-    white-space: nowrap;
+.puppeteer-group-editor .puppeteer-member-missing {
+    opacity: 0.6;
 }
 
-.puppeteer-group-editor .puppeteer-library {
-    margin: 12px 0 0;
+.puppeteer-group-editor .puppeteer-member-remove {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    line-height: 1;
+    border: 1px solid var(--blacksmith-tool-divider);
+    border-radius: 4px;
+    background: var(--blacksmith-tool-surface-raised);
+    color: var(--blacksmith-tool-text);
+    cursor: pointer;
+}
+
+.puppeteer-group-editor .puppeteer-member-remove:hover {
+    border-color: rgb(200, 70, 60);
+}
+
+.puppeteer-group-editor .puppeteer-warning {
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    border: 1px solid rgba(200, 120, 0, 0.7);
+    border-radius: 4px;
+}
+
+.puppeteer-group-editor .puppeteer-empty,
+.puppeteer-group-editor .puppeteer-member-none {
+    color: var(--blacksmith-tool-text-muted);
+    padding: 8px;
+}
+
+/* ---- library and tools ------------------------------------------------------------------------------ */
+.puppeteer-group-editor .puppeteer-panel {
     padding: 10px;
-    border: 1px solid rgba(128, 128, 128, 0.35);
+    border: 1px solid var(--blacksmith-tool-divider);
     border-radius: 6px;
+    background: var(--blacksmith-tool-surface-sunken);
 }
 
-.puppeteer-group-editor .puppeteer-library-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.puppeteer-group-editor .puppeteer-library-head h3 {
-    flex: 1;
-    margin: 0;
+.puppeteer-group-editor .puppeteer-panel h3 {
+    margin: 0 0 4px;
     padding: 0;
     border: 0;
     font-size: 1.05rem;
     line-height: 1.2;
 }
 
-.puppeteer-group-editor .puppeteer-library ul {
+.puppeteer-group-editor .puppeteer-panel p {
+    margin: 0 0 8px;
+    color: var(--blacksmith-tool-text-muted);
+}
+
+.puppeteer-group-editor .puppeteer-panel ul {
     list-style: none;
     margin: 8px 0 0;
     padding: 0;
@@ -173,6 +244,6 @@
 }
 
 .puppeteer-group-editor .puppeteer-template-count {
-    opacity: 0.7;
+    color: var(--blacksmith-tool-text-muted);
     margin-left: 6px;
 }
