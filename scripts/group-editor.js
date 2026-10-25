@@ -68,7 +68,7 @@ function say(title, subtitle) {
 
 // Which tab is showing. Remembered for the session and across reloads, per user.
 const TAB_KEY = `${MODULE_ID}.editorTab`;
-const TABS = ['groups', 'library', 'tools'];
+const TABS = ['library', 'groups', 'tools'];
 let tab = (() => {
     try { return localStorage.getItem(TAB_KEY); } catch { return null; }
 })();
@@ -234,7 +234,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             <button type="button" class="puppeteer-tab${tab === id ? ' is-active' : ''}" data-action="setTab" data-tab="${id}">
                 <i class="${icon}"></i> ${label}${count === null ? '' : ` <span class="puppeteer-tab-count">${count}</span>`}
             </button>`;
-        return `<nav class="puppeteer-tabs">${button('groups', 'fa-solid fa-up-down-left-right', 'Scene Groups', groupCount)}${button('library', 'fa-solid fa-boxes-stacked', 'Library', libraryCount)}${button('tools', 'fa-solid fa-screwdriver-wrench', 'Tools', null)}</nav>`;
+        return `<nav class="puppeteer-tabs">${button('library', 'fa-solid fa-boxes-stacked', 'Library', libraryCount)}${button('groups', 'fa-solid fa-up-down-left-right', 'Scene Groups', groupCount)}${button('tools', 'fa-solid fa-screwdriver-wrench', 'Tools', null)}</nav>`;
     }
 
     _groupsHtml(scene, groups) {

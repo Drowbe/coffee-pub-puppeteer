@@ -12,6 +12,29 @@
 
 ---
 
+**Stack rank (proposed)**
+
+Effort is for building and testing under Node, not for checking in Foundry. **S** is about an hour, **M** is a few hours, **L** is a day or more or needs design or something from Blacksmith first. Numbers are the items below.
+
+| Rank | Todo | Effort | Why here |
+|---|---|---|---|
+| 1 | Check everything in Foundry (1 to 7) | M, yours | Everything below sits on it. The body, riders, behaviour and Move Pivot have only been simulated, and a bug found now is cheaper than one found under a feature. |
+| 2 | Commit (11) | S | A large amount is uncommitted. Best done after rank 1, so fixes land in the right commit. |
+| 3 | Library: edit and update entries (22) | M | An entry cannot be renamed or replaced today, so every fix means a new entry. The other library items build on it. |
+| 4 | Library: description, thumbnail, rename Stamp (21) | M | Description and the rename are S; the thumbnail is the M. Cheap, visible, and makes the library usable. |
+| 5 | Editor: clean up layout, expand and collapse the group (20) | M | The editor now carries body, riders, behaviour and members on every card, and it is the main surface. Do before adding more to it. |
+| 6 | Hide and show a group and its members (17) | M | High value for set pieces (a bridge that is up or down). Different document types hide differently, so it needs a per-type rule. |
+| 7 | Pin context menu actions (19) | M | Mostly wiring once 17 exists, and a sound submenu needs 12. Do hide, show and lights first. |
+| 8 | Face the direction of travel (14) | S | One option in Behaviour, with the pin's drag direction as input. Small, and it makes carts and boats feel right. |
+| 9 | Public API: what else to expose (12) | M | Needs a short design pass (what would an animated scene want?) before code. Cheap to start with a read-only speed and heading. |
+| 10 | Group events, such as mount then play a sound (13) | L | Wants 12 first, plus a list of event names and a set of actions. The most open-ended item. |
+| 11 | Resize a group, proportionally (18) | L | Every member type scales differently (tiles, drawings, walls, regions, light radius, sound radius, riders and the body). Easy to get subtly wrong. |
+| 12 | Damage levels (16) | L | Wants 13 (a trigger) and a group that can swap its images. Best as a use of events, not its own system. |
+| 13 | Smoother movement for lights, walls, sounds, regions, the body (15) | L | Foundry recalculates sight from their saved positions, so only small stepped writes are possible. Low value for the cost. |
+| 14 | Wait on Blacksmith (8, 9) and decide on a deleted pin (10) | S | Not ours to start; 10 is a decision, not work. |
+
+---
+
 **Everything on the roadmap is built and simulated under Node. These are the checks that need Foundry.**
 
 1. Move Pivot: turn it on, drag the pin to the prow or hinge, check nothing moves and the mode switches itself off;
@@ -55,4 +78,9 @@
 18. Resize a group, proportionally.
 19. Pin context menu: actions that apply to the group, such as hide or show, lights on or off, and a sound submenu.
 20. Group Editor: clean up the layout; make the group's own card expand and collapse rather than the items in it.
-21. Library: add a description to each entry, and rename Stamp to something that says fabricate or build.
+21. Library: add a description and a thumbnail to each entry, and rename Stamp to something that says fabricate or
+    build. The thumbnail could be a snapshot of the group taken when it is saved, or an image the GM picks.
+22. Library: edit and update entries. Today Save to Library always adds a new entry; an entry cannot be renamed,
+    replaced or edited, only deleted, or exported to JSON and imported again as a new entry. Wanted: rename, edit the
+    description and thumbnail, and Update from a group on the scene (replacing the entry's parts, with a warning that
+    copies already placed are not changed).
