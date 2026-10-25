@@ -1,90 +1,42 @@
 /*
- * The Group Editor is a Blacksmith tool window, so it takes every colour from the tool window's own variables
- * (--blacksmith-tool-*). That is what lets it follow Light, Dark and Glass with no theme rules of its own.
- * This file only lays things out.
+ * The Group Editor is a Blacksmith tool window, so the frame, the themes, the fields, the tabs (blacksmith-tabs), the list
+ * rows (blacksmith-list), the toggle switches (blacksmith-toggle) and the badges (blacksmith-badge) all come from
+ * Blacksmith, and buttons are plain Foundry buttons. This file only lays Puppeteer's own pieces out, and every colour in
+ * it is a --blacksmith-tool-* variable, so it follows Light, Dark and Glass with no theme rules of its own.
+ *
+ * What Blacksmith does not offer yet, and is written here until it does: a tool-themed section (a rule and a caption,
+ * the way Blacksmith's own rest window groups its form) and a card with a collapsed line.
  */
 
-/* ---- tabs ------------------------------------------------------------------------------------------- */
-.puppeteer-group-editor .puppeteer-tabs {
-    display: flex;
-    gap: 2px;
-}
-
-.puppeteer-group-editor .puppeteer-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    border-radius: 4px 4px 0 0;
-    background: transparent;
-    color: var(--blacksmith-tool-text-muted);
-    font: inherit;
-    cursor: pointer;
-}
-
-.puppeteer-group-editor .puppeteer-tab:hover {
-    background: var(--blacksmith-tool-surface-hover);
-    color: var(--blacksmith-tool-text);
-}
-
-.puppeteer-group-editor .puppeteer-tab.is-active {
-    background: var(--blacksmith-tool-surface-selected);
-    border-bottom-color: var(--blacksmith-tool-accent);
-    color: var(--blacksmith-tool-accent);
-}
-
-.puppeteer-group-editor .puppeteer-tab-count {
-    min-width: 1.4em;
-    padding: 0 5px;
-    border-radius: 9px;
-    background: var(--blacksmith-tool-surface-sunken);
-    color: var(--blacksmith-tool-text-muted);
-    font-size: 0.85em;
-    text-align: center;
-}
-
-/* ---- buttons ---------------------------------------------------------------------------------------- */
-.puppeteer-group-editor .puppeteer-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border: 1px solid var(--blacksmith-tool-divider);
-    border-radius: 4px;
-    background: var(--blacksmith-tool-surface-raised);
-    color: var(--blacksmith-tool-text);
-    font: inherit;
-    line-height: 1.3;
-    cursor: pointer;
-}
-
-.puppeteer-group-editor .puppeteer-btn:hover {
-    background: var(--blacksmith-tool-surface-hover);
-    border-color: var(--blacksmith-tool-accent);
-}
-
-.puppeteer-group-editor .puppeteer-btn-primary {
-    border-color: var(--blacksmith-tool-accent);
-    color: var(--blacksmith-tool-accent);
-    font-weight: bold;
-}
-
-.puppeteer-group-editor .puppeteer-btn-critical:hover {
-    border-color: rgb(200, 70, 60);
-    color: rgb(200, 70, 60);
-}
-
-/* ---- layout: the body is a stack of group cards; a card is one line until it is opened ---------------------- */
+/* ---- the body ---------------------------------------------------------------------------------------- */
+/* The tool body ships no padding. 8px lines the content up with the shell's own footer, as Blacksmith's other tool
+   windows do. */
 .puppeteer-group-editor .blacksmith-window-tool-body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    padding: 8px;
 }
 
-.puppeteer-group-editor .puppeteer-group,
-.puppeteer-group-editor .puppeteer-template-card {
+.puppeteer-group-editor .puppeteer-empty,
+.puppeteer-group-editor .puppeteer-note {
+    margin: 0;
+    color: var(--blacksmith-tool-text-muted);
+}
+
+.puppeteer-group-editor .puppeteer-empty {
+    padding: 8px;
+}
+
+.puppeteer-group-editor .puppeteer-warning {
+    margin: 8px 0 0;
+    padding: 6px 8px;
+    border: 1px solid rgba(200, 120, 0, 0.7);
+    border-radius: 4px;
+}
+
+/* ---- a group card: one line when closed ---------------------------------------------------------------- */
+.puppeteer-group-editor .puppeteer-group {
     display: flex;
     flex-direction: column;
     flex: 0 0 auto;
@@ -94,237 +46,6 @@
     background: var(--blacksmith-tool-surface-sunken);
 }
 
-.puppeteer-group-editor .puppeteer-group-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.puppeteer-group-editor .puppeteer-group-name {
-    flex: 1;
-    font-weight: bold;
-}
-
-.puppeteer-group-editor .puppeteer-group-count {
-    color: var(--blacksmith-tool-text-muted);
-    white-space: nowrap;
-}
-
-.puppeteer-group-editor .puppeteer-group-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 6px;
-}
-
-.puppeteer-group-editor .puppeteer-heading {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-right: 6px;
-}
-
-.puppeteer-group-editor .puppeteer-heading input {
-    width: 4.5em;
-}
-
-.puppeteer-group-editor .puppeteer-chip {
-    white-space: nowrap;
-}
-
-.puppeteer-group-editor .puppeteer-group-members[open] {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 8em;
-}
-
-.puppeteer-group-editor .puppeteer-group-members ul {
-    list-style: none;
-    margin: 6px 0 0;
-    padding: 0;
-}
-
-.puppeteer-group-editor .puppeteer-group-members[open] ul {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-}
-
-.puppeteer-group-editor .puppeteer-member {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 2px 4px;
-}
-
-.puppeteer-group-editor .puppeteer-member-name {
-    flex: 1;
-    min-width: 0;
-}
-
-.puppeteer-group-editor .puppeteer-member-gone {
-    flex: 0 0 auto;
-    color: var(--blacksmith-tool-text-muted);
-}
-
-.puppeteer-group-editor .puppeteer-member-missing {
-    opacity: 0.6;
-}
-
-.puppeteer-group-editor .puppeteer-member-remove {
-    flex: 0 0 auto;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    line-height: 1;
-    border: 1px solid var(--blacksmith-tool-divider);
-    border-radius: 4px;
-    background: var(--blacksmith-tool-surface-raised);
-    color: var(--blacksmith-tool-text);
-    cursor: pointer;
-}
-
-.puppeteer-group-editor .puppeteer-member-remove:hover {
-    border-color: rgb(200, 70, 60);
-}
-
-.puppeteer-group-editor .puppeteer-warning {
-    margin: 0 0 8px;
-    padding: 6px 8px;
-    border: 1px solid rgba(200, 120, 0, 0.7);
-    border-radius: 4px;
-}
-
-.puppeteer-group-editor .puppeteer-empty,
-.puppeteer-group-editor .puppeteer-member-none {
-    color: var(--blacksmith-tool-text-muted);
-    padding: 8px;
-}
-
-/* ---- the body: what makes a group a target ---------------------------------------------------------- */
-.puppeteer-group-editor .puppeteer-body {
-    padding: 6px 8px;
-    border: 1px dashed var(--blacksmith-tool-divider);
-    border-radius: 4px;
-}
-
-.puppeteer-group-editor .puppeteer-body.is-over {
-    border-style: solid;
-    border-color: var(--blacksmith-tool-text-muted);
-}
-
-.puppeteer-group-editor .puppeteer-body-text {
-    flex: 1;
-    min-width: 12em;
-}
-
-.puppeteer-group-editor .puppeteer-body-linked {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-/* ---- library and tools ------------------------------------------------------------------------------ */
-.puppeteer-group-editor .puppeteer-panel {
-    padding: 10px;
-    border: 1px solid var(--blacksmith-tool-divider);
-    border-radius: 6px;
-    background: var(--blacksmith-tool-surface-sunken);
-}
-
-.puppeteer-group-editor .puppeteer-panel h3 {
-    margin: 0 0 4px;
-    padding: 0;
-    border: 0;
-    font-size: 1.05rem;
-    line-height: 1.2;
-}
-
-.puppeteer-group-editor .puppeteer-panel p {
-    margin: 0 0 8px;
-    color: var(--blacksmith-tool-text-muted);
-}
-
-.puppeteer-group-editor .puppeteer-panel ul {
-    list-style: none;
-    margin: 8px 0 0;
-    padding: 0;
-}
-
-.puppeteer-group-editor .puppeteer-template {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 3px 0;
-}
-
-.puppeteer-group-editor .puppeteer-template-name {
-    flex: 1;
-    min-width: 0;
-}
-
-.puppeteer-group-editor .puppeteer-template-count {
-    color: var(--blacksmith-tool-text-muted);
-    margin-left: 6px;
-}
-
-/* The id of a member stays in view next to its name: renaming a member never changes it. */
-.puppeteer-group-editor .puppeteer-member-id {
-    flex: 0 0 auto;
-    padding: 0 4px;
-    border: 0;
-    background: transparent;
-    color: var(--blacksmith-tool-text-muted);
-    font-family: monospace;
-    font-size: 0.8em;
-    cursor: copy;
-}
-
-.puppeteer-group-editor .puppeteer-member-id:hover {
-    color: var(--blacksmith-tool-accent);
-}
-
-/* The icon of a member is a button: click to select it on the canvas, Shift-click to add to the selection. */
-.puppeteer-group-editor .puppeteer-member-select {
-    flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--blacksmith-tool-text);
-    cursor: pointer;
-}
-
-.puppeteer-group-editor .puppeteer-member-select:hover:not(:disabled) {
-    border-color: var(--blacksmith-tool-accent);
-    background: var(--blacksmith-tool-surface-hover);
-    color: var(--blacksmith-tool-accent);
-}
-
-.puppeteer-group-editor .puppeteer-member-select:disabled {
-    cursor: default;
-    opacity: 0.5;
-}
-
-.puppeteer-group-editor .puppeteer-riders {
-    list-style: none;
-    margin: 0 0 6px;
-    padding: 0 0 0 8px;
-}
-
-.puppeteer-group-editor .puppeteer-rider {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 4px;
-}
-
-/* ---- cards ------------------------------------------------------------------------------------------------ */
 .puppeteer-group-editor .puppeteer-card-head {
     display: flex;
     flex-wrap: wrap;
@@ -332,14 +53,10 @@
     gap: 6px 8px;
 }
 
-.puppeteer-group-editor .puppeteer-card-head .puppeteer-group-name {
+.puppeteer-group-editor .puppeteer-card-head .puppeteer-name {
     flex: 1 1 10em;
     min-width: 8em;
-}
-
-.puppeteer-group-editor .puppeteer-card-meta {
-    color: var(--blacksmith-tool-text-muted);
-    white-space: nowrap;
+    font-weight: bold;
 }
 
 .puppeteer-group-editor .puppeteer-card-actions {
@@ -351,72 +68,130 @@
 
 .puppeteer-group-editor .puppeteer-card-toggle {
     flex: 0 0 auto;
+    min-width: 0;
     width: 24px;
     height: 24px;
     padding: 0;
-    border: 0;
-    border-radius: 4px;
+    border-color: transparent;
     background: transparent;
+    /* A plain button's text is light, which vanishes on the Light theme once its own fill is gone. */
     color: var(--blacksmith-tool-text);
-    cursor: pointer;
 }
 
-.puppeteer-group-editor .puppeteer-card-toggle:hover {
-    background: var(--blacksmith-tool-surface-hover);
-    color: var(--blacksmith-tool-accent);
-}
-
-.puppeteer-group-editor .puppeteer-badge {
-    color: var(--blacksmith-tool-text-muted);
-    white-space: nowrap;
-}
-
-.puppeteer-group-editor .puppeteer-group.is-hidden .puppeteer-group-name {
+.puppeteer-group-editor .puppeteer-group.is-hidden .puppeteer-name {
     opacity: 0.6;
     font-style: italic;
 }
 
+/* A button that is switched on: Move Pivot, and a group that is hidden. Brand orange, as the shell uses for state. */
+.puppeteer-group-editor button.is-active {
+    border-color: var(--blacksmith-color-brand-accent, #c15701);
+    color: var(--blacksmith-color-brand-accent, #c15701);
+}
+
+/* ---- an open card: a section for each thing a group has ---------------------------------------------- */
 .puppeteer-group-editor .puppeteer-card-body {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     margin-top: 8px;
 }
 
-.puppeteer-group-editor .puppeteer-subpanel {
-    padding: 8px;
-    border: 1px solid var(--blacksmith-tool-divider);
-    border-radius: 4px;
-    background: var(--blacksmith-tool-surface-raised);
+/* A rule and a caption rather than a box: the card is already a surface, and boxing inside it stacks two frames. */
+.puppeteer-group-editor .puppeteer-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--blacksmith-tool-divider);
 }
 
-.puppeteer-group-editor .puppeteer-subpanel h4 {
-    margin: 0 0 6px;
+.puppeteer-group-editor .puppeteer-section h4 {
+    margin: 0;
     padding: 0;
     border: 0;
-    color: var(--blacksmith-tool-text-muted);
-    font-size: 0.9rem;
-    font-weight: bold;
-    letter-spacing: 0.02em;
+    color: var(--blacksmith-tool-accent);
+    font-size: 0.8em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 
-.puppeteer-group-editor .puppeteer-members {
-    list-style: none;
-    margin: 6px 0 0;
-    padding: 0;
-    max-height: 18em;
-    overflow-y: auto;
-}
-
-.puppeteer-group-editor .puppeteer-template-list {
+.puppeteer-group-editor .puppeteer-inline {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 
-.puppeteer-group-editor .puppeteer-template-description {
+.puppeteer-group-editor .puppeteer-grow {
+    flex: 1 1 8em;
+    min-width: 0;
+}
+
+.puppeteer-group-editor .puppeteer-field,
+.puppeteer-group-editor .puppeteer-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.puppeteer-group-editor .puppeteer-heading input {
+    width: 4.5em;
+}
+
+.puppeteer-group-editor .puppeteer-drop {
+    padding: 6px 8px;
+    border: 1px dashed var(--blacksmith-tool-divider);
+    border-radius: 4px;
+}
+
+.puppeteer-group-editor .puppeteer-drop.is-over {
+    border-style: solid;
+    border-color: var(--blacksmith-tool-text-muted);
+}
+
+/* ---- rows ------------------------------------------------------------------------------------------ */
+.puppeteer-group-editor .blacksmith-list-row-main .puppeteer-name,
+.puppeteer-group-editor .puppeteer-description {
     width: 100%;
-    margin: 6px 0;
+}
+
+.puppeteer-group-editor .puppeteer-description {
+    margin: 4px 0;
     resize: vertical;
+}
+
+.puppeteer-group-editor .puppeteer-template .puppeteer-inline {
+    margin-top: 4px;
+}
+
+.puppeteer-group-editor .blacksmith-list-row-action {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.puppeteer-group-editor .puppeteer-missing {
+    opacity: 0.6;
+}
+
+/* The id of a part stays in view next to its name: renaming a part never changes it. */
+.puppeteer-group-editor .puppeteer-id {
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--blacksmith-tool-text-muted);
+    font-family: monospace;
+    font-size: 0.85em;
+    line-height: 1.2;
+    cursor: copy;
+}
+
+.puppeteer-group-editor .puppeteer-id:hover {
+    color: var(--blacksmith-tool-accent);
 }

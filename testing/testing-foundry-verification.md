@@ -10,6 +10,8 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 ## Group cards, hiding and the library editor
 
+- [ ] With the Blacksmith that has tool-themed toggles and badges (in its working tree, not yet released), the toggle labels, the off sliders and the badges are readable on the Light theme, and still right on Dark and Glass.
+- [ ] The editor looks right in the Light, Dark and Glass themes: the tabs, the list rows, the toggle switches and the badges are Blacksmith's own, there is 8px of padding round the body, and nothing is a stray dark panel on the Light theme.
 - [ ] A closed card shows name, parts, heading, Go To Pin, Hide and delete on one line at the default window width, and again at a narrow one. Opening and closing a card works, and an open card stays open while you drag a pin.
 - [ ] The editor's scroll position does not jump when a group moves while you are scrolled down.
 - [ ] Hide hides a tile, a light, a sound and a region, leaves a wall and a note, and Show restores them. A part hidden before the group was hidden stays hidden. The eye on a part works.

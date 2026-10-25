@@ -65,12 +65,22 @@ A group with states, such as a cart whose image becomes a broken cart at a damag
 
 They still jump. Possibly paths and speed as well. Touches `scripts/tween.js`. Verify in Foundry that sight and sound stay correct while a group moves.
 
+**Owed to the hub**
+
+Requests for Blacksmith, to hand to the hub's own TODO. Each empties once the hub has taken it.
+
+- A tool-window section component. Put to the author by the Blacksmith session, not yet accepted; so are the collapsible card and the button state below. `.blacksmith-window-section` belongs to the standard window and paints a black panel that is wrong on the Light tool theme, and `.blacksmith-panel-card` carries literal dark colours. Blacksmith's own rest window and the Group Editor each wrote a rule-and-caption grouping from `--blacksmith-tool-*` instead. Wanted: one shared section (caption, optional right-hand action, optional rule) built on the tool tokens.
+- A collapsible card for tool windows: a one-line header that opens into a body, with the header laid out for a name, badges and a few actions. The Group Editor wrote its own.
+- A state for plain buttons in tool windows. A switched-on button (Move Pivot while armed, a hidden group's Show) uses brand orange through a class the Group Editor wrote; a shared `is-active` for tool buttons would replace it.
+- A segmented control. Blacksmith's rest window noted that none exists; the toggle switch is a different question.
+- Regions in `canvas.pickArea`'s types, so Capture Area can pick them (already requested).
+
 **Decisions and waiting on others**
 
 - Levels: should a group follow its pin between levels, or stay put? Tiles, drawings, lights, sounds, walls and notes carry a set of levels and a token has one. Decide, then touch `scripts/follower.js`.
 - Snapping: a snapped pin with unsnapped member offsets must be allowed. Decide whether anything needs to change.
 - A group whose pin was deleted is flagged in the editor and nothing removes it. Decide on automatic removal; touches `scripts/prune.js`.
-- Raise the Blacksmith minimum in `module.json` when the release with area pick and pin rotation ships. Not before.
+- Raise the Blacksmith minimum in `module.json` when the release with area pick, pin rotation and tool-themed toggles and badges ships. Not before.
 - Regions in Capture Area once Blacksmith's area pick lists them (requested). Touches `scripts/groups.js`.
 - Screenshots for the README and `home.md`, taken in a scratch world so no player or character names appear, saved as WebP under `documentation/assets/`.
 - Delete `documentation/plans/plan-puppeteer-groups.md`. It is absorbed and marked complete.

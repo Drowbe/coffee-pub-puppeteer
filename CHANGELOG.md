@@ -10,6 +10,9 @@ Each entry names its verification. "Simulated" means `node --test tests/*.test.m
 
 ## [14.0.0]
 
+### Changed
+- **The Group Editor uses Blacksmith's own components.** Its tabs, list rows, toggle switches and badges are Blacksmith's (`blacksmith-tabs`, `blacksmith-list`, `blacksmith-toggle`, `blacksmith-badge`) and its buttons are plain Foundry buttons, so it follows the Light, Dark and Glass themes without rules of its own, and the stylesheet is a fraction of its former size. The body now has the 8px of padding the tool shell leaves to each window. Files: `scripts/group-editor.js`, `styles/group-editor.css`. Verified: simulated; the look is not yet seen in Foundry.
+
 ### Added
 - **Group cards.** Each group in the Group Editor is a card that is one line when closed (name, parts, heading, Go To Pin, Hide or Show, delete) and opens as a unit into panels for Parts, Pivot and heading, Body, Riders and Behaviour. The list of parts is always shown when a card is open, and open cards stay open across redraws. A group made in the editor opens. Files: `scripts/group-editor.js`, `styles/group-editor.css`. Verified: simulated; the layout itself is not yet seen in Foundry.
 - **Hide and show a group.** Hide hides a group's tiles, drawings, lights, sounds, regions and body token, and Show brings back what it hid, leaving anything that was already hidden hidden. Each part has its own eye. Walls and notes have no hidden state in Foundry and riders are never hidden. From a macro: `setHidden` and `setMemberHidden`. Files: `scripts/groups.js`, `scripts/group-editor.js`, `scripts/puppeteer.js`. Verified: simulated (`tests/hide.test.mjs`).

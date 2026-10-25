@@ -15,6 +15,7 @@ Foundry v14 only (`minimum`, `verified` and `maximum` are all 14). The module ve
 ## Rules that hold in this repository
 
 - **Blacksmith is used directly and never wrapped.** No fallback path. No native `Hooks.on` (use `HookManager.registerHook`), `game.socket`, `ui.notifications`, `AudioHelper`, raw `ChatMessage.create` or hand-built `Dialog`. The one native hook is `Hooks.once('ready')`. `node tools/check-blacksmith-only.mjs` enforces it. Read the relevant Blacksmith API document before using a surface.
+- **Use Blacksmith's components in windows, and ask for what is missing.** Tabs, list rows, toggle switches and badges are Blacksmith's shared classes (see `coffee-pub-blacksmith/documentation/designsystem/design-components.md`); do not rebuild them. Where one does not exist, write the least that is needed from the `--blacksmith-tool-*` variables and add a request to "Owed to the hub" in `documentation/TODO.md`.
 - **No debug system of our own.** Log with `utils.postConsoleAndNotification(MODULE_NAME, message, result, blnDebug, blnNotification)`.
 - **The author commits.** Stage reviewable changes and say how to test them; do not commit, push, tag or bump the version. **Never change the Blacksmith minimum in `module.json` unless told to.** Do not add commit or check-in items to the TODO.
 - **Foundry writes onto the options it is given.** Build a fresh options object for every update; never share or freeze one.
