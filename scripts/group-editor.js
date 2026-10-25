@@ -2,12 +2,13 @@
 // Loaded on demand by the window registry (see ui.js), so a Blacksmith failure cannot stop the module's
 // scripts from loading.
 import { BlacksmithToolWindowBaseV2 } from '/modules/coffee-pub-blacksmith/api/blacksmith-api.js';
-import { MODULE_ID, MODULE_NAME } from './constants.js';
+import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
-    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot
+    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour
 } from './groups.js';
+import { easeOf } from './tween.js';
 import { bodyToken } from './body.js';
 import { boundsShown, toggleBounds } from './overlay.js';
 import { syncAllGroups } from './follower.js';
@@ -62,7 +63,7 @@ async function run(label, action) {
 }
 
 function say(title, subtitle) {
-    getBlacksmith().toast.show({ title, subtitle, icon: 'fa-solid fa-up-down-left-right', duration: 4 });
+    getBlacksmith().toast.show({ title, subtitle, icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 4 });
 }
 
 // Which tab is showing. Remembered for the session and across reloads, per user.
@@ -168,7 +169,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     async _onRender(context, options) {
         await super._onRender?.(context, options);
         // Text and number fields commit on change, not on click, so they are wired here.
-        for (const input of this.element.querySelectorAll('input[data-field]')) {
+        for (const input of this.element.querySelectorAll('input[data-field], select[data-field]')) {
             input.addEventListener('change', () => this._commitField(input));
         }
         // An actor dragged from the sidebar onto a group's body row becomes the group's body.
@@ -291,7 +292,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const id = esc(group.id);
         const step = (degrees, icon) => `
             <button type="button" class="puppeteer-btn puppeteer-step" data-action="rotate"
-                data-group-id="${id}" data-degrees="${degrees}"
+                data-group-id="${id}" data-degrees="${degrees}"${group.rotates === false ? ' disabled' : ''}
                 data-tooltip="Rotate ${Math.abs(degrees)}° ${degrees < 0 ? 'counter-clockwise' : 'clockwise'}">
                 <i class="${icon}"></i> ${Math.abs(degrees)}
             </button>`;
@@ -333,10 +334,10 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             ? `<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>`
             : '';
         const pivotWarning = group.movePivot
-            ? `<div class="puppeteer-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Dragging or turning the pin now moves only the grip; nothing else moves. Choose Move Pivot again, then drag, to move the group.</div>`
+            ? `<div class="puppeteer-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Drag the pin to where the grip should be: it moves only the pin, nothing else moves, and this switches itself off when you drop it. Choose Move Pivot again to cancel.</div>`
             : '';
         const heading = anchorState(scene, group)?.heading ?? group.heading;
-        const bodyRow = this._bodyHtml(scene, group) + this._ridersHtml(scene, group);
+        const bodyRow = this._bodyHtml(scene, group) + this._ridersHtml(scene, group) + this._behaviourHtml(group);
 
         return `
         <section class="puppeteer-group" data-group-id="${id}">
@@ -348,7 +349,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             ${chips ? `<div class="puppeteer-group-row puppeteer-group-types">${chips}</div>` : ''}
             <div class="puppeteer-group-row">
                 <label class="puppeteer-heading">Heading
-                    <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1">°
+                    <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1"${group.rotates === false ? ' disabled' : ''}>°
                 </label>
                 ${step(-90, 'fa-solid fa-rotate-left')}${step(-15, 'fa-solid fa-rotate-left')}${step(15, 'fa-solid fa-rotate-right')}${step(90, 'fa-solid fa-rotate-right')}
             </div>
@@ -358,7 +359,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
                 ${button('panTo', 'fa-solid fa-location-crosshairs', 'Go To Pin')}
                 ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
-                <button type="button" class="puppeteer-btn${group.movePivot ? ' puppeteer-btn-primary' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: while this is on, dragging the pin moves only the pin and nothing else moves. Turn it off to move the group again."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
+                <button type="button" class="puppeteer-btn${group.movePivot ? ' puppeteer-btn-primary' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: drag the pin once and only the pin moves. This switches itself off when you drop the pin."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
                 ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
                 ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
                 <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteGroup" data-group-id="${id}">
@@ -371,6 +372,39 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <ul>${members || '<li class="puppeteer-member-none">No members yet.</li>'}</ul>
             </details>
         </section>`;
+    }
+
+    /** How the group behaves: how it eases, whether it turns with its pin, and whether its riders may wander. */
+    _behaviourHtml(group) {
+        const id = esc(group.id);
+        const ease = easeOf(group);
+        return `
+            <details class="puppeteer-group-members puppeteer-behaviour" data-group-id="${id}-behaviour"${expanded.has(`${group.id}-behaviour`) ? ' open' : ''}>
+                <summary>Behaviour</summary>
+                <div class="puppeteer-group-row">
+                    <label class="puppeteer-body-linked" data-tooltip="How the group moves on screen when its pin moves or turns. Jump shows no movement between the two places.">
+                        Moves by
+                        <select data-field="easeMode" data-group-id="${id}">
+                            <option value="ease"${ease.mode === 'ease' ? ' selected' : ''}>Gliding</option>
+                            <option value="jump"${ease.mode === 'jump' ? ' selected' : ''}>Jumping</option>
+                        </select>
+                    </label>
+                    <label class="puppeteer-body-linked" data-tooltip="How long a glide takes, in milliseconds (100 to 3000).">
+                        over <input type="number" data-field="easeMs" data-group-id="${id}" value="${ease.ms}" min="100" max="3000" step="50"${ease.mode === 'jump' ? ' disabled' : ''}> ms
+                    </label>
+                </div>
+                <div class="puppeteer-group-row">
+                    <label class="puppeteer-body-linked" data-tooltip="Off, the group keeps the way it faces and only follows its pin about; turning the pin turns nothing.">
+                        <input type="checkbox" data-field="rotates" data-group-id="${id}"${group.rotates === false ? '' : ' checked'}> Turns when its pin turns
+                    </label>
+                    <label class="puppeteer-body-linked" data-tooltip="Post a chat card, with a sound, when a token boards or leaves.">
+                        <input type="checkbox" data-field="announce" data-group-id="${id}"${group.announce ? ' checked' : ''}> Announce boarding in chat
+                    </label>
+                    <label class="puppeteer-body-linked" data-tooltip="Off, a rider moved by hand is put back where it rides.">
+                        <input type="checkbox" data-field="ridersFree" data-group-id="${id}"${group.ridersFree === false ? '' : ' checked'}> Riders can move about
+                    </label>
+                </div>
+            </details>`;
     }
 
     /** The riders: tokens the group carries. They can be moved by hand inside it, and are let go when they leave. */
@@ -439,6 +473,11 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             }
             if (input.dataset.field === 'memberLabel') return renameMember(scene, groupId, input.dataset.type, input.dataset.id, input.value);
             if (input.dataset.field === 'mountable') return setMountable(scene, groupId, input.checked);
+            if (input.dataset.field === 'easeMode') { await setBehaviour(scene, groupId, { ease: { mode: input.value } }); return this.render(); }
+            if (input.dataset.field === 'easeMs') return setBehaviour(scene, groupId, { ease: { ms: Number(input.value) } });
+            if (input.dataset.field === 'rotates') { await setBehaviour(scene, groupId, { rotates: input.checked }); return this.render(); }
+            if (input.dataset.field === 'announce') return setBehaviour(scene, groupId, { announce: input.checked });
+            if (input.dataset.field === 'ridersFree') return setBehaviour(scene, groupId, { ridersFree: input.checked });
             if (input.dataset.field === 'bodyLinked') return setBodyLinked(scene, groupId, input.checked);
             if (input.dataset.field === 'name') await renameGroup(scene, groupId, input.value);
             if (input.dataset.field === 'heading') await setHeading(scene, groupId, Number(input.value) || 0);
@@ -582,7 +621,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         return run('Move pivot', async () => {
             const group = listGroups(canvas.scene).find((g) => g.id === groupId);
             const on = await setMovePivot(canvas.scene, groupId, !group?.movePivot);
-            say(on ? 'Move Pivot is on' : 'Move Pivot is off', on ? 'Drag the pin to where the grip should be. Nothing else will move.' : 'Dragging the pin moves the group again.');
+            say(on ? 'Move Pivot is on' : 'Move Pivot is off', on ? 'Drag the pin to where the grip should be. Nothing else will move, and this switches off when you drop it.' : 'Dragging the pin moves the group again.');
             this.render();
         });
     }

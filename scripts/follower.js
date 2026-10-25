@@ -166,7 +166,7 @@ function countNotTaken(scene, type, batch) {
  * Record every member and rider again against a pin that has moved, leaving all of them where they are. The same
  * thing Centre Pivot does, for wherever the pin was put.
  */
-async function repivot(scene, group, anchor) {
+export async function repivot(scene, group, anchor) {
     const { utils } = getBlacksmith();
     const members = group.members.map((member) => {
         const doc = scene.getEmbeddedCollection(member.type).get(member.id);
@@ -176,7 +176,8 @@ async function repivot(scene, group, anchor) {
         const token = scene.tokens.get(rider.tokenId);
         return token ? captureRider(scene, rider.tokenId, token._source, anchor) : rider;
     });
-    const patch = { members, applied: anchor, heading: anchor.heading };
+    // One drop is one use: the mode switches itself off, so the next drag takes the group again.
+    const patch = { members, applied: anchor, heading: anchor.heading, '-=movePivot': null };
     if (group.riders) patch.riders = riders;
     await patchGroup(scene, group.id, patch);
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": pivot moved to ${Math.round(anchor.x)}, ${Math.round(anchor.y)}; ${members.length} member(s) re-recorded, none moved`, anchor, true, false);
@@ -233,7 +234,7 @@ export async function apply(scene, groupId) {
     }
 
     // Tokens the group carries go where it went. One that is gone from the scene is left out of the record.
-    const carried = await carryRiders(scene, group, anchor);
+    const carried = await carryRiders(scene, group, anchor, glide);
 
     const patch = { applied: anchor };
     if (carried.riders.length !== (group.riders ?? []).length) patch.riders = carried.riders;

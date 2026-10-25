@@ -148,7 +148,7 @@ export function installFakes({ dropOptions = false } = {}) {
             deepClone: (v) => structuredClone(v),
             randomID: () => Math.random().toString(36).slice(2, 18).padEnd(16, 'x'),
             hasProperty: (obj, path) => getPath(obj, path) !== undefined,
-            escapeHTML: (v) => String(v)
+            escapeHTML: (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
         }
     };
     globalThis.game = {
@@ -163,15 +163,22 @@ export function installFakes({ dropOptions = false } = {}) {
     globalThis.canvas = { scene, stage: { pivot: { x: 0, y: 0 } } };
 
     const settings = new Map();
+    // What Blacksmith plays and posts, kept so a test can look.
+    const sounds = [];
+    const cards = [];
+    globalThis.BlacksmithConstants = { SOUNDBUTTON01: 'button-01', SOUNDBUTTON02: 'button-02', SOUNDVOLUMESOFT: '0.5' };
     setBlacksmith({
         HookManager,
         pins,
         utils: {
             postConsoleAndNotification() {},
+            playSound: (sound, volume, loop, broadcast) => { sounds.push({ sound, volume, loop, broadcast }); },
             getSettingSafely: (module, key, fallback) => (settings.has(`${module}.${key}`) ? structuredClone(settings.get(`${module}.${key}`)) : fallback),
             setSettingSafely: async (module, key, value) => { settings.set(`${module}.${key}`, structuredClone(value)); }
         },
-        toast: { show() {} }
+        toast: { show() {}, registerChannel() {} },
+        chatCards: { post: async (card) => { cards.push(card); return card; } },
+        updateMenubarToolActive() {}
     });
 
     // Let everything queued (hooks, the follower's chain, flag writes) run to the end.
@@ -188,5 +195,5 @@ export function installFakes({ dropOptions = false } = {}) {
     globalThis.PIXI = { UPDATE_PRIORITY: { LOW: -25 } };
     const emitPin = (type, event) => pins.handlers.filter((h) => h.type === type).forEach((h) => h.handler(event));
 
-    return { scene, pins, hooks, fire, settle, ticker, emitPin };
+    return { scene, pins, hooks, fire, settle, ticker, emitPin, sounds, cards };
 }

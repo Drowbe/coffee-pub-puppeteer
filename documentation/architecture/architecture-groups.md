@@ -89,9 +89,21 @@ Not built yet: converting token-anchored groups, and animating the body (it jump
 
 Group behaviour options (designed): whether the group turns with its pin or only on request, a facing offset for art that does not face down, movement style (glide or jump), and, with riders, whether the group is mountable and whether riders move freely inside it.
 
+## Behaviour
+
+A group's record carries a few choices, set in the editor's Behaviour section or with `setBehaviour`:
+
+- **`ease`**: `{ mode: 'ease' | 'jump', ms }`. Gliding (the default, 350 ms, kept between 100 and 3000) is the smooth movement described above; jumping gives the member writes no glide and stops the live follow while the pin is dragged. Riders are drawn along with tiles, drawings and notes (`DISPLAY.Token` in `tween.js` sets the token's own position and mesh as Foundry's refresh does, and the same short hold keeps the pose against Foundry's redraw). The body token is not drawn eased: it is transparent, so only its selection outline would show, and that jumps.
+- **`rotates`**: whether the group turns when its pin turns (default yes). Off, `headingOf` (in `anchor.js`) returns the heading the group had when this was chosen (`fixedHeading`), so the pin can be turned freely and nothing turns; the editor's heading field and rotate buttons are disabled and `setHeading` refuses. Turning it on again first records every part against the pin's own heading (`repivot`), so nothing swings.
+- **`ridersFree`**: whether a rider may be moved about inside the group (default yes). Off, a rider moved by hand is put back where it rides.
+- **`mountable`**: whether tokens that move onto the group, or are created on it, board it (see Riders).
+- **`announce`**: whether boarding and leaving post a public chat card (`chatCards.post`, in `announce.js`) and a soft sound heard by everyone (`utils.playSound`, broadcast). Off by default.
+
+Other feedback: a short sound on this screen only after a stamp or a Capture Area that added members; every toast goes out on the `puppeteer` channel, declared with `toast.registerChannel`, so a GM can switch them off; the menubar has a toggle for the bounds overlay (kept in step with the editor's and toolbar's switches through `updateMenubarToolActive`) and a button for the Group Editor.
+
 ## Moving the grip
 
-The pin can sit anywhere: the prow of a ship, a wagon's hitch, a door's hinge. Dragging a pin normally takes the group with it, and Blacksmith saves the pin before Puppeteer sees the drop, so a drag cannot be told apart in time. Move Pivot is therefore a mode on the group (`group.movePivot`). While it is on, the follower does not write the scene when the pin moves or turns; `repivot` in `follower.js` records every member and rider again against the pin's new pose and updates `applied` and `heading`, so nothing moves. The body is left alone, because it does not depend on the pin. Turned off, the pin takes the group again. The live follow while dragging (`tween.js`) is skipped in the mode. Centre Pivot is the same re-recording to the middle of the parts.
+The pin can sit anywhere: the prow of a ship, a wagon's hitch, a door's hinge. Dragging a pin normally takes the group with it, and Blacksmith saves the pin before Puppeteer sees the drop, so a drag cannot be told apart in time. Move Pivot is therefore a mode on the group (`group.movePivot`). While it is on, the follower does not write the scene when the pin moves or turns; `repivot` in `follower.js` records every member and rider again against the pin's new pose, updates `applied` and `heading`, and switches the mode off, so nothing moves and one drop is one use. The body is left alone, because it does not depend on the pin. With the mode off, the pin takes the group. The live follow while dragging (`tween.js`) is skipped in the mode. Centre Pivot is the same re-recording to the middle of the parts.
 
 ## Riders
 

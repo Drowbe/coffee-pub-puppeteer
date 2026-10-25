@@ -1,8 +1,8 @@
 // Where the GM reaches Puppeteer: toolbar tools, the pin right-click menu, and the registered Group Editor
 // window. Everything registers through Blacksmith.
-import { MODULE_ID, MODULE_NAME } from './constants.js';
+import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
-import { toggleBounds } from './overlay.js';
+import { toggleBounds, boundsShown, BOUNDS_MENUBAR_TOOL } from './overlay.js';
 import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup } from './groups.js';
 
 export const EDITOR_WINDOW = `${MODULE_ID}-group-editor`;
@@ -23,6 +23,7 @@ export function registerUi() {
     });
 
     registerToolbar(blacksmith);
+    registerMenubar(blacksmith);
     registerPinMenu(blacksmith);
 
     // Double-clicking a group's pin opens the Group Editor at that group. A single click belongs to Blacksmith's pins
@@ -34,6 +35,39 @@ export function registerUi() {
         const { GroupEditorWindow } = await import('./group-editor.js');
         await GroupEditorWindow.focusGroup(groupId);
     }, { moduleId: MODULE_ID });
+}
+
+function registerMenubar(blacksmith) {
+    // The overlay switch, where the GM already looks for the table's tools; it shows whether the overlay is on.
+    blacksmith.registerMenubarTool(BOUNDS_MENUBAR_TOOL, {
+        icon: 'fa-solid fa-border-none',
+        name: BOUNDS_MENUBAR_TOOL,
+        title: 'Puppeteer: show group bounds',
+        tooltip: 'Show or hide the box that holds each group, its pivot and its heading',
+        zone: 'left',
+        group: 'puppeteer',
+        groupOrder: 50,
+        order: 1,
+        moduleId: MODULE_ID,
+        gmOnly: true,
+        toggleable: true,
+        active: boundsShown(),
+        onClick: () => toggleBounds()
+    });
+    blacksmith.registerMenubarTool(`${MODULE_ID}-editor`, {
+        icon: 'fa-solid fa-up-down-left-right',
+        name: `${MODULE_ID}-editor`,
+        title: 'Puppeteer: open the Group Editor',
+        tooltip: 'Open the Group Editor',
+        zone: 'left',
+        group: 'puppeteer',
+        groupOrder: 50,
+        order: 2,
+        moduleId: MODULE_ID,
+        gmOnly: true,
+        toggleable: false,
+        onClick: () => blacksmith.openWindow(EDITOR_WINDOW)
+    });
 }
 
 function registerToolbar(blacksmith) {
@@ -80,6 +114,7 @@ function registerToolbar(blacksmith) {
                     title: 'Group created',
                     subtitle: `${group.name} is at the centre of your view. Select items, then right-click its pin and choose Add Selected.`,
                     icon: 'fa-solid fa-up-down-left-right',
+                    channel: TOAST_CHANNEL,
                     duration: 6
                 });
             } catch (error) {
@@ -115,17 +150,17 @@ function registerPinMenu(blacksmith) {
     item('capture-area', 'Capture Area into Group', 'fa-solid fa-vector-square', 9, async (groupId) => {
         const result = await captureArea(canvas.scene, groupId);
         if (!result) return;
-        toast.show({ title: result.added ? 'Members added' : 'Nothing new in that box', subtitle: `${result.added} added${result.skipped ? `, ${result.skipped} skipped` : ''}.${result.unsupported.length ? ` Not added: ${result.unsupported.join('; ')}.` : ''}`, icon: 'fa-solid fa-up-down-left-right', duration: 6 });
+        toast.show({ title: result.added ? 'Members added' : 'Nothing new in that box', subtitle: `${result.added} added${result.skipped ? `, ${result.skipped} skipped` : ''}.${result.unsupported.length ? ` Not added: ${result.unsupported.join('; ')}.` : ''}`, icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 6 });
     });
     item('add-selected', 'Add Selected to Group', 'fa-solid fa-plus', 10, async (groupId) => {
         const { added, skipped, unsupported } = await addSelected(canvas.scene, groupId);
         toast.show(!added && !skipped
-            ? { title: 'Nothing selected', subtitle: 'Select tiles, lights, sounds, walls, drawings, notes or regions first.', icon: 'fa-solid fa-up-down-left-right', duration: 4 }
-            : { title: 'Members added', subtitle: `${added} added${skipped ? `, ${skipped} skipped` : ''}.${unsupported.length ? ` Not added: ${unsupported.join('; ')}.` : ''}`, icon: 'fa-solid fa-up-down-left-right', duration: 6 });
+            ? { title: 'Nothing selected', subtitle: 'Select tiles, lights, sounds, walls, drawings, notes or regions first.', icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 4 }
+            : { title: 'Members added', subtitle: `${added} added${skipped ? `, ${skipped} skipped` : ''}.${unsupported.length ? ` Not added: ${unsupported.join('; ')}.` : ''}`, icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 6 });
     });
     item('remove-selected', 'Remove Selected from Group', 'fa-solid fa-minus', 11, async (groupId) => {
         const removed = await removeSelected(canvas.scene, groupId);
-        toast.show({ title: removed ? 'Members removed' : 'Nothing to remove', subtitle: removed ? `${removed} removed.` : 'None of the selected items are in this group.', icon: 'fa-solid fa-up-down-left-right', duration: 4 });
+        toast.show({ title: removed ? 'Members removed' : 'Nothing to remove', subtitle: removed ? `${removed} removed.` : 'None of the selected items are in this group.', icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 4 });
     });
     item('select-members', 'Select Group Members', 'fa-solid fa-object-group', 12, async (groupId) => {
         const { type, selected, counts } = selectMembers(canvas.scene, groupId);
@@ -134,6 +169,7 @@ function registerPinMenu(blacksmith) {
             title: type ? `Selected ${selected} ${type}${selected === 1 ? '' : 's'}` : 'No members to select',
             subtitle: others ? `Foundry selects one layer at a time. Also in this group: ${others}. Use the Group Editor to select those.` : undefined,
             icon: 'fa-solid fa-up-down-left-right',
+            channel: TOAST_CHANNEL,
             duration: 6
         });
     });
@@ -145,6 +181,7 @@ function registerPinMenu(blacksmith) {
                 ? `Pin ${anchor.from ? `moved from ${anchor.from.x}, ${anchor.from.y} ` : ''}to ${anchor.x}, ${anchor.y}, the middle of a ${anchor.width} by ${anchor.height} group. Nothing else moved.`
                 : 'The group has no members yet.',
             icon: 'fa-solid fa-up-down-left-right',
+            channel: TOAST_CHANNEL,
             duration: 8
         });
     });

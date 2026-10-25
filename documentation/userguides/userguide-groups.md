@@ -17,7 +17,7 @@ Right-click the pin for the same actions, or double-click it to open the Group E
 - **Move:** drag the pin. Players see the group glide.
 - **Turn:** select the pin and hold Shift while scrolling the mouse wheel over the board. Each notch is 5 degrees. The Group Editor's heading field and rotate buttons do the same thing.
 - **Centre Pivot** moves the pin to the middle of the group without moving anything, so it turns about its own centre.
-- **Move Pivot** puts the pin anywhere: the prow of a ship, a wagon's hitch, a door's hinge. Choose Move Pivot on the group (it turns blue and a notice shows), drag the pin to where the grip should be, then choose Move Pivot again. While it is on, dragging or turning the pin moves only the pin and nothing else moves. After that, the group moves and turns about the new spot.
+- **Move Pivot** puts the pin anywhere: the prow of a ship, a wagon's hitch, a door's hinge. Choose Move Pivot on the group (it turns blue and a notice shows) and drag the pin to where the grip should be. The pin moves, nothing else does, and Move Pivot switches itself off when you drop the pin. After that, the group moves and turns about the new spot.
 
 The pin is the only handle. You can hide it, change its look, or choose who may move it, and the group is unaffected.
 
@@ -64,6 +64,17 @@ A group can carry tokens, such as the crew of a ship or passengers on a wagon.
 
 Riders jump to their new place when the group moves, as lights and walls do. A player choosing to board from a distance and chat announcements are not there yet. Note that with the option on, every token that moves onto the group boards, enemies included.
 
+## Behaviour
+
+Each group has a Behaviour section in the Group Editor.
+
+- **Moves by Gliding or Jumping, over a number of milliseconds.** Gliding eases the group, and any riders, to its new place when its pin moves or turns, and follows the pointer while you drag. Jumping shows no movement between the two places. Lights, walls, sounds and regions always jump, because they cannot be drawn in between.
+- **Turns when its pin turns.** Switch it off for a group that should slide about without ever turning, such as a platform on rails. The group keeps the way it faces now, the heading field is disabled, and the pin can be turned freely.
+- **Riders can move about.** Switch it off and a rider moved by hand is put straight back where it rides.
+- **Announce boarding in chat.** Posts a card and plays a soft sound for everyone when a token boards or leaves.
+
+The menubar has a button that shows or hides the group bounds (it lights up while they are shown) and one that opens the Group Editor. Puppeteer's messages come on their own notification channel, so you can switch them off in Blacksmith's settings.
+
 ## Coming next
 
-A choice of how a group eases when it moves, and other behaviour options.
+Nothing is planned yet beyond what you ask for.

@@ -4,12 +4,13 @@
 //
 // This is where set pieces (pin-anchored groups) live. A template can later also ride on an Actor for
 // vehicles; the format is the same.
-import { MODULE_ID, MODULE_NAME } from './constants.js';
+import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, normAngle } from './geometry.js';
 import { stampMembers, validateTemplate } from './template.js';
 import { createGroup, deleteGroup, exportGroup, setBody } from './groups.js';
 import { getGroup } from './store.js';
+import { playCue } from './announce.js';
 import { patchGroup } from './store.js';
 
 const KEY = 'library';
@@ -124,9 +125,11 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
                 title: 'No body for this group',
                 subtitle: `${source.body.actorName ?? 'The actor'} is not in this world, so the stamped group cannot be targeted. Drop an actor on its body row to fix that.`,
                 icon: 'fa-solid fa-user-shield',
+                channel: TOAST_CHANNEL,
                 duration: 8
             });
         }
     }
+    playCue();
     return getGroup(scene, group.id);
 }

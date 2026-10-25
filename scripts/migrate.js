@@ -11,7 +11,7 @@
 // every member is re-recorded against it (nothing moves), and the token is left exactly as it was, an ordinary
 // token. Making it the group's body would change its image, so that is left to the GM.
 import { getBlacksmith } from './blacksmith.js';
-import { MODULE_ID, MODULE_NAME } from './constants.js';
+import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { recaptureMember, normAngle } from './geometry.js';
 import { runExclusive } from './follower.js';
 import { getGroup, getGroups, patchGroup } from './store.js';
@@ -71,6 +71,7 @@ export async function migrateGroups() {
             title: moved.length === 1 ? 'A group now hangs from a pin' : `${moved.length} groups now hang from pins`,
             subtitle: `${moved.join(', ')} used to follow a token. Each now hangs from a pin where the token was; the tokens are unchanged. To make a group something that can be attacked, give it an actor in the Group Editor.`,
             icon: 'fa-solid fa-thumbtack',
+            channel: TOAST_CHANNEL,
             duration: 15
         });
     }

@@ -1,9 +1,9 @@
 // Entry point. The one native hook: it is how a module reaches Blacksmith's ready signal at all.
 // Everything else registers through Blacksmith once bootstrap has succeeded.
 // See documentation/plans/plan-puppeteer-groups.md.
-import { MODULE_ID } from './constants.js';
+import { MODULE_ID, TOAST_CHANNEL } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -19,6 +19,12 @@ Hooks.once('ready', async () => {
     if (!blacksmith) return;
 
     registerLibrarySetting();
+    // Every Puppeteer toast goes out on one channel, so a GM can switch them off in Blacksmith's notification settings.
+    blacksmith.toast.registerChannel(TOAST_CHANNEL, {
+        moduleId: MODULE_ID,
+        label: 'Puppeteer',
+        description: 'Groups created, members added, boarding and dismounting'
+    });
     registerPinType();
 
     // Older groups are brought up to date before anything listens for changes. Otherwise a scene update that lands
@@ -74,6 +80,11 @@ Hooks.once('ready', async () => {
         adoptBody: (groupId, token, scene = token.parent) => adoptBody(scene, groupId, token),
         clearBody: (groupId, scene = canvas.scene) => clearBody(scene, groupId),
         setBodyLinked: (groupId, linked, scene = canvas.scene) => setBodyLinked(scene, groupId, linked),
+        /**
+         * How a group behaves: `{ ease: { mode: 'ease' | 'jump', ms }, rotates: boolean, ridersFree: boolean }`. Any of
+         * them may be left out. See the API document.
+         */
+        setBehaviour: (groupId, options, scene = canvas.scene) => setBehaviour(scene, groupId, options),
         /** While on, dragging or turning the group's pin moves only the grip; nothing else moves. Off, the pin takes the group. */
         setMovePivot: (groupId, on, scene = canvas.scene) => setMovePivot(scene, groupId, on),
         /** Put tokens (documents) aboard a group. They must be on it. Returns how many boarded and why others did not. */

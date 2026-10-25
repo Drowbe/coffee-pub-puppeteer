@@ -45,12 +45,22 @@ test('with Move Pivot on, dragging the pin moves only the pin', async () => {
     near(record(g).riders[0].dx, -200);
 });
 
+test('one drop is one use: the mode switches itself off, and the next drag takes the group', async () => {
+    const g = await ship();
+    await g.groups.setMovePivot(g.scene, g.group.id, true);
+    await g.pins.update(g.group.anchor.id, { x: 3400, y: 2000 });
+    await g.settle();
+    assert.equal(record(g).movePivot, undefined);
+    await g.pins.update(g.group.anchor.id, { x: 3600, y: 2000 });
+    await g.settle();
+    assert.equal(g.tile._source.x, 3200);                                 // the whole group followed, 200 right
+});
+
 test('afterwards the group moves and turns about the new grip, and nothing jumps', async () => {
     const g = await ship();
     await g.groups.setMovePivot(g.scene, g.group.id, true);
     await g.pins.update(g.group.anchor.id, { x: 3400, y: 2000 });
     await g.settle();
-    await g.groups.setMovePivot(g.scene, g.group.id, false);
     assert.equal(record(g).movePivot, undefined);
 
     await g.pins.update(g.group.anchor.id, { rotation: 90 });

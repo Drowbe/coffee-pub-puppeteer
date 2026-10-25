@@ -18,6 +18,14 @@ export function tokenAnchorState(scene, source) {
 }
 
 /**
+ * Which way a group faces. Normally the way its pin faces. A group set not to turn with its pin keeps the heading it
+ * had when that was chosen (`fixedHeading`), whatever its pin is turned to.
+ */
+export function headingOf(group, pinRotation) {
+    return group.rotates === false ? (group.fixedHeading ?? 0) : (pinRotation ?? 0);
+}
+
+/**
  * The pivot and heading of a group's anchor right now, or null when the anchor is gone.
  * @returns {{x: number, y: number, heading: number}|null}
  */
@@ -25,7 +33,7 @@ export function anchorState(scene, group) {
     if (group.anchor.type === 'pin') {
         const pin = getBlacksmith().pins.get(group.anchor.id, { sceneId: scene.id });
         // A pin's heading is its own `rotation`: Blacksmith turns it with Shift + wheel and reports 0 when it never was.
-        return pin ? { x: pin.x, y: pin.y, heading: pin.rotation ?? 0 } : null;
+        return pin ? { x: pin.x, y: pin.y, heading: headingOf(group, pin.rotation) } : null;
     }
     if (group.anchor.type === 'token') {
         const token = scene.tokens.get(group.anchor.id);

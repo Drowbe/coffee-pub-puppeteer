@@ -75,11 +75,15 @@ export function riderUpdate(scene, rider, source, anchor) {
  * Carry a group's riders to where the pin now is. A rider whose token is gone is left out of what comes back.
  * @returns {Promise<{riders: object[], carried: number}>} The riders still on the scene.
  */
-export async function carryRiders(scene, group, anchor) {
+export async function carryRiders(scene, group, anchor, glide) {
     const riders = group.riders ?? [];
     if (!riders.length) return { riders, carried: 0 };
     const present = riders.filter((rider) => scene.tokens.get(rider.tokenId));
     const updates = present.map((rider) => riderUpdate(scene, rider, scene.tokens.get(rider.tokenId)._source, anchor));
-    if (updates.length) await scene.updateEmbeddedDocuments('Token', updates, riderMove());
+    if (updates.length) {
+        const options = riderMove();
+        if (glide) options.puppeteer.glide = glide;
+        await scene.updateEmbeddedDocuments('Token', updates, options);
+    }
     return { riders: present, carried: updates.length };
 }

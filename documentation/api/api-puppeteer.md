@@ -33,7 +33,7 @@ await puppeteer.rotateBy(group.id, 90);
 | `removeMember(groupId, type, id, scene)` | Removes one member. The object stays on the map. |
 | `captureArea(groupId, options, scene)` | Drags a box with Blacksmith's area pick and adds what is inside. |
 | `recenterPivot(groupId, scene)` | Moves the pin to the centre of the members without moving any of them. |
-| `setMovePivot(groupId, on, scene)` | While on, dragging or turning the group's pin moves only the grip: nothing else moves, and every part and rider is recorded against the pin's new place. Off, the pin takes the group again. Returns the new state. |
+| `setMovePivot(groupId, on, scene)` | While on, the next move or turn of the group's pin moves only the grip: nothing else moves, every part and rider is recorded against the pin's new place, and the mode switches itself off. Off, the pin takes the group. Returns the new state. |
 
 ## Moving and turning
 
@@ -74,13 +74,20 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 | `library.remove(templateId)` | Deletes a template. |
 | `library.import(jsonText)` | Adds a template from exported JSON. Version 1 templates are refused with a message. |
 
+## Behaviour
+
+| Call | Does |
+|---|---|
+| `setBehaviour(groupId, options, scene)` | Sets any of: `ease` (`{ mode: 'ease' \| 'jump', ms }`; `ms` is kept between 100 and 3000), `rotates` (whether the group turns when its pin turns), `ridersFree` (whether riders may be moved about inside it), `announce` (chat card and sound when a token boards or leaves). Anything left out is unchanged. Turning `rotates` off freezes the heading the group has now; turning it on records every part against the pin's own heading, so nothing swings. Returns the group record. |
+
+`setHeading` and `rotateBy` refuse, with a message, on a group whose `rotates` is off.
+
 ## Display
 
 | Call | Does |
 |---|---|
 | `showBounds(value)` | Shows or hides the bounds overlay for this user. Omit `value` to toggle. |
 
-## Changes agreed, not yet in the API
+## Not in the API
 
-- Group behaviour options.
-- Events other modules can listen to when a group is created, moved or deleted.
+Puppeteer does not publish events. Blacksmith offers no way to emit one, and Puppeteer does not call `Hooks.callAll` itself. Another module that needs to know a group moved can listen for the update of the scene flag `flags.coffee-pub-puppeteer.groups`, or of the members' own documents.

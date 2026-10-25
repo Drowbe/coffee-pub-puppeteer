@@ -6,8 +6,10 @@ import {
     MEMBER_TYPES, UnsupportedMemberError, captureMember, recaptureMember, memberExtent, memberUpdate, poseOffset, extentCentre, groupBounds, sameAnchor, normAngle
 } from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
-import { syncGroup, runExclusive, apply } from './follower.js';
-import { anchorState } from './anchor.js';
+import { syncGroup, runExclusive, apply, repivot } from './follower.js';
+import { anchorState, headingOf } from './anchor.js';
+import { EASE_LIMITS } from './tween.js';
+import { announceBoarding, playCue } from './announce.js';
 import { buildTemplate } from './template.js';
 import { bodyFootprint, bodyTraits, bodyToken, fitBody, bodyMove } from './body.js';
 import { RIDER_FLAG, STAYED_FLAG, captureRider, insideGroup, tokenCentre } from './riders.js';
@@ -166,7 +168,9 @@ export async function captureArea(scene, groupId, { containment = 'centre' } = {
         prompt: 'Drag a box around everything that belongs to the group. Esc to cancel.'
     });
     if (!picked) return null;
-    return addMembers(scene, groupId, picked.documents);
+    const result = await addMembers(scene, groupId, picked.documents);
+    if (result.added) playCue();
+    return result;
 }
 
 /** Add whatever is selected, on any layer of the canvas that can hold a member. */
@@ -419,6 +423,7 @@ export function mountTokens(scene, groupId, tokens) {
             }
         }
         utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": ${added.length} boarded, ${skipped.length} skipped`, { skipped }, true, false);
+        for (const token of boarded) await announceBoarding(group, token, 'boarded');
         return { mounted: added.length, skipped };
     });
 }
@@ -431,6 +436,7 @@ export async function releaseRider(scene, groupId, tokenId) {
     await patchGroup(scene, groupId, { riders });
     const token = scene.tokens.get(tokenId);
     if (token?.getFlag(MODULE_ID, RIDER_FLAG) === groupId) await token.unsetFlag(MODULE_ID, RIDER_FLAG);
+    if (token) await announceBoarding(group, token, 'left');
     return true;
 }
 
@@ -455,8 +461,9 @@ export async function setMountable(scene, groupId, mountable) {
 }
 
 /**
- * Turn Move Pivot on or off. While it is on, moving or turning the group's pin moves only the grip: every part, rider
- * and the body stay where they are and are recorded against the pin's new place. Off, the pin takes the group with it.
+ * Turn Move Pivot on or off. While it is on, the next move or turn of the group's pin moves only the grip: every part,
+ * rider and the body stay where they are and are recorded against the pin's new place, and the mode switches itself
+ * off. Off, the pin takes the group with it.
  * @returns {Promise<boolean>} The new state.
  */
 export function setMovePivot(scene, groupId, on) {
@@ -466,6 +473,51 @@ export function setMovePivot(scene, groupId, on) {
         requireGroup(scene, groupId);
         await patchGroup(scene, groupId, on ? { movePivot: true } : { '-=movePivot': null });
         return !!on;
+    });
+}
+
+/**
+ * Choose how a group behaves.
+ *  - `ease`: `{ mode: 'ease' | 'jump', ms }`. How the group moves on screen when its pin moves or turns.
+ *  - `rotates`: whether the group turns when its pin does. Off, it keeps the way it faces now and only follows the pin
+ *    about. Turning it back on records the group again against the pin's own heading, so nothing swings.
+ *  - `ridersFree`: whether a rider may be moved about inside the group. Off, a rider moved by hand is put back.
+ *  - `announce`: whether a token boarding or leaving is announced in chat, with a sound.
+ * @returns {Promise<object>} The group record.
+ */
+export function setBehaviour(scene, groupId, options = {}) {
+    const { pins } = getBlacksmith();
+    return runExclusive(scene, groupId, async () => {
+        await apply(scene, groupId);
+        const group = requireGroup(scene, groupId);
+        const patch = {};
+
+        if (options.ease) {
+            const mode = options.ease.mode ?? group.ease?.mode ?? 'ease';
+            if (!['ease', 'jump'].includes(mode)) throw new Error(`${MODULE_ID}: easing is "ease" or "jump", not "${mode}"`);
+            const ms = Number(options.ease.ms ?? group.ease?.ms ?? 350);
+            if (!Number.isFinite(ms)) throw new Error(`${MODULE_ID}: the easing time must be a number of milliseconds`);
+            patch.ease = { mode, ms: Math.min(EASE_LIMITS.max, Math.max(EASE_LIMITS.min, Math.round(ms))) };
+        }
+        if ('ridersFree' in options) patch.ridersFree = !!options.ridersFree;
+        if ('announce' in options) patch.announce = !!options.announce;
+
+        if ('rotates' in options && !!options.rotates !== (group.rotates !== false)) {
+            if (!options.rotates) {
+                // Freeze the way it faces now, so choosing this moves nothing.
+                patch.rotates = false;
+                patch.fixedHeading = group.applied.heading;
+            } else {
+                // Record every part against the pin's own heading first, so nothing swings round to meet it.
+                const pin = pins.get(group.anchor.id, { sceneId: scene.id });
+                if (!pin) throw new Error(`${MODULE_ID}: the pin of group "${group.name}" is gone`);
+                await repivot(scene, { ...group, rotates: true }, { x: pin.x, y: pin.y, heading: pin.rotation ?? 0 });
+                patch['-=rotates'] = null;
+                patch['-=fixedHeading'] = null;
+            }
+        }
+        if (Object.keys(patch).length) await patchGroup(scene, groupId, patch);
+        return getGroup(scene, groupId);
     });
 }
 
@@ -479,6 +531,7 @@ export async function setBodyLinked(scene, groupId, linked) {
 /** Set the heading in degrees (clockwise, 0 facing down). The follower moves the members. */
 export async function setHeading(scene, groupId, degrees) {
     const group = requireGroup(scene, groupId);
+    if (group.rotates === false) throw new Error(`${MODULE_ID}: group "${group.name}" does not turn with its pin; turn it on in Behaviour first`);
     // A pin group faces where its pin faces. Turning it here and turning the pin with Shift + wheel are the same
     // write, and the follower does the rest.
     await getBlacksmith().pins.update(group.anchor.id, { rotation: normAngle(degrees) }, { sceneId: scene.id });

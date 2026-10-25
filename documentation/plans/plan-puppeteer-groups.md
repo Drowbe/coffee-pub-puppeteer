@@ -22,11 +22,23 @@ Agreed with the user after the token-anchor mode was built and used. It replaces
 
 ## Phases
 
-1. **Pin-anchored groups of scene elements.** Built. The GM makes a group on a Blacksmith pin, adds and removes members, and dragging or turning the pin moves the whole group. Offsets in the pin's frame, committed state, one batched write per type.
-2. **Body token.** A group can represent an actor and be targeted. Shares its machinery with riders: tokens as members, moved by displace-style moves, locked, auto-sized footprint. Also converts the old token-anchored groups.
-3. **Prefabs.** Save a group as a template and stamp it as many times as wanted, each stamp an independent copy. All templates live in the Puppeteer library; a template can name an actor to represent.
-4. **Riders.** Tokens carried by a group, free to move inside it, dismounting when they leave the footprint. Boarding through `gmRequest`, announced by chat cards.
-5. **Polish.** Group behaviour options, menubar tool and secondary bar, sounds, toast channel, Scene Config tab, events for other modules.
+All five are built and simulated; what has been run in Foundry is in `TODO.md`.
+
+1. **Pin-anchored groups of scene elements.** Built.
+2. **Body token.** Built: made from an actor, adopted from a token, library entries that name an actor, conversion of token-anchored groups.
+3. **Prefabs.** Built: the library, stamping, JSON in and out.
+4. **Riders.** Built: boarding by moving onto a group, by creation, by button or API; carried, free movement, dismount, announcements.
+5. **Behaviour and polish.** Built: easing, turning, riders free, announce, Move Pivot, menubar, toast channel, sounds.
+
+## Decisions taken while building
+
+- **A player boards by moving onto the group.** Because the active GM's client notices the committed move, a player needs no request to the GM, so boarding does not use `gmRequest`. A player boarding from a distance was dropped for that reason.
+- **Facing offset was dropped.** A group's heading is its pin's rotation; a "front" offset would change only how the number is labelled, not what any part does. It can come back if a real use appears.
+- **The body token is not eased.** It is transparent, so only its selection outline would show, and that jumps.
+- **No Scene Config tab.** A per-scene "groups enabled" switch had no behaviour worth attaching to it. Behaviour is per group.
+- **No events for other modules.** Blacksmith has no way to emit one and the repository bans calling `Hooks.callAll`. Other modules can read the scene flag, and the macro API is the supported way to drive groups.
+- **No secondary menubar bar for capture mode.** Capture Area is a single pick from the editor, the toolbar or the pin menu; a mode needing its own bar does not exist.
+- **Move Pivot is one use.** It switches itself off after a drop, as the user asked.
 
 ## Body token: what the probe found
 

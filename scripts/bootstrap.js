@@ -19,13 +19,16 @@ const REQUIRED = [
     'dialog',
     'canvas.pickArea',
     'toast',
+    'toast.registerChannel',
     'chatCards',
+    'chatCards.post',
     'pins',
     'uiContextMenu',
     'registerWindow',
     'openWindow',
     'registerToolbarTool',
     'registerMenubarTool',
+    'updateMenubarToolActive',
     'registerSceneConfigTab'
 ];
 

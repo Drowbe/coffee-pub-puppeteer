@@ -17,7 +17,8 @@ import { MODULE_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { memberUpdate } from './geometry.js';
 import { getGroup } from './store.js';
-import { anchorState } from './anchor.js';
+import { anchorState, headingOf } from './anchor.js';
+import { riderUpdate } from './riders.js';
 
 const TWEENED = ['Tile', 'Drawing', 'Note'];
 
@@ -27,8 +28,19 @@ const TWEENED = ['Tile', 'Drawing', 'Note'];
 // refresh closes that gap.
 const HOLD_MS = 250;
 
-// A pin glide is quick: it is there to take the edge off a jump, not to be watched.
-const GLIDE_MS = 350;
+// A pin glide is quick: it is there to take the edge off a jump, not to be watched. A group can choose its own
+// duration, or none (`ease: { mode: 'jump' }`), which also stops the members following a drag.
+export const DEFAULT_EASE_MS = 350;
+export const EASE_LIMITS = Object.freeze({ min: 100, max: 3000 });
+
+/** How a group eases: `{ mode: 'ease' | 'jump', ms }`. */
+export function easeOf(group) {
+    const ms = Number(group?.ease?.ms);
+    return {
+        mode: group?.ease?.mode === 'jump' ? 'jump' : 'ease',
+        ms: Number.isFinite(ms) ? Math.min(EASE_LIMITS.max, Math.max(EASE_LIMITS.min, ms)) : DEFAULT_EASE_MS
+    };
+}
 
 // A drop is saved and followed a moment after the last drag move; a glide that began within this long of a live
 // drag would only drag the members back to where they started.
@@ -61,12 +73,23 @@ const DISPLAY = {
     },
     Note: (placeable, pose) => {
         placeable.position.set(pose.x, pose.y);
+    },
+    // A rider's token. Foundry sets the token's own position from its document, and its mesh to the middle of its
+    // footprint; both are set here, and the mesh is turned as Foundry turns it.
+    Token: (placeable, pose, source) => {
+        const grid = placeable.document.parent.grid;
+        placeable.position.set(pose.x, pose.y);
+        placeable.mesh?.position.set(
+            pose.x + (((source.width ?? 1) * (grid.sizeX ?? grid.size)) / 2),
+            pose.y + (((source.height ?? 1) * (grid.sizeY ?? grid.size)) / 2)
+        );
+        if (placeable.mesh) placeable.mesh.angle = placeable.document.lockRotation ? 0 : pose.rotation;
     }
 };
 
 export function registerTween() {
     const { HookManager, pins } = getBlacksmith();
-    for (const type of TWEENED) {
+    for (const type of [...TWEENED, 'Token']) {
         HookManager.registerHook({
             name: `refresh${type}`,
             description: `Puppeteer: keep a moving ${type} where the tween drew it when Foundry redraws it`,
@@ -103,6 +126,15 @@ function showGroup(scene, group, anchor) {
         poses.set(keyOf(scene.id, member.type, member.id), { pose, at: now });
         DISPLAY[member.type](placeable, pose, memberDoc._source);
     }
+    // The tokens the group carries are drawn along with it.
+    for (const rider of group.riders ?? []) {
+        const token = scene.tokens.get(rider.tokenId);
+        const placeable = token?.object;
+        if (!placeable) continue;
+        const { _id, ...pose } = riderUpdate(scene, rider, token._source, anchor);
+        poses.set(keyOf(scene.id, 'Token', token.id), { pose, at: now });
+        DISPLAY.Token(placeable, pose, token._source);
+    }
 }
 
 /** Foundry redrew a member from its document; if it is mid-move, put its tweened pose back at once. */
@@ -127,8 +159,9 @@ function dragGroup(event) {
     if (!group || group.anchor.type !== 'pin' || group.anchor.id !== event.pinId) return;
     // Move Pivot is on: the pin is being put somewhere else, and the group does not follow it.
     if (group.movePivot) return;
+    if (easeOf(group).mode === 'jump') return;
     live.set(`${scene.id}:${group.id}`, performance.now());
-    showGroup(scene, group, { x: event.pin.x, y: event.pin.y, heading: event.pin.rotation ?? 0 });
+    showGroup(scene, group, { x: event.pin.x, y: event.pin.y, heading: headingOf(group, event.pin.rotation) });
 }
 
 // ---- a pin that moved or turned -----------------------------------------------------------------------
@@ -157,9 +190,9 @@ function beginGlide(doc, options) {
     if (running && performance.now() - running.start < 50) return;
 
     const group = getGroup(scene, glide.groupId);
-    if (!group) return;
+    if (!group || easeOf(group).mode === 'jump') return;
     // From where it is drawn if it is already moving, so a second move does not snap back first.
-    glides.set(key, { scene, groupId: group.id, from: running?.shown ?? glide.from, shown: null, start: performance.now() });
+    glides.set(key, { scene, groupId: group.id, from: running?.shown ?? glide.from, shown: null, start: performance.now(), ms: easeOf(group).ms });
     if (!ticking) startTicking();
 }
 
@@ -187,7 +220,7 @@ function tick() {
             glides.delete(key);
             continue;
         }
-        const t = Math.min(1, (now - glide.start) / GLIDE_MS);
+        const t = Math.min(1, (now - glide.start) / glide.ms);
         glide.shown = lerpAnchor(glide.from, to, easeOut(t));
         showGroup(glide.scene, group, glide.shown);
         if (t >= 1) glides.delete(key);
@@ -205,5 +238,5 @@ export function resetTween() {
 
 /** Used when the follower writes a pin group: where the group was, for the clients to ease from. */
 export function glideOptions(group) {
-    return group.anchor.type === 'pin' ? { groupId: group.id, from: { ...group.applied } } : undefined;
+    return group.anchor.type === 'pin' && easeOf(group).mode !== 'jump' ? { groupId: group.id, from: { ...group.applied } } : undefined;
 }

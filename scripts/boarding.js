@@ -5,12 +5,12 @@
 //   A token moves onto a group that lets tokens board          It boards. This is how most riders get on.
 //   A token is created on such a group                         It boards. Dropping an actor on the map over a
 //                                                              group is the other way a rider gets on.
-import { MODULE_ID, MODULE_NAME } from './constants.js';
+import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { getGroup, getGroups, patchGroup } from './store.js';
 import { runExclusive } from './follower.js';
 import { mountTokens, releaseRider } from './groups.js';
-import { RIDER_FLAG, STAYED_FLAG, captureRider, insideGroup, tokenCentre } from './riders.js';
+import { RIDER_FLAG, STAYED_FLAG, captureRider, insideGroup, tokenCentre, riderUpdate, riderMove } from './riders.js';
 
 // What counts as a rider being moved: where it is, which way it faces, and how big it is.
 const MOVED = ['x', 'y', 'rotation', 'width', 'height'];
@@ -74,7 +74,7 @@ function board(scene, token) {
     const group = groupUnder(scene, token);
     if (!group) return;
     mountTokens(scene, group.id, [token]).then(({ mounted }) => {
-        if (mounted) getBlacksmith().toast.show({ title: 'Boarded', subtitle: `${token.name} is riding ${group.name}.`, icon: 'fa-solid fa-person-walking-luggage', duration: 5 });
+        if (mounted) getBlacksmith().toast.show({ title: 'Boarded', subtitle: `${token.name} is riding ${group.name}.`, icon: 'fa-solid fa-person-walking-luggage', channel: TOAST_CHANNEL, duration: 5 });
     }).catch(report('Boarding'));
 }
 
@@ -99,11 +99,17 @@ async function riderMoved(scene, groupId, tokenId) {
     if (!group || !token || !rider) return;
 
     const anchor = { ...group.applied };
+    // A group whose riders may not wander puts a rider back where it rides.
+    if (group.ridersFree === false) {
+        const { _id, ...back } = riderUpdate(scene, rider, token._source, anchor);
+        await token.update(back, riderMove());
+        return;
+    }
     if (insideGroup(scene, group, tokenCentre(scene, token._source), anchor)) {
         const riders = group.riders.map((r) => (r.tokenId === tokenId ? captureRider(scene, tokenId, token._source, anchor) : r));
         await patchGroup(scene, groupId, { riders });
         return;
     }
     await releaseRider(scene, groupId, tokenId);
-    getBlacksmith().toast.show({ title: 'Dismounted', subtitle: `${token.name} left ${group.name}.`, icon: 'fa-solid fa-person-walking', duration: 5 });
+    getBlacksmith().toast.show({ title: 'Dismounted', subtitle: `${token.name} left ${group.name}.`, icon: 'fa-solid fa-person-walking', channel: TOAST_CHANNEL, duration: 5 });
 }
