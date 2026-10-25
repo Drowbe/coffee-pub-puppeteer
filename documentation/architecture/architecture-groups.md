@@ -89,6 +89,10 @@ Not built yet: converting token-anchored groups, and animating the body (it jump
 
 Group behaviour options (designed): whether the group turns with its pin or only on request, a facing offset for art that does not face down, movement style (glide or jump), and, with riders, whether the group is mountable and whether riders move freely inside it.
 
+## Moving the grip
+
+The pin can sit anywhere: the prow of a ship, a wagon's hitch, a door's hinge. Dragging a pin normally takes the group with it, and Blacksmith saves the pin before Puppeteer sees the drop, so a drag cannot be told apart in time. Move Pivot is therefore a mode on the group (`group.movePivot`). While it is on, the follower does not write the scene when the pin moves or turns; `repivot` in `follower.js` records every member and rider again against the pin's new pose and updates `applied` and `heading`, so nothing moves. The body is left alone, because it does not depend on the pin. Turned off, the pin takes the group again. The live follow while dragging (`tween.js`) is skipped in the mode. Centre Pivot is the same re-recording to the middle of the parts.
+
 ## Riders
 
 A rider is a token a group carries (`scripts/riders.js`, `scripts/boarding.js`, with the operations in `scripts/groups.js`).

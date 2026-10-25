@@ -125,6 +125,8 @@ function dragGroup(event) {
     const groupId = event?.pin?.config?.puppeteer?.groupId;
     const group = scene && groupId ? getGroup(scene, groupId) : null;
     if (!group || group.anchor.type !== 'pin' || group.anchor.id !== event.pinId) return;
+    // Move Pivot is on: the pin is being put somewhere else, and the group does not follow it.
+    if (group.movePivot) return;
     live.set(`${scene.id}:${group.id}`, performance.now());
     showGroup(scene, group, { x: event.pin.x, y: event.pin.y, heading: event.pin.rotation ?? 0 });
 }

@@ -33,6 +33,7 @@ await puppeteer.rotateBy(group.id, 90);
 | `removeMember(groupId, type, id, scene)` | Removes one member. The object stays on the map. |
 | `captureArea(groupId, options, scene)` | Drags a box with Blacksmith's area pick and adds what is inside. |
 | `recenterPivot(groupId, scene)` | Moves the pin to the centre of the members without moving any of them. |
+| `setMovePivot(groupId, on, scene)` | While on, dragging or turning the group's pin moves only the grip: nothing else moves, and every part and rider is recorded against the pin's new place. Off, the pin takes the group again. Returns the new state. |
 
 ## Moving and turning
 

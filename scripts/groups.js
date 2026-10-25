@@ -454,6 +454,21 @@ export async function setMountable(scene, groupId, mountable) {
     await patchGroup(scene, groupId, { mountable: !!mountable });
 }
 
+/**
+ * Turn Move Pivot on or off. While it is on, moving or turning the group's pin moves only the grip: every part, rider
+ * and the body stay where they are and are recorded against the pin's new place. Off, the pin takes the group with it.
+ * @returns {Promise<boolean>} The new state.
+ */
+export function setMovePivot(scene, groupId, on) {
+    return runExclusive(scene, groupId, async () => {
+        // First let the group catch up with its pin, so what is recorded is where the group really is.
+        await apply(scene, groupId);
+        requireGroup(scene, groupId);
+        await patchGroup(scene, groupId, on ? { movePivot: true } : { '-=movePivot': null });
+        return !!on;
+    });
+}
+
 /** Set whether the body's actor is linked (one set of hit points everywhere) or unlinked (this token's own). */
 export async function setBodyLinked(scene, groupId, linked) {
     const token = bodyToken(scene, requireGroup(scene, groupId));

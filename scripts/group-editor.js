@@ -6,7 +6,7 @@ import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
-    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable
+    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot
 } from './groups.js';
 import { bodyToken } from './body.js';
 import { boundsShown, toggleBounds } from './overlay.js';
@@ -95,6 +95,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         rotate: (event, target, win) => win._rotate(target.dataset.groupId, Number(target.dataset.degrees)),
         captureArea: (event, target, win) => win._captureArea(target.dataset.groupId),
         recenterPivot: (event, target, win) => win._recenterPivot(target.dataset.groupId),
+        movePivot: (event, target, win) => win._movePivot(target.dataset.groupId),
         exportGroup: (event, target, win) => win._exportGroup(target.dataset.groupId),
         saveToLibrary: (event, target, win) => win._saveToLibrary(target.dataset.groupId),
         stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
@@ -123,6 +124,16 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             return existing;
         }
         return new GroupEditorWindow().render({ force: true });
+    }
+
+    /** Open the editor on the Groups tab with one group's members showing, and bring that group into view. */
+    static async focusGroup(groupId) {
+        tab = 'groups';
+        try { localStorage.setItem(TAB_KEY, tab); } catch { /* a remembered tab is a convenience */ }
+        expanded.add(groupId);
+        const win = await GroupEditorWindow.open();
+        await win.render({ force: true });
+        win.element?.querySelector(`.puppeteer-group[data-group-id="${CSS.escape(groupId)}"]`)?.scrollIntoView({ block: 'nearest' });
     }
 
     get _hookContext() {
@@ -321,6 +332,9 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const warning = lost
             ? `<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>`
             : '';
+        const pivotWarning = group.movePivot
+            ? `<div class="puppeteer-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Dragging or turning the pin now moves only the grip; nothing else moves. Choose Move Pivot again, then drag, to move the group.</div>`
+            : '';
         const heading = anchorState(scene, group)?.heading ?? group.heading;
         const bodyRow = this._bodyHtml(scene, group) + this._ridersHtml(scene, group);
 
@@ -330,7 +344,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <input type="text" class="puppeteer-group-name" data-field="name" data-group-id="${id}" value="${esc(group.name)}">
                 <span class="puppeteer-group-count">${group.members.length} member${group.members.length === 1 ? '' : 's'}</span>
             </div>
-            ${warning}
+            ${warning}${pivotWarning}
             ${chips ? `<div class="puppeteer-group-row puppeteer-group-types">${chips}</div>` : ''}
             <div class="puppeteer-group-row">
                 <label class="puppeteer-heading">Heading
@@ -344,6 +358,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
                 ${button('panTo', 'fa-solid fa-location-crosshairs', 'Go To Pin')}
                 ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
+                <button type="button" class="puppeteer-btn${group.movePivot ? ' puppeteer-btn-primary' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: while this is on, dragging the pin moves only the pin and nothing else moves. Turn it off to move the group again."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
                 ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
                 ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
                 <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteGroup" data-group-id="${id}">
@@ -560,6 +575,15 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 destructive: true
             });
             if (confirmed) { await deleteTemplate(templateId); this.render(); }
+        });
+    }
+
+    _movePivot(groupId) {
+        return run('Move pivot', async () => {
+            const group = listGroups(canvas.scene).find((g) => g.id === groupId);
+            const on = await setMovePivot(canvas.scene, groupId, !group?.movePivot);
+            say(on ? 'Move Pivot is on' : 'Move Pivot is off', on ? 'Drag the pin to where the grip should be. Nothing else will move.' : 'Dragging the pin moves the group again.');
+            this.render();
         });
     }
 

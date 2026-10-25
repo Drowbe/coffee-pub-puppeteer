@@ -3,7 +3,7 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -74,6 +74,8 @@ Hooks.once('ready', async () => {
         adoptBody: (groupId, token, scene = token.parent) => adoptBody(scene, groupId, token),
         clearBody: (groupId, scene = canvas.scene) => clearBody(scene, groupId),
         setBodyLinked: (groupId, linked, scene = canvas.scene) => setBodyLinked(scene, groupId, linked),
+        /** While on, dragging or turning the group's pin moves only the grip; nothing else moves. Off, the pin takes the group. */
+        setMovePivot: (groupId, on, scene = canvas.scene) => setMovePivot(scene, groupId, on),
         /** Put tokens (documents) aboard a group. They must be on it. Returns how many boarded and why others did not. */
         mount: (groupId, tokens, scene = canvas.scene) => mountTokens(scene, groupId, tokens),
         dismount: (groupId, tokenId, scene = canvas.scene) => dismountToken(scene, groupId, tokenId),

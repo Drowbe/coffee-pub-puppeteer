@@ -24,6 +24,16 @@ export function registerUi() {
 
     registerToolbar(blacksmith);
     registerPinMenu(blacksmith);
+
+    // Double-clicking a group's pin opens the Group Editor at that group. A single click belongs to Blacksmith's pins
+    // tool (it selects the pin), so double-click is the only click a module is given.
+    blacksmith.pins.on('doubleClick', async (event) => {
+        if (!game.user.isGM) return;
+        const groupId = groupIdOf(event.pin);
+        if (!groupId) return;
+        const { GroupEditorWindow } = await import('./group-editor.js');
+        await GroupEditorWindow.focusGroup(groupId);
+    }, { moduleId: MODULE_ID });
 }
 
 function registerToolbar(blacksmith) {

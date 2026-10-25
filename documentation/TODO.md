@@ -28,7 +28,10 @@
    an actor on the group, and (checked: drop and button work) walk a token onto a group with the option on, carry
    riders through a drag and a turn, walk one about inside, walk one off, dismount one and see it stay off.
    Still to do: a player boarding through `gmRequest`, chat card announcements, and easing riders with the group.
-5. Group behaviour options: turns with the pin or on request, facing offset, easing (glide or jump, and how long),
+5. Move Pivot is built and simulated, not yet run in Foundry: turn it on for a group, drag the pin to the prow or
+   hinge, and check nothing moves; turn it off, then drag and turn, and check the group goes about the new grip.
+   Check too that riders and the body stay put, and that the pin's Shift + wheel turn also leaves parts standing.
+6. Group behaviour options: turns with the pin or on request, facing offset, easing (glide or jump, and how long),
    mountable, riders move free. Easing includes the body token, which jumps today.
 
 **Check in Foundry (built, not yet run there)**

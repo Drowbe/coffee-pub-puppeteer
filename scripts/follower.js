@@ -11,7 +11,7 @@ import { getGroup, getGroups, patchGroup } from './store.js';
 import { anchorState } from './anchor.js';
 import { glideOptions } from './tween.js';
 import { fitBody } from './body.js';
-import { carryRiders } from './riders.js';
+import { carryRiders, captureRider } from './riders.js';
 
 // One chain per group, so a move and the rotation that follows it a moment later never write concurrently.
 // Hook Manager callbacks are started back to back and not awaited.
@@ -162,6 +162,26 @@ function countNotTaken(scene, type, batch) {
     return count;
 }
 
+/**
+ * Record every member and rider again against a pin that has moved, leaving all of them where they are. The same
+ * thing Centre Pivot does, for wherever the pin was put.
+ */
+async function repivot(scene, group, anchor) {
+    const { utils } = getBlacksmith();
+    const members = group.members.map((member) => {
+        const doc = scene.getEmbeddedCollection(member.type).get(member.id);
+        return doc ? recaptureMember(member, doc._source, anchor) : member;
+    });
+    const riders = (group.riders ?? []).map((rider) => {
+        const token = scene.tokens.get(rider.tokenId);
+        return token ? captureRider(scene, rider.tokenId, token._source, anchor) : rider;
+    });
+    const patch = { members, applied: anchor, heading: anchor.heading };
+    if (group.riders) patch.riders = riders;
+    await patchGroup(scene, group.id, patch);
+    utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": pivot moved to ${Math.round(anchor.x)}, ${Math.round(anchor.y)}; ${members.length} member(s) re-recorded, none moved`, anchor, true, false);
+}
+
 /** Move a group's members to its anchor now. Only call from inside `runExclusive`. */
 export async function apply(scene, groupId) {
     const { utils } = getBlacksmith();
@@ -171,6 +191,13 @@ export async function apply(scene, groupId) {
     const anchor = anchorState(scene, group);
     if (!anchor) return;
     if (sameAnchor(group.applied, anchor)) return;
+
+    // Move Pivot is on: the pin was moved to be the grip somewhere else, not to take the group with it. Nothing is
+    // written to the scene; every part is recorded again against where the pin now is.
+    if (group.movePivot) {
+        await repivot(scene, group, anchor);
+        return;
+    }
 
     // A region whose shapes were changed by hand since it was recorded (a cutout adds or reshapes shapes) is
     // recorded again where it stands, before anything is carried, so old geometry is never mixed with new.

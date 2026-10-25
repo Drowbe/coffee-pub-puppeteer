@@ -10,13 +10,14 @@ A group is a pin on the map plus the tiles, drawings, lights, sounds, walls, not
 2. Choose New Group. A pin appears at the centre of your view.
 3. Select the objects that belong to it and choose Add Selected, or choose Capture Area and drag a box around them. Regions are added with Add Selected.
 
-Right-click the pin for the same actions.
+Right-click the pin for the same actions, or double-click it to open the Group Editor on that group.
 
 ## Move and turn it
 
 - **Move:** drag the pin. Players see the group glide.
 - **Turn:** select the pin and hold Shift while scrolling the mouse wheel over the board. Each notch is 5 degrees. The Group Editor's heading field and rotate buttons do the same thing.
 - **Centre Pivot** moves the pin to the middle of the group without moving anything, so it turns about its own centre.
+- **Move Pivot** puts the pin anywhere: the prow of a ship, a wagon's hitch, a door's hinge. Choose Move Pivot on the group (it turns blue and a notice shows), drag the pin to where the grip should be, then choose Move Pivot again. While it is on, dragging or turning the pin moves only the pin and nothing else moves. After that, the group moves and turns about the new spot.
 
 The pin is the only handle. You can hide it, change its look, or choose who may move it, and the group is unaffected.
 
