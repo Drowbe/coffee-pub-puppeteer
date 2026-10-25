@@ -5,7 +5,8 @@
 | Looking for | It lives in |
 |---|---|
 | What shipped, and why | `CHANGELOG.md` |
-| The design and its open questions | `plans/plan-puppeteer-groups.md` |
+| What is built and not yet proven in a running world | `testing/testing-foundry-verification.md` |
+| How it works | `documentation/architecture/` |
 | What is broken and not yet fixed | `known-issues.md` |
 
 **When something is finished, log it where it belongs and delete it from here.**
@@ -14,73 +15,77 @@
 
 **Stack rank (proposed)**
 
-Effort is for building and testing under Node, not for checking in Foundry. **S** is about an hour, **M** is a few hours, **L** is a day or more or needs design or something from Blacksmith first. Numbers are the items below.
+Effort is for building and testing under Node, not for checking in Foundry. **S** is about an hour, **M** is a few hours, **L** is a day or more or needs design or something from Blacksmith first.
 
 | Rank | Todo | Effort | Why here |
 |---|---|---|---|
-| 1 | Check everything in Foundry (1 to 7) | M, yours | Everything below sits on it. The body, riders, behaviour and Move Pivot have only been simulated, and a bug found now is cheaper than one found under a feature. |
-| 2 | Commit (11) | S | A large amount is uncommitted. Best done after rank 1, so fixes land in the right commit. |
-| 3 | Library: edit and update entries (22) | M | An entry cannot be renamed or replaced today, so every fix means a new entry. The other library items build on it. |
-| 4 | Library: description, thumbnail, rename Stamp (21) | M | Description and the rename are S; the thumbnail is the M. Cheap, visible, and makes the library usable. |
-| 5 | Editor: clean up layout, expand and collapse the group (20) | M | The editor now carries body, riders, behaviour and members on every card, and it is the main surface. Do before adding more to it. |
-| 6 | Hide and show a group and its members (17) | M | High value for set pieces (a bridge that is up or down). Different document types hide differently, so it needs a per-type rule. |
-| 7 | Pin context menu actions (19) | M | Mostly wiring once 17 exists, and a sound submenu needs 12. Do hide, show and lights first. |
-| 8 | Face the direction of travel (14) | S | One option in Behaviour, with the pin's drag direction as input. Small, and it makes carts and boats feel right. |
-| 9 | Public API: what else to expose (12) | M | Needs a short design pass (what would an animated scene want?) before code. Cheap to start with a read-only speed and heading. |
-| 10 | Group events, such as mount then play a sound (13) | L | Wants 12 first, plus a list of event names and a set of actions. The most open-ended item. |
-| 11 | Resize a group, proportionally (18) | L | Every member type scales differently (tiles, drawings, walls, regions, light radius, sound radius, riders and the body). Easy to get subtly wrong. |
-| 12 | Damage levels (16) | L | Wants 13 (a trigger) and a group that can swap its images. Best as a use of events, not its own system. |
-| 13 | Smoother movement for lights, walls, sounds, regions, the body (15) | L | Foundry recalculates sight from their saved positions, so only small stepped writes are possible. Low value for the cost. |
-| 14 | Wait on Blacksmith (8, 9) and decide on a deleted pin (10) | S | Not ours to start; 10 is a decision, not work. |
+| 1 | Library: edit and update entries | M | An entry cannot be renamed or replaced today, so every fix means a new entry. The other library items build on it. |
+| 2 | Library: description, thumbnail, rename Stamp | M | Description and the rename are S; the thumbnail is the M. Cheap, visible, and makes the library usable. |
+| 3 | Group Editor: layout, and expand or collapse the group | M | Each card now carries body, riders, behaviour and members, and the editor is the main surface. Do before adding more to it. |
+| 4 | Hide and show a group and its members | M | High value for set pieces such as a bridge that is up or down. Document types hide differently, so it needs a rule per type. |
+| 5 | Pin context menu actions | M | Mostly wiring once hide and show exists. A sound submenu needs the public API. |
+| 6 | Face the direction of travel | S | One option in Behaviour, with the pin's drag direction as input. Small, and makes carts and boats feel right. |
+| 7 | Public API: what else to expose | M | Needs a short design pass (what would an animated scene want?) before code. Cheap to start with a read-only speed and heading. |
+| 8 | Group events | L | Wants the public API first, plus a list of event names and a set of actions. The most open-ended item. |
+| 9 | Resize a group, proportionally | L | Every member type scales differently (tiles, drawings, walls, regions, light and sound radius, riders, the body). Easy to get subtly wrong. |
+| 10 | Damage levels | L | Wants events as a trigger and a group that can swap its images. Best as a use of events, not its own system. |
+| 11 | Smoother movement for lights, walls, sounds, regions and the body | L | Foundry works out sight from their saved positions, so only small stepped writes are possible. Low value for the cost. |
+| 12 | Decisions and waiting on others | S | Levels, snapping, a deleted pin, screenshots, and the Blacksmith items. Not ours to start, or a decision rather than work. |
 
 ---
 
-**Everything on the roadmap is built and simulated under Node. These are the checks that need Foundry.**
+Each entry says what and why, the files it touches, and how it will be verified.
 
-1. Move Pivot: turn it on, drag the pin to the prow or hinge, check nothing moves and the mode switches itself off;
-   then drag and turn, and check the group goes about the new grip. Riders and the body stay put.
-2. Behaviour: Gliding and Jumping, a long glide, riders gliding along, Turns when its pin turns switched off (the pin
-   turns, nothing else does) and back on (nothing swings), Riders can move about switched off (a hand move is put
-   back), Announce boarding (a card and a soft sound for everyone).
-3. Riders: a player dragging their own token onto a group with Tokens board when they move onto it ticked (the GM's
-   own drops and the Board Selected button are checked); walking one about inside; walking one off (dismounts,
-   toast); Dismount (stays off until it has left and come back); deleting the group.
-4. Body token: drag an actor onto the body row, Use Selected Token, Linked, the Remove cross, and that the body
-   follows a drag, a turn and added or removed parts. Still unseen: whether a truly transparent token draws any
-   shadow or border, whether a tile or light under the footprint can still be clicked, and whether a teleport move
-   counts against combat movement.
-5. Library: Save, Stamp, Import, Export; a stamp of a group that has a body (one turned), and a stamp in a world
-   without that actor.
-6. Conversion of token-anchored groups: open a world that has one and confirm it comes up as a pin group where the
-   token was, nothing moved, the token left as it was, and one toast.
-7. Duplicate a scene that has groups, riders and a body, and move a group on each: both should work and neither
-   should disturb the other. Capture Area, the pin menu, the Shift + wheel turn, the Group Editor tabs and delete flows, and the menubar
-   buttons (the bounds button should light while the overlay is on).
+**Library: edit and update entries**
 
-**Housekeeping and waiting on others**
+Save to Library always adds a new entry; an entry cannot be renamed, replaced or edited, only deleted, or exported and imported again as a new entry. Add rename, and Update from a group on the scene that replaces the entry's parts, with a warning that copies already placed are not changed. Touches `scripts/library.js` and `scripts/group-editor.js`. Verify with a test in `tests/library.test.mjs` that an update replaces the entry and leaves placed groups alone, then by walking it in Foundry.
 
-8. Raise the Blacksmith minimum in `module.json` when the release with area pick and pin rotation ships. Not before.
-9. Regions in Capture Area once Blacksmith's area pick lists them (requested).
-10. A group whose pin was deleted is flagged in the editor and nothing removes it; decide on automatic removal.
-11. Commit. Nothing from this work has been committed.
+**Library: description, thumbnail, rename Stamp**
 
-**Ideas to design and rank (not started)**
+Add a description and a thumbnail to each entry, and rename Stamp to something that says fabricate or build. The thumbnail could be a snapshot of the group taken when it is saved, or an image the GM picks. Touches `scripts/library.js`, `scripts/template.js`, `scripts/group-editor.js` and `documentation/userguides/userguide-library.md`. Verify with tests that old entries without the new fields still list and stamp, then in Foundry.
 
-12. Public API: decide what else to expose. Example: a scene that animates a group may want to change the sound
-    playing in the group according to how fast it is moving.
-13. Group events: let a group run something when something happens, such as mount, then play a sound; move, then run
-    a macro. Needs a list of event names and an action for each (sound, macro, and so on).
-14. Move and rotate in the direction the group was moved: an option to turn the group to face where it is going.
-15. Smoother, animated group movement: lights, walls, sounds, regions and the body token still jump. Possibly paths
-    and speed.
-16. Damage levels: a group with states, such as a cart whose image becomes a broken cart at a damage threshold.
-17. Hide and show a whole group, and hide and show individual members.
-18. Resize a group, proportionally.
-19. Pin context menu: actions that apply to the group, such as hide or show, lights on or off, and a sound submenu.
-20. Group Editor: clean up the layout; make the group's own card expand and collapse rather than the items in it.
-21. Library: add a description and a thumbnail to each entry, and rename Stamp to something that says fabricate or
-    build. The thumbnail could be a snapshot of the group taken when it is saved, or an image the GM picks.
-22. Library: edit and update entries. Today Save to Library always adds a new entry; an entry cannot be renamed,
-    replaced or edited, only deleted, or exported to JSON and imported again as a new entry. Wanted: rename, edit the
-    description and thumbnail, and Update from a group on the scene (replacing the entry's parts, with a warning that
-    copies already placed are not changed).
+**Group Editor: layout, and expand or collapse the group**
+
+Clean up the layout, and make the group's own card expand and collapse rather than the list of items in it. Touches `scripts/group-editor.js` and `styles/group-editor.css`. Verify in Foundry at the default width and a narrow one.
+
+**Hide and show a group and its members**
+
+Hide and show a whole group, and individual members. Touches a new module beside `scripts/groups.js`, `scripts/group-editor.js` and `scripts/follower.js` (a hidden member must still follow). Verify with a test for each member type, then in Foundry as GM and as a player.
+
+**Pin context menu actions**
+
+Add actions that apply to the group to the pin's right-click menu: hide or show, lights on or off, and a sound submenu. Touches `scripts/ui.js`. Verify in Foundry.
+
+**Face the direction of travel**
+
+An option to turn the group to face the way it was moved. Touches `scripts/follower.js`, `scripts/anchor.js` and the Behaviour section of `scripts/group-editor.js`. Verify with a test of a drag in each direction, then in Foundry.
+
+**Public API: what else to expose**
+
+Decide what else macros and scenes should be able to use. Example: an animated scene may want to change the sound playing in a group according to how fast the group is moving. Touches `scripts/puppeteer.js` and `documentation/api/api-puppeteer.md`. Verify with a macro that reads the value while a group moves.
+
+**Group events**
+
+Let a group run something when something happens, such as mount then play a sound, or move then run a macro. Needs a list of event names and an action for each (sound, macro, and so on). Touches `scripts/follower.js`, `scripts/groups.js`, `scripts/boarding.js` and the editor. Verify with tests that each event fires once per occurrence, then in Foundry.
+
+**Resize a group, proportionally**
+
+Scale every member about the pin, and the body and riders with it. Touches `scripts/geometry.js`, `scripts/region-shapes.js` and `scripts/groups.js`. Verify with tests that scaling by two then by one half returns every member to where it was, then in Foundry.
+
+**Damage levels**
+
+A group with states, such as a cart whose image becomes a broken cart at a damage threshold. Wants group events first. Verify in Foundry by damaging a body and watching the image change.
+
+**Smoother movement for lights, walls, sounds, regions and the body**
+
+They still jump. Possibly paths and speed as well. Touches `scripts/tween.js`. Verify in Foundry that sight and sound stay correct while a group moves.
+
+**Decisions and waiting on others**
+
+- Levels: should a group follow its pin between levels, or stay put? Tiles, drawings, lights, sounds, walls and notes carry a set of levels and a token has one. Decide, then touch `scripts/follower.js`.
+- Snapping: a snapped pin with unsnapped member offsets must be allowed. Decide whether anything needs to change.
+- A group whose pin was deleted is flagged in the editor and nothing removes it. Decide on automatic removal; touches `scripts/prune.js`.
+- Raise the Blacksmith minimum in `module.json` when the release with area pick and pin rotation ships. Not before.
+- Regions in Capture Area once Blacksmith's area pick lists them (requested). Touches `scripts/groups.js`.
+- Screenshots for the README and `home.md`, taken in a scratch world so no player or character names appear, saved as WebP under `documentation/assets/`.
+- Delete `documentation/plans/plan-puppeteer-groups.md`. It is absorbed and marked complete.

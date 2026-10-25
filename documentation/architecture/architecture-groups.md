@@ -28,6 +28,10 @@ A group record holds:
 | `applied` | The pin state (`x`, `y`, `heading`) the members were last written for. The follower compares it to the pin to see what changed. |
 | `heading` | Mirrors the pin's `rotation`, for display. The pin is the truth. |
 | `members` | `{ type, id, dx, dy, drot }`, plus `label` for a name, `c` for a Wall's endpoints and `shapes` for a Region. |
+| `body` | `{ tokenId, actorId }`, when the group represents an actor. |
+| `riders` | `[{ tokenId, dx, dy, drot }]`, the tokens the group carries. |
+| `mountable`, `announce`, `ridersFree`, `rotates`, `fixedHeading`, `ease` | Behaviour choices (see Behaviour). Absent means the default. |
+| `movePivot` | Present while Move Pivot is armed. |
 
 `id` is the embedded document id on the scene, not a UUID, because a UUID names the scene and breaks when a scene is duplicated or imported. Foundry keeps embedded ids when it duplicates a scene (`keepEmbeddedIds` defaults to true), so a duplicated scene carries working groups of its own: the same ids, in its own flags, independent of the original's.
 
@@ -89,6 +93,33 @@ Not built yet: converting token-anchored groups, and animating the body (it jump
 
 Group behaviour options (designed): whether the group turns with its pin or only on request, a facing offset for art that does not face down, movement style (glide or jump), and, with riders, whether the group is mountable and whether riders move freely inside it.
 
+## The bounds overlay
+
+An optional overlay, per user and off by default, draws what no single tool shows: each member's outline in blue, the oriented box that holds the sized members in orange, the pivot, and the way the group faces. It is redrawn once a frame after any change to a group, a pin or a member (`scripts/overlay.js`). The choice is kept in the browser's local storage.
+
+## Regions
+
+A region has no position of its own. It holds a list of shapes, so a region member records one entry per shape and each is carried by its own rule (`scripts/region-shapes.js`):
+
+| Shape | Carried by |
+|---|---|
+| rectangle | its anchor point `x, y` (the anchor fractions say where on the rectangle that is), turning about it, like a tile |
+| ellipse, cone, line | `x, y` and `rotation` |
+| circle, ring | `x, y` |
+| polygon | every vertex, and its `origin` if it has one |
+| emanation | its base shape, by the rule for that shape |
+| token, grid | not carried: tied to a token's footprint or to grid cells, so they cannot be turned freely. A region with one is refused with a reason. |
+
+Fields Puppeteer does not own (`hole`, `gridBased`, sizes, behaviours, colour) are left as they are. The shapes of the region as saved are the source of truth: if the GM adds, removes or reshapes a shape by hand, the region is re-recorded like any hand edit, and before anything is carried.
+
+## Capture and removal
+
+Capture Area uses Blacksmith's `pickArea`: every supported placeable whose centre is inside the dragged box becomes a member, across all layers, with offsets computed from the pin's applied pose and un-rotated into the pin's frame. Add Selected and Remove Selected cover single elements. Members deleted from the scene are pruned through the delete hooks (`scripts/prune.js`). Capturing first lets the follower finish, so offsets are measured against where the pin really is.
+
+## Deleting
+
+Deleting a group from the editor asks, when it has parts, for one of three choices: Cancel, Delete group only (the parts stay on the map), or Delete group and its parts. A group with no parts gets a plain confirmation. Whichever is chosen, the group's record, its pin and its body token are removed and its riders are let go where they stand. The library is not touched, because a library entry is its own saved copy.
+
 ## Behaviour
 
 A group's record carries a few choices, set in the editor's Behaviour section or with `setBehaviour`:
@@ -111,7 +142,7 @@ A rider is a token a group carries (`scripts/riders.js`, `scripts/boarding.js`, 
 
 - **Record.** `group.riders = [{ tokenId, dx, dy, drot }]`: where the token's middle sits in the pin's frame, and its rotation relative to the pin's heading. The token carries `flags.coffee-pub-puppeteer.riderOf = groupId`. `group.mountable` says whether tokens created on the group board it.
 - **Carried.** After the follower writes the members it moves every rider to where its record puts it for the new pin pose, with `teleport: true, animate: false`, a `displace` move that ignores walls, speed and cost. A rider turns with the group. A rider whose token is gone is dropped from the record.
-- **Boarding.** A token boards only when its middle is inside the group. The box that decides this is the group's sized members (Tiles, Drawings, Walls, Regions) in the pin's frame, so it turns with the group; a group with nothing sized is one square on the pin. A token cannot ride two groups, ride a group that is its own body, or be a body. The ways on: the editor's Board Selected, the macro API, and, when `mountable`, a token that is moved onto the group (the usual way) or created on it (dropping an actor from the sidebar onto it). Moving counts only when x or y changed in a committed update, so turning on the spot does not board. Dropping on the group is reserved for this and never makes a body.
+- **Boarding.** A token boards only when its middle is inside the group. The box that decides this is the group's sized members (Tiles, Drawings, Walls, Regions) in the pin's frame, so it turns with the group; a group with nothing sized is one square on the pin. A token cannot ride two groups, ride a group that is its own body, or be a body. The ways on: the editor's Board Selected, the macro API, and, when `mountable`, a token that is moved onto the group (the usual way) or created on it (dropping an actor from the sidebar onto it). Moving counts only when x or y changed in a committed update, so turning on the spot does not board. Dropping on the group is reserved for this and never makes a body. A player needs no request to the GM to board, because the active GM's client sees the committed move.
 - **Free movement.** A rider moved by hand (a player dragging their own token) inside the group is re-recorded where it was put, so the next move carries it from there. The follower's own moves carry the follower marker and are ignored.
 - **Dismounting.** A rider moved by hand so that its middle is outside the group is let go where it stands, and the GM is told. A rider's token deleted by hand, or its group deleted, lets it go too. Dismounting never moves a token. A token let go with the Dismount button gets `flags.coffee-pub-puppeteer.stayed = groupId`, so it does not climb straight back aboard while it is still on that group; the flag clears when it next moves anywhere else, and boarding on purpose clears it too.
 - **Not built yet:** boarding by a player choosing to (a request to the GM), chat announcements, easing a rider along with the group (it jumps today), and a rider moving the group.

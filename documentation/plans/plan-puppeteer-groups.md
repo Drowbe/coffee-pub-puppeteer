@@ -2,6 +2,8 @@
 
 **Audience:** contributors building Puppeteer.
 
+**Status: Complete, absorbed, and ready to delete.** Everything durable in this plan now lives in `architecture/` (the model, data, follower, riders, behaviour, Blacksmith use and Foundry behaviour), `userguides/`, `api/`, `testing/` and `TODO.md`. Delete this file.
+
 The design for moving scene elements as one group, anchored first to a Blacksmith pin and later to a vehicle token. Deleted when the module ships; durable knowledge moves to `architecture/`.
 
 ## Goal

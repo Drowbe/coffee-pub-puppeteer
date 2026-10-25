@@ -2,13 +2,19 @@
 
 **Audience:** everyone using or changing Puppeteer.
 
-Group scene elements so they move and turn together, gripped by a Blacksmith pin. Puppeteer is part of the Coffee Pub suite and requires Coffee Pub Blacksmith.
+Group the tiles, lights, walls, sounds, drawings, notes and regions of a cart, a ship or a drawbridge, then drag or turn one Blacksmith pin to move and turn all of it. Puppeteer is part of the Coffee Pub suite and requires Coffee Pub Blacksmith.
 
 This page routes. Each section points at the document that answers the question.
 
 ## Using it
 
-[Using Groups](userguides/userguide-groups.md) covers making a group, moving and turning it, and saving it to the library.
+- [Getting started](userguides/userguide-getting-started.md): your first group in five minutes.
+- [Building and moving groups](userguides/userguide-groups.md): parts, turning, the pivot, deleting.
+- [The library](userguides/userguide-library.md): save a group and place copies.
+- [Making a group something that can be attacked](userguides/userguide-targets.md)
+- [Carrying tokens as riders](userguides/userguide-riders.md)
+- [Choosing how a group behaves](userguides/userguide-behaviour.md)
+- [What players see and can do](userguides/userguide-player.md)
 
 ## Scripting it
 
@@ -16,8 +22,10 @@ This page routes. Each section points at the document that answers the question.
 
 ## How it works
 
-[Groups](architecture/architecture-groups.md) explains the model, the stored data, the follower and the smooth movement.
+- [Groups](architecture/architecture-groups.md): the model, the stored data, the follower, riders and behaviour.
+- [How Puppeteer uses Blacksmith](architecture/architecture-blacksmith-use.md)
+- [Foundry behaviour Puppeteer relies on](architecture/architecture-foundry-behaviour.md)
 
 ## What is still broken
 
-[Known issues](known-issues.md) lists the defects we have not fixed.
+[Known issues](known-issues.md) lists the limits we know about.
