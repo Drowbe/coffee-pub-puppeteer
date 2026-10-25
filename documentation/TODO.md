@@ -30,7 +30,8 @@
    without that actor.
 6. Conversion of token-anchored groups: open a world that has one and confirm it comes up as a pin group where the
    token was, nothing moved, the token left as it was, and one toast.
-7. Capture Area, the pin menu, the Shift + wheel turn, the Group Editor tabs and delete flows, and the menubar
+7. Duplicate a scene that has groups, riders and a body, and move a group on each: both should work and neither
+   should disturb the other. Capture Area, the pin menu, the Shift + wheel turn, the Group Editor tabs and delete flows, and the menubar
    buttons (the bounds button should light while the overlay is on).
 
 **Housekeeping and waiting on others**
@@ -38,5 +39,20 @@
 8. Raise the Blacksmith minimum in `module.json` when the release with area pick and pin rotation ships. Not before.
 9. Regions in Capture Area once Blacksmith's area pick lists them (requested).
 10. A group whose pin was deleted is flagged in the editor and nothing removes it; decide on automatic removal.
-11. Delete `probe/` (the probe's uploaded image) and `tools/probes/` once the body token has been seen working.
-12. Commit. Nothing from this work has been committed.
+11. Commit. Nothing from this work has been committed.
+
+**Ideas to design and rank (not started)**
+
+12. Public API: decide what else to expose. Example: a scene that animates a group may want to change the sound
+    playing in the group according to how fast it is moving.
+13. Group events: let a group run something when something happens, such as mount, then play a sound; move, then run
+    a macro. Needs a list of event names and an action for each (sound, macro, and so on).
+14. Move and rotate in the direction the group was moved: an option to turn the group to face where it is going.
+15. Smoother, animated group movement: lights, walls, sounds, regions and the body token still jump. Possibly paths
+    and speed.
+16. Damage levels: a group with states, such as a cart whose image becomes a broken cart at a damage threshold.
+17. Hide and show a whole group, and hide and show individual members.
+18. Resize a group, proportionally.
+19. Pin context menu: actions that apply to the group, such as hide or show, lights on or off, and a sound submenu.
+20. Group Editor: clean up the layout; make the group's own card expand and collapse rather than the items in it.
+21. Library: add a description to each entry, and rename Stamp to something that says fabricate or build.

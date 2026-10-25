@@ -29,7 +29,7 @@ A group record holds:
 | `heading` | Mirrors the pin's `rotation`, for display. The pin is the truth. |
 | `members` | `{ type, id, dx, dy, drot }`, plus `label` for a name, `c` for a Wall's endpoints and `shapes` for a Region. |
 
-`id` is the embedded document id on the scene, not a UUID, because a UUID names the scene and breaks when a scene is duplicated or imported.
+`id` is the embedded document id on the scene, not a UUID, because a UUID names the scene and breaks when a scene is duplicated or imported. Foundry keeps embedded ids when it duplicates a scene (`keepEmbeddedIds` defaults to true), so a duplicated scene carries working groups of its own: the same ids, in its own flags, independent of the original's.
 
 ## Frames and maths
 

@@ -42,7 +42,7 @@ All five are built and simulated; what has been run in Foundry is in `TODO.md`.
 
 ## Body token: what the probe found
 
-`tools/probes/body-token-probe.js`, run in Foundry v14.369 by the user on an actor with a dnd5e sheet.
+A throwaway macro (since deleted), run in Foundry v14.369 by the user on an actor with a dnd5e sheet.
 
 - **Fractional size works.** A 6.5 by 3.5 token was created and drawn at exactly 650 by 350 px on a 100 px grid.
 - **Selection and hover outline the whole footprint,** not the image, so a transparent token still shows where it is.
@@ -208,7 +208,7 @@ These were seen with the retired token anchor and apply to riders, which are tok
 2. Levels. Should a group follow the anchor between levels, or stay put?
 3. Snapping. Rotated members will not sit on grid positions, which is correct, but a snapped anchor with an unsnapped member offset needs to be allowed.
 4. Undo (Ctrl+Z) and a paused or constrained move were not tried. Both must leave members where the token committed.
-5. Does duplicating a scene keep the ids of its embedded documents? Groups reference members by id inside a scene flag, so a duplicate that regenerates ids would need the records remapped. Untested.
+5. Duplicating a scene keeps working, by Foundry's source (not yet seen in a live world). The sidebar's Duplicate clones the scene without its own `_id` and with `keepEmbeddedIds` at its default of true, so tiles, lights, walls, regions, tokens and the scene flags (the groups, and Blacksmith's pins) are copied with their ids. Adventure export and import and compendium export also keep embedded ids. A copy therefore has working groups of its own, independent of the original's.
 
 ## Regions
 

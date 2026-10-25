@@ -127,7 +127,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         return new GroupEditorWindow().render({ force: true });
     }
 
-    /** Open the editor on the Groups tab with one group's members showing, and bring that group into view. */
+    /** Open the editor on the Scene Groups tab with one group's members showing, and bring that group into view. */
     static async focusGroup(groupId) {
         tab = 'groups';
         try { localStorage.setItem(TAB_KEY, tab); } catch { /* a remembered tab is a convenience */ }
@@ -234,7 +234,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             <button type="button" class="puppeteer-tab${tab === id ? ' is-active' : ''}" data-action="setTab" data-tab="${id}">
                 <i class="${icon}"></i> ${label}${count === null ? '' : ` <span class="puppeteer-tab-count">${count}</span>`}
             </button>`;
-        return `<nav class="puppeteer-tabs">${button('groups', 'fa-solid fa-up-down-left-right', 'Groups', groupCount)}${button('library', 'fa-solid fa-boxes-stacked', 'Library', libraryCount)}${button('tools', 'fa-solid fa-screwdriver-wrench', 'Tools', null)}</nav>`;
+        return `<nav class="puppeteer-tabs">${button('groups', 'fa-solid fa-up-down-left-right', 'Scene Groups', groupCount)}${button('library', 'fa-solid fa-boxes-stacked', 'Library', libraryCount)}${button('tools', 'fa-solid fa-screwdriver-wrench', 'Tools', null)}</nav>`;
     }
 
     _groupsHtml(scene, groups) {

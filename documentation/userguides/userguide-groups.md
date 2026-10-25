@@ -35,7 +35,7 @@ Save to Library stores a group so you can stamp it onto any scene, as many times
 
 ## Delete
 
-Deleting a group asks whether to remove its parts from the map too. Choose Delete group only to keep them.
+Deleting a group asks whether to remove its parts from the map too. Choose Delete group only to keep them. Its pin and its body token are always removed, and riders are let go where they stand. Nothing in the Library is touched, because a library entry is its own saved copy.
 
 ## Make a group a target
 

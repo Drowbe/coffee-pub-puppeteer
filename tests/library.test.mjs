@@ -134,3 +134,15 @@ test('deleting a library entry does not touch groups already placed', async () =
     assert.equal(groups.listGroups(scene).length, 2);
     assert.equal(await library.deleteTemplate(id), false);
 });
+
+test('deleting a group does not touch the library entry saved from it', async () => {
+    const { scene, library, group, groups, settle } = await drawbridge();
+    const id = await library.saveGroupToLibrary(scene, group.id);
+    await groups.deleteGroup(scene, group.id, { removeMembers: true });
+    await settle();
+    assert.equal(library.listTemplates().length, 1);
+    assert.equal(library.getTemplate(id).members.length, 3);
+    // And it still stamps.
+    const again = await library.stampTemplate(scene, id, { x: 4000, y: 2000 });
+    assert.equal(again.members.length, 3);
+});
