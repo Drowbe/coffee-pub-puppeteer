@@ -3,7 +3,7 @@
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { toggleBounds } from './overlay.js';
-import { captureArea, recenterPivot, attachToToken, addSelected, removeSelected, selectMembers, rotateBy, createGroup } from './groups.js';
+import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup } from './groups.js';
 
 export const EDITOR_WINDOW = `${MODULE_ID}-group-editor`;
 
@@ -139,15 +139,6 @@ function registerPinMenu(blacksmith) {
         });
     });
     item('toggle-bounds', 'Show or Hide Group Bounds', 'fa-solid fa-border-none', 12.7, async () => toggleBounds());
-    item('attach-token', 'Attach Group to Selected Token', 'fa-solid fa-link', 12.8, async (groupId) => {
-        const controlled = canvas.tokens.controlled;
-        if (controlled.length !== 1) {
-            toast.show({ title: 'Select one token', subtitle: 'Select the token this group should follow, then try again.', icon: 'fa-solid fa-up-down-left-right', duration: 5 });
-            return;
-        }
-        await attachToToken(canvas.scene, groupId, controlled[0].document);
-        toast.show({ title: 'Group attached', subtitle: `It now follows ${controlled[0].document.name ?? 'the token'}. Nothing moved.`, icon: 'fa-solid fa-up-down-left-right', duration: 5 });
-    });
     item('rotate-cw', 'Rotate Group 90° Clockwise', 'fa-solid fa-rotate-right', 13, (groupId) => rotateBy(canvas.scene, groupId, 90));
     item('rotate-ccw', 'Rotate Group 90° Counter-clockwise', 'fa-solid fa-rotate-left', 14, (groupId) => rotateBy(canvas.scene, groupId, -90));
     item('open-editor', 'Open Group Editor', 'fa-solid fa-sliders', 15, async () => blacksmith.openWindow(EDITOR_WINDOW));

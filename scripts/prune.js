@@ -26,7 +26,7 @@ export function registerPruning() {
             }
         });
     }
-    // A body token someone deleted leaves the group as it was, without a body.
+    // A body token someone deleted leaves the group as it was, without a body; a rider deleted is no longer aboard.
     HookManager.registerHook({
         name: 'deleteToken',
         description: 'Puppeteer: a group whose body token was deleted has no body',
@@ -47,6 +47,9 @@ async function pruneBody(token) {
     if (!scene) return;
     for (const group of Object.values(getGroups(scene))) {
         if (group.body?.tokenId === token.id) await patchGroup(scene, group.id, { '-=body': null });
+        if (group.riders?.some((rider) => rider.tokenId === token.id)) {
+            await patchGroup(scene, group.id, { riders: group.riders.filter((rider) => rider.tokenId !== token.id) });
+        }
     }
 }
 

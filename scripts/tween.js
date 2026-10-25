@@ -1,13 +1,9 @@
 // The tween: the tiles, drawings and notes of a moving group are drawn moving, not jumping.
 //
-// A group's documents are written once, when its anchor has moved, so without this they jump. Three things
-// can move a group, and each gets the same treatment: draw the members where the group's records put them for
-// a given pose of the anchor, frame by frame. Only what is drawn changes; the documents are never touched.
+// A group's documents are written once, when its pin has moved, so without this they jump. Two things
+// move a group, and each gets the same treatment: draw the members where the group's records put them for
+// a given pose of the pin, frame by frame. Only what is drawn changes; the documents are never touched.
 //
-//   a token's glide   Foundry steps the token document's own x, y and rotation every frame (the committed
-//                     values stay in `_source`) and announces each frame through `refreshToken`. The members
-//                     are drawn for the token's DISPLAYED pose. Every client does it from its own copy of the
-//                     animation, so nothing is sent between clients and no duration is guessed.
 //   a pin being dragged  Blacksmith reports the pin's live position on every move (`dragMove`, on the client
 //                     that is dragging). The members follow the pointer.
 //   a pin that moved or turned   (a drop, a Shift + wheel turn, the editor's rotate buttons.) The follower says,
@@ -21,7 +17,7 @@ import { MODULE_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { memberUpdate } from './geometry.js';
 import { getGroup } from './store.js';
-import { tokenAnchorState, anchorState } from './anchor.js';
+import { anchorState } from './anchor.js';
 
 const TWEENED = ['Tile', 'Drawing', 'Note'];
 
@@ -70,14 +66,6 @@ const DISPLAY = {
 
 export function registerTween() {
     const { HookManager, pins } = getBlacksmith();
-    HookManager.registerHook({
-        name: 'refreshToken',
-        description: 'Puppeteer: draw a token group\'s tiles, drawings and notes along with the token as it glides',
-        context: MODULE_ID,
-        priority: 3,
-        key: `${MODULE_ID}-tween-token`,
-        callback: (token) => followToken(token)
-    });
     for (const type of TWEENED) {
         HookManager.registerHook({
             name: `refresh${type}`,
@@ -128,24 +116,6 @@ function holdPose(type, placeable) {
         return;
     }
     DISPLAY[type](placeable, held.pose, doc._source);
-}
-
-// ---- a token's glide ----------------------------------------------------------------------------------
-
-/** One frame of a token's glide: draw its group for the token's displayed pose. */
-function followToken(token) {
-    // Only while it is actually animating; at rest the documents are already right.
-    if (!token.animationContexts?.size) return;
-    const doc = token.document;
-    const groupId = doc.getFlag(MODULE_ID, 'groupId');
-    if (!groupId) return;
-    const scene = doc.parent;
-    const group = scene && getGroup(scene, groupId);
-    // The record must name this token, so a copied token does not move the original's parts.
-    if (!group || group.anchor.type !== 'token' || group.anchor.id !== doc.id) return;
-
-    // doc.x, doc.y and doc.rotation are the animated values here; _source holds where the token is going.
-    showGroup(scene, group, tokenAnchorState(scene, { x: doc.x, y: doc.y, width: doc.width, height: doc.height, rotation: doc.rotation }));
 }
 
 // ---- a pin being dragged ------------------------------------------------------------------------------

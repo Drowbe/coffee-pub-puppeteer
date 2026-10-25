@@ -5,8 +5,8 @@ import { BlacksmithToolWindowBaseV2 } from '/modules/coffee-pub-blacksmith/api/b
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
-    createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
-    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked
+    createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
+    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable
 } from './groups.js';
 import { bodyToken } from './body.js';
 import { boundsShown, toggleBounds } from './overlay.js';
@@ -92,9 +92,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         syncAll: (event, target, win) => win._syncAll(),
         diagnose: (event, target, win) => win._diagnose(target.dataset.groupId),
         newGroup: (event, target, win) => win._newGroup(),
-        newTokenGroup: (event, target, win) => win._newTokenGroup(),
-        attachToToken: (event, target, win) => win._attachToToken(target.dataset.groupId),
-        detachToPin: (event, target, win) => win._detachToPin(target.dataset.groupId),
         rotate: (event, target, win) => win._rotate(target.dataset.groupId, Number(target.dataset.degrees)),
         captureArea: (event, target, win) => win._captureArea(target.dataset.groupId),
         recenterPivot: (event, target, win) => win._recenterPivot(target.dataset.groupId),
@@ -110,6 +107,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         panTo: (event, target, win) => win._panTo(target.dataset.groupId),
         deleteGroup: (event, target, win) => win._deleteGroup(target.dataset.groupId),
         removeMember: (event, target, win) => win._removeMember(target.dataset.groupId, target.dataset.type, target.dataset.id),
+        boardSelected: (event, target, win) => win._boardSelected(target.dataset.groupId),
+        dismount: (event, target, win) => win._dismount(target.dataset.groupId, target.dataset.tokenId),
         adoptBody: (event, target, win) => win._adoptBody(target.dataset.groupId),
         clearBody: (event, target, win) => win._clearBody(target.dataset.groupId),
         openBodyActor: (event, target, win) => win._openBodyActor(target.dataset.groupId)
@@ -197,8 +196,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const groups = scene ? listGroups(scene) : [];
         const library = listTemplates();
         const footer = {
-            groups: `<button type="button" class="puppeteer-btn puppeteer-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>
-                <button type="button" class="puppeteer-btn" data-action="newTokenGroup" data-tooltip="Make a group that follows the selected token, such as a cart or a ship"><i class="fa-solid fa-horse"></i> On Selected Token</button>`,
+            groups: `<button type="button" class="puppeteer-btn puppeteer-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>`,
             library: `<button type="button" class="puppeteer-btn" data-action="importTemplate"><i class="fa-solid fa-file-import"></i> Import</button>
                 <input type="file" accept="application/json,.json" data-field="importFile" hidden>`,
             tools: ''
@@ -230,7 +228,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     _groupsHtml(scene, groups) {
         if (!scene) return '<p class="puppeteer-empty">There is no scene in view.</p>';
         if (!groups.length) {
-            return `<p class="puppeteer-empty">No groups on <strong>${esc(scene.name)}</strong>. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings, notes or regions on the canvas, then choose <strong>Add Selected</strong> on the group. Or select a token and choose <strong>On Selected Token</strong> to make a group that follows it.</p>`;
+            return `<p class="puppeteer-empty">No groups on <strong>${esc(scene.name)}</strong>. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings, notes or regions on the canvas, then choose <strong>Add Selected</strong> on the group.</p>`;
         }
         return groups.map((group) => this._groupHtml(scene, group)).join('');
     }
@@ -254,8 +252,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     _toolsHtml(scene, groups) {
         const rows = groups.map((group) => `
             <li class="puppeteer-template">
-                <i class="${group.anchor.type === 'token' ? 'fa-solid fa-horse' : 'fa-solid fa-thumbtack'}"></i>
-                <span class="puppeteer-template-name">${esc(group.name)} <span class="puppeteer-template-count">${group.members.length} member${group.members.length === 1 ? '' : 's'}, on a ${group.anchor.type}</span></span>
+                <i class="fa-solid fa-thumbtack"></i>
+                <span class="puppeteer-template-name">${esc(group.name)} <span class="puppeteer-template-count">${group.members.length} member${group.members.length === 1 ? '' : 's'}</span></span>
                 <button type="button" class="puppeteer-btn" data-action="diagnose" data-group-id="${esc(group.id)}" data-tooltip="Write where this group's anchor and every part is, against where it should be, to the browser console (F12)"><i class="fa-solid fa-stethoscope"></i> Diagnose</button>
             </li>`).join('');
         const puppeteer = game.modules.get(MODULE_ID);
@@ -263,7 +261,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         return `
         <section class="puppeteer-panel">
             <h3>Bring groups up to date</h3>
-            <p>Move every group's parts to where its pin or token is now. This happens by itself while a GM is connected; use it after a token moved while no GM was online and you want to be sure.</p>
+            <p>Move every group's parts to where its pin is now. This happens by itself while a GM is connected; use it after a pin moved while no GM was online and you want to be sure.</p>
             <button type="button" class="puppeteer-btn" data-action="syncAll"><i class="fa-solid fa-rotate"></i> Update all groups</button>
         </section>
         <section class="puppeteer-panel">
@@ -319,13 +317,12 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 data-group-id="${id}" data-type="${esc(type)}" data-tooltip="Select these ${esc(TYPE_PLURAL[type] ?? type)} on the canvas">
                 <i class="${TYPE_ICON[type] ?? 'fa-solid fa-circle'}"></i> ${esc(TYPE_PLURAL[type] ?? type)} ${count}
             </button>`).join('');
-        const onToken = group.anchor.type === 'token';
         const lost = !anchorExists(scene, group);
         const warning = lost
-            ? `<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its ${onToken ? 'token' : 'pin'}, so it cannot be moved. Delete the group and make a new one.</div>`
+            ? `<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>`
             : '';
         const heading = anchorState(scene, group)?.heading ?? group.heading;
-        const bodyRow = this._bodyHtml(scene, group);
+        const bodyRow = this._bodyHtml(scene, group) + this._ridersHtml(scene, group);
 
         return `
         <section class="puppeteer-group" data-group-id="${id}">
@@ -345,9 +342,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
                 ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}
                 ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
-                ${button('panTo', 'fa-solid fa-location-crosshairs', onToken ? 'Go To Token' : 'Go To Pin')}
-                ${onToken ? '' : button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
-                ${onToken ? button('detachToPin', 'fa-solid fa-link-slash', 'Detach from Token', "Stop following the token. A pin is left at the token's centre; nothing moves.") : button('attachToToken', 'fa-solid fa-link', 'Attach to Token', 'Follow the selected token. The pin is removed; nothing moves.')}
+                ${button('panTo', 'fa-solid fa-location-crosshairs', 'Go To Pin')}
+                ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
                 ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
                 ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
                 <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteGroup" data-group-id="${id}">
@@ -360,6 +356,30 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <ul>${members || '<li class="puppeteer-member-none">No members yet.</li>'}</ul>
             </details>
         </section>`;
+    }
+
+    /** The riders: tokens the group carries. They can be moved by hand inside it, and are let go when they leave. */
+    _ridersHtml(scene, group) {
+        const id = esc(group.id);
+        const riders = (group.riders ?? []).map((rider) => {
+            const token = scene.tokens.get(rider.tokenId);
+            return `
+                <li class="puppeteer-rider">
+                    <i class="fa-solid fa-person-walking"></i>
+                    <span class="puppeteer-body-text">${esc(token?.name ?? 'Missing token')}</span>
+                    <button type="button" class="puppeteer-btn" data-action="dismount" data-group-id="${id}" data-token-id="${esc(rider.tokenId)}" data-tooltip="Let this token go. It stays where it is."><i class="fa-solid fa-person-walking-arrow-right"></i> Dismount</button>
+                </li>`;
+        }).join('');
+        return `
+            <div class="puppeteer-group-row puppeteer-body">
+                <i class="fa-solid fa-users"></i>
+                <span class="puppeteer-body-text">Riders: ${(group.riders ?? []).length}</span>
+                <label class="puppeteer-body-linked" data-tooltip="A token that moves onto this group, or is dropped on it from the sidebar, boards it. Off, nothing boards unless you choose Board Selected.">
+                    <input type="checkbox" data-field="mountable" data-group-id="${id}"${group.mountable ? ' checked' : ''}> Tokens board when they move onto it
+                </label>
+                <button type="button" class="puppeteer-btn" data-action="boardSelected" data-group-id="${id}" data-tooltip="Put the selected tokens aboard. They must be on the group."><i class="fa-solid fa-person-walking-luggage"></i> Board Selected</button>
+            </div>
+            ${riders ? `<ul class="puppeteer-riders">${riders}</ul>` : ''}`;
     }
 
     /** The row that says what the group is as a target: nothing, or an actor's token that covers it. */
@@ -403,6 +423,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 return this.render();
             }
             if (input.dataset.field === 'memberLabel') return renameMember(scene, groupId, input.dataset.type, input.dataset.id, input.value);
+            if (input.dataset.field === 'mountable') return setMountable(scene, groupId, input.checked);
             if (input.dataset.field === 'bodyLinked') return setBodyLinked(scene, groupId, input.checked);
             if (input.dataset.field === 'name') await renameGroup(scene, groupId, input.value);
             if (input.dataset.field === 'heading') await setHeading(scene, groupId, Number(input.value) || 0);
@@ -424,6 +445,25 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             }
             await setBody(canvas.scene, groupId, actor.id);
             say('Group is now a target', `Attacks and damage on this group go to ${actor.name}.`);
+        });
+    }
+
+    _boardSelected(groupId) {
+        return run('Board selected tokens', async () => {
+            const tokens = canvas.tokens.controlled.map((placeable) => placeable.document);
+            if (!tokens.length) {
+                say('Select tokens', 'Select the tokens that should ride this group, then try again.');
+                return;
+            }
+            const { mounted, skipped } = await mountTokens(canvas.scene, groupId, tokens);
+            say(mounted ? 'Boarded' : 'Nobody boarded', `${mounted} aboard.${skipped.length ? ` Not boarded: ${skipped.join('; ')}.` : ''}`);
+        });
+    }
+
+    _dismount(groupId, tokenId) {
+        return run('Dismount', async () => {
+            await dismountToken(canvas.scene, groupId, tokenId);
+            this.render();
         });
     }
 
@@ -452,38 +492,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         return run('Open actor', async () => {
             const group = listGroups(canvas.scene).find((g) => g.id === groupId);
             await game.actors.get(group?.body?.actorId)?.sheet.render({ force: true });
-        });
-    }
-
-    _newTokenGroup() {
-        return run('Create group on token', async () => {
-            const controlled = canvas.tokens.controlled;
-            if (controlled.length !== 1) {
-                say('Select one token', 'Select the token the group should follow, then try again.');
-                return;
-            }
-            const group = await createTokenGroup(canvas.scene, controlled[0].document);
-            say('Group created', `${group.name} follows ${controlled[0].document.name ?? 'the token'}. Select its tiles, lights and walls and choose Add Selected, or use Capture Area.`);
-        });
-    }
-
-    _attachToToken(groupId) {
-        return run('Attach to token', async () => {
-            const controlled = canvas.tokens.controlled;
-            if (controlled.length !== 1) {
-                say('Select one token', 'Select the token this group should follow, then choose Attach to Token.');
-                return;
-            }
-            const token = controlled[0].document;
-            await attachToToken(canvas.scene, groupId, token);
-            say('Group attached', `It now follows ${token.name ?? 'the token'}. Nothing moved, and the group's pin was removed.`);
-        });
-    }
-
-    _detachToPin(groupId) {
-        return run('Detach from token', async () => {
-            await detachToPin(canvas.scene, groupId);
-            say('Group detached', "It no longer follows the token. A pin now sits where the token's centre was, so you can still move the group. Nothing else moved.");
         });
     }
 
@@ -588,10 +596,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const scene = canvas.scene;
             const group = listGroups(scene).find((g) => g.id === groupId);
             if (group?.anchor.type === 'pin') await getBlacksmith().pins.panTo(group.anchor.id, { ping: true });
-            if (group?.anchor.type === 'token') {
-                const state = anchorState(scene, group);
-                if (state) await canvas.animatePan({ x: state.x, y: state.y });
-            }
         });
     }
 
@@ -622,7 +626,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     _syncAll() {
         return run('Update all groups', async () => {
             await syncAllGroups();
-            say('Groups brought up to date', 'Every group\'s parts now match its pin or token.');
+            say('Groups brought up to date', 'Every group\'s parts now match its pin.');
         });
     }
 

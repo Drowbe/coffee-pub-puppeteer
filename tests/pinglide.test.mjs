@@ -59,28 +59,6 @@ test('the follower says where the group was, in the options of what it writes', 
     assert.deepEqual(tileWrite.options.puppeteer.glide, { groupId: g.group.id, from: { x: 3000, y: 2000, heading: 0 } });
 });
 
-test('a token group is not given a glide: its token animates itself', async (t) => {
-    resetTween();
-    clock(t);
-    const env = installFakes();
-    const groups = await import('../scripts/groups.js');
-    const follower = await import('../scripts/follower.js');
-    follower.registerFollower();
-    const token = env.scene.addToken('K1', { x: 5000, y: 3000, rotation: 0 });
-    const tile = env.scene.add('Tile', 'T1', { x: 5050, y: 3350, width: 10, height: 10, rotation: 0, texture: { anchorX: 0.5, anchorY: 0.5 } });
-    const group = await groups.createTokenGroup(env.scene, token);
-    await groups.addMembers(env.scene, group.id, [tile]);
-    await env.settle();
-
-    const seen = [];
-    const write = env.scene.updateEmbeddedDocuments.bind(env.scene);
-    env.scene.updateEmbeddedDocuments = (type, updates, options) => { seen.push(options); return write(type, updates, options); };
-    await token.update({ x: 5400 });
-    await env.settle();
-    assert.ok(seen.length > 0);
-    assert.ok(seen.every((options) => options.puppeteer.glide === undefined));
-});
-
 test('when a pin moves, the group eases from where it was to where the pin is, then stops', async (t) => {
     const g = await gate(t);
     const start = at(g);                                    // nothing drawn yet

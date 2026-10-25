@@ -181,7 +181,7 @@ test('an older pin group keeps its heading: it is handed to the pin once, and no
     await env.settle();
 
     assert.equal(pins.get('p1').rotation, 40);
-    assert.equal(scene.getFlag('coffee-pub-puppeteer', 'groups').g1.version, 3);
+    assert.equal(scene.getFlag('coffee-pub-puppeteer', 'groups').g1.version, 4);
     assert.deepEqual({ x: light._source.x, y: light._source.y, rotation: light._source.rotation }, before);
 });
 

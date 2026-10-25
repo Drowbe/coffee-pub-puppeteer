@@ -52,6 +52,17 @@ Notes:
 - Remove the body with the cross on its row. Deleting the group deletes its body.
 - Actors in a compendium must be imported into the world first.
 
+## Carry tokens as riders
+
+A group can carry tokens, such as the crew of a ship or passengers on a wagon.
+
+1. Tick Tokens board when they move onto it on the group's Riders row. From then on, any token that moves onto the group boards it, and so does a token created there by dragging an actor from the sidebar onto the group. Or leave it off and select tokens that are on the group and choose Board Selected.
+2. When the group moves or turns, its riders go with it, including a quarter turn that swings them round the pin.
+3. A rider can walk about the group freely. Wherever you put it is where it rides from then on.
+4. Move a rider off the group and it dismounts where it stands, and you are told. Dismount on its row lets it go on purpose, and it will not board again until it has left the group and come back. Deleting the group lets every rider go where it is.
+
+Riders jump to their new place when the group moves, as lights and walls do. A player choosing to board from a distance and chat announcements are not there yet. Note that with the option on, every token that moves onto the group boards, enemies included.
+
 ## Coming next
 
-Carrying other tokens as riders, and a choice of how a group eases when it moves.
+A choice of how a group eases when it moves, and other behaviour options.

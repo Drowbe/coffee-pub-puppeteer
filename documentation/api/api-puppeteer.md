@@ -54,6 +54,14 @@ To move a group, move its pin (`BlacksmithAPI.pins.update(pinId, { x, y })`); th
 
 The body is fitted to the group by the follower. Do not move it yourself: it is locked, and a plain update is refused.
 
+## Riders
+
+| Call | Does |
+|---|---|
+| `mount(groupId, tokens, scene)` | Puts token documents aboard the group. Each must be on it (its middle inside), not a body, and not riding another group. Returns `{ mounted, skipped }`, where `skipped` says why. |
+| `dismount(groupId, tokenId, scene)` | Lets a rider go. It stays where it is, and does not board again until it has left the group and come back. Returns whether it was aboard. |
+| `setMountable(groupId, mountable, scene)` | When on, a token that moves onto the group, or is created on it, boards it. |
+
 ## Library and templates
 
 | Call | Does |
@@ -70,10 +78,6 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 | Call | Does |
 |---|---|
 | `showBounds(value)` | Shows or hides the bounds overlay for this user. Omit `value` to toggle. |
-
-## Token groups (to be retired)
-
-`createTokenGroup(token, { name })`, `attachToToken(groupId, token, scene)` and `detachToPin(groupId, scene)` belong to the token-anchored mode that the pin-and-body-token model replaces. They keep working until groups convert on load and are then removed.
 
 ## Changes agreed, not yet in the API
 

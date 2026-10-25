@@ -46,7 +46,6 @@ export function registerOverlay() {
         if (scene.id !== canvas.scene?.id) return;
         if (groupsTouched(changes)) schedule();
     });
-    hook('updateToken', (token) => { if (token.parent?.id === canvas.scene?.id) schedule(); });
     for (const type of MEMBER_TYPES) {
         hook(`update${type}`, (doc) => { if (doc.parent?.id === canvas.scene?.id) schedule(); });
         hook(`delete${type}`, (doc) => { if (doc.parent?.id === canvas.scene?.id) schedule(); });

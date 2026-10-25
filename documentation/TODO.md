@@ -21,18 +21,20 @@
 2. Stamping a library entry that names an actor is built and simulated, not yet run in Foundry: save a group that
    has a body, stamp it twice (one turned), and check each copy has its own body. Also stamp it in a world
    without that actor. (Dropping an actor on the map over a group is reserved for riders.)
-3. Convert token-anchored groups on load (pin at the token's centre, token becomes the body), then remove Attach to
-   Token, On Selected Token, detach, the token follower and the token-removed question.
-4. Riders: tokens as members, moved free inside the group, dismount outside the footprint, boarding through
-   `gmRequest`, chat card announcements.
+3. Check the conversion of token-anchored groups in Foundry (built and simulated, not yet run there): open a world
+   that has one and confirm it comes up as a pin group where the token was, with nothing moved and the token left
+   as it was.
+4. Riders are built and simulated, not yet run in Foundry: board selected tokens, tick Dropped tokens board and drop
+   an actor on the group, and (checked: drop and button work) walk a token onto a group with the option on, carry
+   riders through a drag and a turn, walk one about inside, walk one off, dismount one and see it stay off.
+   Still to do: a player boarding through `gmRequest`, chat card announcements, and easing riders with the group.
 5. Group behaviour options: turns with the pin or on request, facing offset, easing (glide or jump, and how long),
    mountable, riders move free. Easing includes the body token, which jumps today.
 
 **Check in Foundry (built, not yet run there)**
 
 7. Pin Shift + wheel rotation, the tool window and its tabs, delete flows, member select, Library (Save, Stamp,
-   Import), Capture Area, and the smooth tween (token glide, pin drag, pin glide). Token-group checks (multi-waypoint
-   path, undo, player moves, no-GM warning) only matter until item 4 retires that mode.
+   Import), Capture Area, and the smooth tween (pin drag, pin glide).
 
 **Polish**
 

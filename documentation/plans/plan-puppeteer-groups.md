@@ -17,7 +17,7 @@ Agreed with the user after the token-anchor mode was built and used. It replaces
 - **Two ways to get one.** Drag an actor onto the group's body row in the Group Editor, or stamp a Library entry that names one. Dropping an actor on the map over a group is reserved for mounting it as a rider, so it never makes a body.
 - **Unlinked by default,** linked optionally, so many copies of a prefab each have their own hit points.
 - **Riders come later,** on the same machinery: tokens carried by the group, free to move inside it.
-- **Token-anchored groups are retired.** Existing ones convert on load: a pin appears at the token's centre and the token becomes the body. Attach to Token, On Selected Token, detach and the token-removed question go.
+- **Token-anchored groups are retired.** Existing ones convert on load: a pin appears at the token's centre and nothing moves. The token is left as an ordinary token rather than becoming the body, because the body is transparent and that would silently change the token's image; the GM adopts it with Use Selected Token if they want. Attach to Token, On Selected Token, detach, the token follower and the token-removed question are gone.
 - **Accepted loss.** A player no longer drives a cart by moving a token, with walls, speed and a ruler. A player can still move a group if given edit access to the pin, with no movement rules.
 
 ## Phases
@@ -27,8 +27,6 @@ Agreed with the user after the token-anchor mode was built and used. It replaces
 3. **Prefabs.** Save a group as a template and stamp it as many times as wanted, each stamp an independent copy. All templates live in the Puppeteer library; a template can name an actor to represent.
 4. **Riders.** Tokens carried by a group, free to move inside it, dismounting when they leave the footprint. Boarding through `gmRequest`, announced by chat cards.
 5. **Polish.** Group behaviour options, menubar tool and secondary bar, sounds, toast channel, Scene Config tab, events for other modules.
-
-The token follower built earlier stays in the code until phase 2 converts its groups; its description below is kept for that reason.
 
 ## Body token: what the probe found
 
@@ -122,17 +120,9 @@ The math and the per-type writes are the table below, minus the passenger row. W
 
 **Rotating.** The GM rotates a group from the Group Editor (a numeric heading and plus or minus steps) and from toolbar buttons, which write the new heading to the pin's config. A drag handle on the canvas is a later refinement.
 
-## The token follower (phase 2)
+## Member poses, and riders
 
-Built (written and simulated; to be checked with a real token). The group record names the token as its anchor and the token carries `flags.coffee-pub-puppeteer.groupId`. The follower trusts the flag only when the record names that same token, so a copied token is inert. The pivot is the middle of the token's footprint and the heading is its rotation, both read from `_source` (see Observed). Turning a token group from the editor turns the token itself. With no GM connected the mover is warned once every 15 seconds, and `syncAllGroups` runs when the world loads and when a GM connects. What follows is the design the code was written from.
-
-One `updateToken` hook, registered through the Hook Manager. It acts only on the client that is `game.users.activeGM`, the same election `gmRequest` uses, so exactly one client writes and every Coffee Pub module agrees on who that is. It ignores updates where no field in `TokenDocument.MOVEMENT_FIELDS` or `rotation` changed (elevation and level are already movement fields), ignores tokens whose `groupId` does not resolve to a record naming that token as its anchor, and ignores updates tagged as its own.
-
-**Loop guard.** Every follower write carries an update option `{ puppeteer: { follower: true } }`. The hook returns on that option. A token that is already a member of a group is refused as an anchor, and a group cannot contain its own anchor, so there is no cycle to walk.
-
-**Heading.** A vehicle's heading is the token's `rotation`. In v14 the same update that moves a token can also rotate it, through the core `tokenAutoRotate` setting or the `autoRotate` movement option, so the follower reads `x`, `y` and `rotation` from the committed update and never from the planned destination.
-
-For each member it computes the new position from the anchor's new centre and heading, and writes members in one `updateEmbeddedDocuments` call per document type, with `animate: false` so the batch does not fight the token's own animation.
+The token-anchored mode that was built first is retired (see the aligned model above). Existing groups are converted to a pin at the token's centre on load (record version 4, `scripts/migrate.js`), the token is left as an ordinary token, and the follower, the token glide and the token-deleted question are gone. What survives is the per-type pose table below, and the notes on moving tokens, which riders will use.
 
 **Passengers are displaced, not moved.** A passenger's `x, y` change goes through the same v14 movement pipeline as any token, which applies wall and terrain constraints (`constrainOptions`) unless told otherwise. A cart carrying a passenger past a wall would stop the passenger or reject the update. The follower therefore writes passenger tokens with the constraints switched off (`ignoreWalls` and `ignoreCost`) or through the displace path core uses for teleport, undo and paste. Which of the two is correct is settled when passengers are built.
 
@@ -151,7 +141,7 @@ Per type:
 
 **A tile's `x, y` is not its top-left corner.** In v14 a tile carries a texture anchor (`texture.anchorX`, `anchorY`, default 0.5), the mesh is drawn with that anchor at `x, y`, and it turns about that point. So with the default a tile's `x, y` is its centre. Its pose is a point and a heading, exactly like a light, and its width, height and anchor only matter for drawing its outline. A Drawing is different: its `x, y` is the top-left of an unrotated box that turns about its centre. Reading a tile as top-left put every tile half its size out of place, which only shows once a group turns or is stamped.
 
-**No GM connected.** The `updateToken` hook also runs on the mover's client. When the token has a group, the mover is not a GM and `game.users.activeGM` is null, that client shows a Blacksmith toast that the parts of the vehicle will not follow. The move is not refused.
+**No GM connected.** Nothing moves while no GM is online, because only the active GM writes. `syncAllGroups` runs when the world loads and when a GM connects, so the group catches up.
 
 ## What was read in Foundry v14.369
 
@@ -185,11 +175,11 @@ From the Blacksmith session, read from its code (`manager-hooks.js`, `manager-pi
 - **See the group.** Each tool shows its own objects one layer at a time, so nothing shows a group as one thing. An optional overlay (per user, off by default) draws the oriented box that holds the members, the pivot and the heading, on Blacksmith's utilities layer.
 - **Members have names.** A member record can carry a `label`. It is not geometry, so a hand edit or a Centre Pivot keeps it, and a template carries it.
 - **A pin group faces where its pin faces.** Blacksmith added an optional `rotation` to pins (degrees clockwise, 0 facing down, two decimals), turned with Shift + mouse wheel over a selected pin at 5 degrees a notch and saved once, 400 ms after the last notch. A pin type opts in with `rotatable: true` in its taxonomy, which Puppeteer sets. The group's heading is read from `pin.rotation`; the editor's heading field and rotate buttons write the same field, so they and the wheel always agree. The follower sees a turn the way it sees a drag, through `updateScene`. The record's `heading` mirrors the pin for display. Older groups, whose heading lived in the record, hand it to their pin once at load (record version 3), before the follower starts listening.
-- **Phase 1 has no tokens.** Member types are Tile, Drawing, AmbientLight, AmbientSound, Wall, Note and Region. MeasuredTemplate is not a core document in v14. Token members and token anchors arrive in phase 2.
+- **Member types** are Tile, Drawing, AmbientLight, AmbientSound, Wall, Note and Region. MeasuredTemplate is not a core document in v14. Token members arrive with riders.
 
 ## Observed
 
-These concern a token anchor, so they apply from phase 2. One drag in v14.369 as the GM, with a throwaway macro that wrote a tile and a light from each `updateToken`.
+These were seen with the retired token anchor and apply to riders, which are tokens too. One drag in v14.369 as the GM, with a throwaway macro that wrote a tile and a light from each `updateToken`.
 
 - **A multi-waypoint move is one position update.** A drag with 4 passed waypoints arrived as a single `updateToken` with `x, y, rotation` changed. Paused, stopped and constrained moves were not tried.
 - **Rotation can follow in a second update.** 127 ms later, same `movementId`, a rotation-only update (80.5 degrees, then 26.6). The follower must handle each update on its own and always use the committed `rotation`.
@@ -226,7 +216,7 @@ Fields Puppeteer does not own (`hole`, `gridBased`, sizes, behaviours, colour) a
 ## Deleting
 
 - **Deleting a group** from the editor asks with three choices when it has parts: Cancel, Delete group only (the parts stay on the map), or Delete group and its parts. A group with no parts gets a plain confirmation.
-- **Deleting a token that a group follows** asks the GM who deleted it, and only that GM's client asks: keep the parts and turn the group into a pin group where the token last was (default), delete only the group, or delete the group and its parts. Closing the question leaves the group as it was, flagged in the editor as having lost its token. A copied token carrying the flag asks nothing, because the group's record has to name the token as its anchor.
+- **Deleting a group's body token** leaves the group without a body. **Deleting the group** deletes its body token with it.
 
 ## Capture
 

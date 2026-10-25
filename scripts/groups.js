@@ -7,9 +7,10 @@ import {
 } from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
 import { syncGroup, runExclusive, apply } from './follower.js';
-import { anchorState, tokenAnchorState } from './anchor.js';
+import { anchorState } from './anchor.js';
 import { buildTemplate } from './template.js';
 import { bodyFootprint, bodyTraits, bodyToken, fitBody, bodyMove } from './body.js';
+import { RIDER_FLAG, STAYED_FLAG, captureRider, insideGroup, tokenCentre } from './riders.js';
 
 export const PIN_TYPE = 'group';
 const PIN_ICON = 'fa-solid fa-up-down-left-right';
@@ -73,7 +74,7 @@ export async function createGroup(scene, point, { name = 'Group', heading = 0 } 
         id,
         name,
         anchor: { type: 'pin', id: pin.id },
-        version: 3,
+        version: 4,
         heading: stored,
         members: [],
         applied: { x, y, heading: stored }
@@ -84,71 +85,9 @@ export async function createGroup(scene, point, { name = 'Group', heading = 0 } 
 }
 
 /**
- * Make a group that hangs from a token, such as a cart or a ship a player pilots. The group follows the token's
- * position and heading. The token needs no actor changes; it carries only a flag naming the group.
- * @param {Scene} scene
- * @param {TokenDocument} token
- * @param {{name?: string}} [options]
- * @returns {Promise<object>} The group record.
- */
-export async function createTokenGroup(scene, token, { name } = {}) {
-    const { utils } = getBlacksmith();
-    const existing = token.getFlag(MODULE_ID, 'groupId');
-    if (existing && getGroup(scene, existing)?.anchor.id === token.id) {
-        throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} already anchors a group`);
-    }
-    const state = tokenAnchorState(scene, token._source);
-    const group = {
-        id: foundry.utils.randomID(),
-        name: name ?? token.name ?? 'Vehicle',
-        anchor: { type: 'token', id: token.id },
-        version: 3,
-        heading: state.heading,
-        members: [],
-        applied: state
-    };
-    await saveGroup(scene, group);
-    await token.update({ [`flags.${MODULE_ID}.groupId`]: group.id });
-    utils.postConsoleAndNotification(MODULE_NAME, `Created group "${group.name}" on token ${token.id}`, { groupId: group.id, state }, true, false);
-    return group;
-}
-
-/**
- * Hang an existing group from a token. Nothing in the scene moves: every member is re-recorded against the
- * token's centre and heading, the group's pin is removed, and from then on the group follows the token.
- * @returns {Promise<object>} The updated group record.
- */
-export function attachToToken(scene, groupId, token) {
-    const { pins, utils } = getBlacksmith();
-    const first = requireGroup(scene, groupId);
-    if (first.anchor.type === 'token') return Promise.reject(new Error(`${MODULE_ID}: group "${first.name}" already follows a token`));
-    const taken = token.getFlag(MODULE_ID, 'groupId');
-    if (taken && getGroup(scene, taken)?.anchor.id === token.id) {
-        return Promise.reject(new Error(`${MODULE_ID}: ${token.name ?? 'that token'} already anchors a group`));
-    }
-    return runExclusive(scene, groupId, async () => {
-        await apply(scene, groupId);                     // members are where the record puts them
-        const group = requireGroup(scene, groupId);
-        const state = tokenAnchorState(scene, token._source);
-        const members = group.members
-            .map((member) => [member, scene.getEmbeddedCollection(member.type).get(member.id)])
-            .filter(([, doc]) => doc)
-            .map(([member, doc]) => recaptureMember(member, doc._source, state));
-        const oldAnchor = { ...group.anchor };
-
-        await patchGroup(scene, groupId, { anchor: { type: 'token', id: token.id }, members, applied: state, heading: state.heading });
-        await token.update({ [`flags.${MODULE_ID}.groupId`]: groupId });
-        if (oldAnchor.type === 'pin' && pins.exists(oldAnchor.id, { sceneId: scene.id })) {
-            await pins.delete(oldAnchor.id, { sceneId: scene.id });
-        }
-        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" now follows token ${token.id}`, state, true, false);
-        return getGroup(scene, groupId);
-    });
-}
-
-/**
  * Take a group off its token and give it a pin at the token's centre, facing the way the token faces. Nothing
- * in the scene moves. The token is left as it is, without its flag.
+ * in the scene moves. The token is left as it is, without its flag. Used only to convert groups saved when a
+ * token could be the grip (see migrate.js); the grip is always a pin now.
  * @returns {Promise<object>} The updated group record.
  */
 export function detachToPin(scene, groupId) {
@@ -419,7 +358,7 @@ export function adoptBody(scene, groupId, token) {
         const group = requireGroup(scene, groupId);
         if (group.body) throw new Error(`${MODULE_ID}: group "${group.name}" already has a body; clear it first`);
         if (!token.actorId) throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} has no actor to represent`);
-        if (token.getFlag(MODULE_ID, 'groupId')) throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} already belongs to a group`);
+        if (token.getFlag(MODULE_ID, 'groupId') || token.getFlag(MODULE_ID, RIDER_FLAG)) throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} already belongs to a group`);
 
         await token.update({ ...bodyFootprint(scene, group), ...bodyTraits(groupId) }, bodyMove());
         await patchGroup(scene, groupId, { body: { tokenId: token.id, actorId: token.actorId } });
@@ -443,6 +382,78 @@ export function clearBody(scene, groupId) {
     });
 }
 
+// ---- riders ------------------------------------------------------------------------------------------------
+
+/**
+ * Put tokens aboard a group. A rider is carried when the group moves or turns, and can be moved by hand anywhere
+ * inside it. A token has to be on the group (its middle inside) to board, and cannot ride two groups, ride its
+ * own body, or be a body.
+ * @returns {Promise<{mounted: number, skipped: string[]}>}
+ */
+export function mountTokens(scene, groupId, tokens) {
+    const { utils } = getBlacksmith();
+    return runExclusive(scene, groupId, async () => {
+        await apply(scene, groupId);
+        const group = requireGroup(scene, groupId);
+        const anchor = { ...group.applied };
+        const have = new Set((group.riders ?? []).map((r) => r.tokenId));
+        const added = [];
+        const boarded = [];
+        const skipped = [];
+        for (const token of tokens) {
+            const name = token.name ?? 'A token';
+            if (have.has(token.id)) continue;
+            if (token.getFlag(MODULE_ID, 'groupId')) skipped.push(`${name} is the body of a group`);
+            else if (token.getFlag(MODULE_ID, RIDER_FLAG)) skipped.push(`${name} is already riding a group`);
+            else if (!insideGroup(scene, group, tokenCentre(scene, token._source), anchor)) skipped.push(`${name} is not on the group`);
+            else {
+                added.push(captureRider(scene, token.id, token._source, anchor));
+                boarded.push(token);
+            }
+        }
+        if (added.length) {
+            await patchGroup(scene, groupId, { riders: [...(group.riders ?? []), ...added] });
+            for (const token of boarded) {
+                // Boarding on purpose also ends any earlier "stay off this group".
+                await token.update({ [`flags.${MODULE_ID}.${RIDER_FLAG}`]: groupId, [`flags.${MODULE_ID}.-=${STAYED_FLAG}`]: null }, { puppeteer: { follower: true } });
+            }
+        }
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": ${added.length} boarded, ${skipped.length} skipped`, { skipped }, true, false);
+        return { mounted: added.length, skipped };
+    });
+}
+
+/** Let a rider go: it stays where it is and is no longer carried. Only call from inside the group's queue. */
+export async function releaseRider(scene, groupId, tokenId) {
+    const group = requireGroup(scene, groupId);
+    const riders = (group.riders ?? []).filter((r) => r.tokenId !== tokenId);
+    if (riders.length === (group.riders ?? []).length) return false;
+    await patchGroup(scene, groupId, { riders });
+    const token = scene.tokens.get(tokenId);
+    if (token?.getFlag(MODULE_ID, RIDER_FLAG) === groupId) await token.unsetFlag(MODULE_ID, RIDER_FLAG);
+    return true;
+}
+
+/**
+ * Dismount a rider on purpose. It stays where it is, and does not climb back aboard just because it is still on the
+ * group: it boards again only after it has been off the group and come back.
+ * @returns {Promise<boolean>} Whether it was aboard.
+ */
+export function dismountToken(scene, groupId, tokenId) {
+    return runExclusive(scene, groupId, async () => {
+        const released = await releaseRider(scene, groupId, tokenId);
+        const token = scene.tokens.get(tokenId);
+        if (released && token) await token.update({ [`flags.${MODULE_ID}.${STAYED_FLAG}`]: groupId }, { puppeteer: { follower: true } });
+        return released;
+    });
+}
+
+/** Whether tokens created on the group board it. */
+export async function setMountable(scene, groupId, mountable) {
+    requireGroup(scene, groupId);
+    await patchGroup(scene, groupId, { mountable: !!mountable });
+}
+
 /** Set whether the body's actor is linked (one set of hit points everywhere) or unlinked (this token's own). */
 export async function setBodyLinked(scene, groupId, linked) {
     const token = bodyToken(scene, requireGroup(scene, groupId));
@@ -453,13 +464,6 @@ export async function setBodyLinked(scene, groupId, linked) {
 /** Set the heading in degrees (clockwise, 0 facing down). The follower moves the members. */
 export async function setHeading(scene, groupId, degrees) {
     const group = requireGroup(scene, groupId);
-    if (group.anchor.type === 'token') {
-        // A vehicle faces where its token faces, so turning the group turns the token, and the follower does the rest.
-        const token = scene.tokens.get(group.anchor.id);
-        if (!token) throw new Error(`${MODULE_ID}: the token of group "${group.name}" is gone`);
-        await token.update({ rotation: normAngle(degrees) });
-        return getGroup(scene, groupId);
-    }
     // A pin group faces where its pin faces. Turning it here and turning the pin with Shift + wheel are the same
     // write, and the follower does the rest.
     await getBlacksmith().pins.update(group.anchor.id, { rotation: normAngle(degrees) }, { sceneId: scene.id });
@@ -480,9 +484,6 @@ export function rotateBy(scene, groupId, degrees) {
  */
 export function recenterPivot(scene, groupId) {
     const { pins, utils } = getBlacksmith();
-    if (requireGroup(scene, groupId).anchor.type === 'token') {
-        return Promise.reject(new Error(`${MODULE_ID}: a group on a token pivots on that token, so there is no pivot to move`));
-    }
     return runExclusive(scene, groupId, async () => {
         await apply(scene, groupId);                 // members are where the record puts them
         const group = requireGroup(scene, groupId);
@@ -545,7 +546,7 @@ export function exportGroup(scene, groupId) {
 }
 
 /**
- * Delete the group: its record, its pin, and a token's link to it. The members stay in the scene where they are,
+ * Delete the group: its record, its pin and its body token. The members stay in the scene where they are,
  * unless `removeMembers` is set, in which case they are deleted from the scene too.
  * @returns {Promise<{removed: number}>} How many members were deleted from the scene.
  */
@@ -555,17 +556,18 @@ export async function deleteGroup(scene, groupId, { removeMembers = false } = {}
     // The store updates records in place, so take what is needed before the record goes.
     const parts = group.members.map((member) => ({ type: member.type, id: member.id }));
     const body = bodyToken(scene, group);
+    const riders = (group.riders ?? []).map((r) => r.tokenId);
     await deleteGroupRecord(scene, groupId);
+    // Riders are let go where they stand.
+    for (const tokenId of riders) {
+        const rider = scene.tokens.get(tokenId);
+        if (rider?.getFlag(MODULE_ID, RIDER_FLAG) === groupId) await rider.unsetFlag(MODULE_ID, RIDER_FLAG);
+    }
     // The body exists only for its group.
     if (body) await scene.deleteEmbeddedDocuments('Token', [body.id]);
     // The pin may already be gone (deleted by hand); the record is what matters.
     if (group.anchor.type === 'pin' && pins.exists(group.anchor.id, { sceneId: scene.id })) {
         await pins.delete(group.anchor.id, { sceneId: scene.id });
-    }
-    // A token keeps living; it only stops pointing at a group that no longer exists.
-    if (group.anchor.type === 'token') {
-        const token = scene.tokens.get(group.anchor.id);
-        if (token?.getFlag(MODULE_ID, 'groupId') === groupId) await token.unsetFlag(MODULE_ID, 'groupId');
     }
 
     // The record is gone first, so removing the parts does not make the delete hooks look for them in a group.

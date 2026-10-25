@@ -11,7 +11,7 @@ A group is one pin and the things that move with it.
 - **The grip is always a Blacksmith pin.** Dragging the pin moves the group, Shift + mouse wheel over the pin turns it, and the Group Editor's heading field and rotate buttons write the same pin. Hiding the pin, restyling it or limiting who may edit it changes nothing about the group.
 - **The parts** are Tiles, Drawings, AmbientLights, AmbientSounds, Walls, Notes and Regions. Each is recorded as an offset from the pin, in the pin's own frame.
 - **The body token** is an optional token that makes the whole group targetable. It is a part like the others, never the grip.
-- **Riders** (later) are tokens carried by the group.
+- **Riders** are tokens the group carries, free to move inside it.
 
 Engaging with a group is therefore always the same: find its pin.
 
@@ -89,6 +89,17 @@ Not built yet: converting token-anchored groups, and animating the body (it jump
 
 Group behaviour options (designed): whether the group turns with its pin or only on request, a facing offset for art that does not face down, movement style (glide or jump), and, with riders, whether the group is mountable and whether riders move freely inside it.
 
-## Legacy: token-anchored groups
+## Riders
 
-Built before the pin-only model, and retired by it. A group whose `anchor.type` is `'token'` follows a token's committed position and rotation (read from `_source`, because the document's own values are the animated ones mid-glide). On load these convert: a pin is created at the token's centre and the token becomes the group's body. Until that migration exists the legacy path stays in the code.
+A rider is a token a group carries (`scripts/riders.js`, `scripts/boarding.js`, with the operations in `scripts/groups.js`).
+
+- **Record.** `group.riders = [{ tokenId, dx, dy, drot }]`: where the token's middle sits in the pin's frame, and its rotation relative to the pin's heading. The token carries `flags.coffee-pub-puppeteer.riderOf = groupId`. `group.mountable` says whether tokens created on the group board it.
+- **Carried.** After the follower writes the members it moves every rider to where its record puts it for the new pin pose, with `teleport: true, animate: false`, a `displace` move that ignores walls, speed and cost. A rider turns with the group. A rider whose token is gone is dropped from the record.
+- **Boarding.** A token boards only when its middle is inside the group. The box that decides this is the group's sized members (Tiles, Drawings, Walls, Regions) in the pin's frame, so it turns with the group; a group with nothing sized is one square on the pin. A token cannot ride two groups, ride a group that is its own body, or be a body. The ways on: the editor's Board Selected, the macro API, and, when `mountable`, a token that is moved onto the group (the usual way) or created on it (dropping an actor from the sidebar onto it). Moving counts only when x or y changed in a committed update, so turning on the spot does not board. Dropping on the group is reserved for this and never makes a body.
+- **Free movement.** A rider moved by hand (a player dragging their own token) inside the group is re-recorded where it was put, so the next move carries it from there. The follower's own moves carry the follower marker and are ignored.
+- **Dismounting.** A rider moved by hand so that its middle is outside the group is let go where it stands, and the GM is told. A rider's token deleted by hand, or its group deleted, lets it go too. Dismounting never moves a token. A token let go with the Dismount button gets `flags.coffee-pub-puppeteer.stayed = groupId`, so it does not climb straight back aboard while it is still on that group; the flag clears when it next moves anywhere else, and boarding on purpose clears it too.
+- **Not built yet:** boarding by a player choosing to (a request to the GM), chat announcements, easing a rider along with the group (it jumps today), and a rider moving the group.
+
+## Groups saved when a token could be the grip
+
+An earlier version let a token anchor a group. Those records have `anchor.type` `'token'`. On load, `migrate.js` (record version 4) gives each one a pin where the token's centre was and turns its facing into the pin's rotation, re-records every member against that pin so nothing moves, removes the token's group flag and leaves the token as an ordinary token. The token's image is not changed, because making it the body would make it transparent; the GM can adopt it with Use Selected Token. A group whose token had already been deleted is converted to a pin where it last was. Nothing creates a token-anchored group any more, and `anchor.js` keeps its token branch only so those records can be read until they are converted.

@@ -1,6 +1,7 @@
-// Where a group hangs from. A group's anchor is a pin (set pieces, phase 1) or a token (a vehicle someone
-// pilots, phase 2). Either way the rest of Puppeteer asks one question: where is the pivot, and which way is
-// the group facing? Both answers come from committed state, never from a position that is still animating.
+// Where a group hangs from. The grip of a group is always a pin: the rest of Puppeteer asks one question, where is
+// the pivot and which way is the group facing, and the answer comes from the pin as stored, never from a position
+// that is still being dragged. The token branch below reads groups saved before that was so; migrate.js gives each
+// of them a pin, and nothing creates a token-anchored group any more.
 import { getBlacksmith } from './blacksmith.js';
 
 /**

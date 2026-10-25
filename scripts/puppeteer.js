@@ -3,14 +3,14 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
 import { registerOverlay, toggleBounds, setBoundsShown } from './overlay.js';
 import { migrateGroups } from './migrate.js';
-import { registerTokenRemoval } from './token-removed.js';
 import { registerTween } from './tween.js';
+import { registerBoarding } from './boarding.js';
 import { syncAllGroups } from './follower.js';
 import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate } from './library.js';
 
@@ -37,18 +37,13 @@ Hooks.once('ready', async () => {
     registerPruning();
     registerUi();
     registerOverlay();
-    registerTokenRemoval();
     registerTween();
+    registerBoarding();
 
     // The scripting surface, for macros and for the toolbar and Group Editor, which call the same functions.
     // Every function takes the scene first so a macro can address any scene; `scene()` is the one in view.
     game.modules.get(MODULE_ID).api = {
         scene: () => canvas.scene,
-        /** Make a group that follows a token, by token document. */
-        createTokenGroup: (token, options = {}) => createTokenGroup(options.scene ?? token.parent, token, { name: options.name }),
-        /** Hang an existing group from a token, or give it back a pin. Nothing in the scene moves. */
-        attachToToken: (groupId, token, scene = token.parent) => attachToToken(scene, groupId, token),
-        detachToPin: (groupId, scene = canvas.scene) => detachToPin(scene, groupId),
         /** Create a group on a new pin at `point`, or at the centre of the view. */
         createGroup: (options = {}) => createGroup(
             options.scene ?? canvas.scene,
@@ -79,6 +74,11 @@ Hooks.once('ready', async () => {
         adoptBody: (groupId, token, scene = token.parent) => adoptBody(scene, groupId, token),
         clearBody: (groupId, scene = canvas.scene) => clearBody(scene, groupId),
         setBodyLinked: (groupId, linked, scene = canvas.scene) => setBodyLinked(scene, groupId, linked),
+        /** Put tokens (documents) aboard a group. They must be on it. Returns how many boarded and why others did not. */
+        mount: (groupId, tokens, scene = canvas.scene) => mountTokens(scene, groupId, tokens),
+        dismount: (groupId, tokenId, scene = canvas.scene) => dismountToken(scene, groupId, tokenId),
+        /** Whether tokens created (dropped) on the group board it. */
+        setMountable: (groupId, mountable, scene = canvas.scene) => setMountable(scene, groupId, mountable),
         addSelected: (groupId, scene = canvas.scene) => addSelected(scene, groupId),
         addMembers: (groupId, documents, scene = canvas.scene) => addMembers(scene, groupId, documents),
         removeMember: (groupId, type, id, scene = canvas.scene) => removeMember(scene, groupId, type, id),

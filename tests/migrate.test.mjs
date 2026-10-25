@@ -42,7 +42,7 @@ test('an older group has its tile re-recorded from where the tile is, and is mar
     await settle();
 
     const group = scene.getFlag('coffee-pub-puppeteer', 'groups').g1;
-    assert.equal(group.version, 3);
+    assert.equal(group.version, 4);
     const tile = group.members.find((m) => m.type === 'Tile');
     near(tile.dx, 5000 - 5530);
     near(tile.dy, 3000 - 3500);
@@ -79,4 +79,99 @@ test('only the active GM migrates', async () => {
     const { migrateGroups } = await import('../scripts/migrate.js');
     assert.equal(await migrateGroups(), 0);
     assert.equal(scene.getFlag('coffee-pub-puppeteer', 'groups').g1.version, undefined);
+});
+
+// ---- version 4: the grip is always a pin ------------------------------------------------------------------
+
+async function tokenGroup({ withToken = true } = {}) {
+    const env = installFakes();
+    const toasts = [];
+    const { getBlacksmith } = await import('../scripts/blacksmith.js');
+    getBlacksmith().toast.show = (options) => toasts.push(options);
+    const { registerFollower } = await import('../scripts/follower.js');
+    registerFollower();
+    const { scene } = env;
+
+    // A cart token whose centre is (5050, 3050), turned 90 degrees, with a tile and a light a way off.
+    const token = withToken ? scene.addToken('K1', { x: 5000, y: 3000, rotation: 90, name: 'Cart', flags: { 'coffee-pub-puppeteer': { groupId: 'g1' } } }) : null;
+    scene.add('Tile', 'T1', { x: 5050, y: 3450, width: 200, height: 100, rotation: 90, texture: { anchorX: 0.5, anchorY: 0.5 } });
+    scene.add('AmbientLight', 'L1', { x: 4850, y: 3050, rotation: 0 });
+    scene.flags['coffee-pub-puppeteer'] = {
+        groups: {
+            g1: {
+                id: 'g1', name: 'Cart', anchor: { type: 'token', id: 'K1' }, version: 3, heading: 90,
+                applied: { x: 5050, y: 3050, heading: 90 },
+                members: [
+                    { type: 'Tile', id: 'T1', dx: 400, dy: 0, drot: 0 },
+                    { type: 'AmbientLight', id: 'L1', dx: 0, dy: 200, drot: 0 }
+                ]
+            }
+        }
+    };
+    return { ...env, token, toasts };
+}
+
+test('a group that followed a token now hangs from a pin where the token was, and nothing moves', async () => {
+    const { scene, pins, token, settle, toasts } = await tokenGroup();
+    const tile = { ...scene.collections.Tile.get('T1')._source };
+    const light = { ...scene.collections.AmbientLight.get('L1')._source };
+    const { migrateGroups } = await import('../scripts/migrate.js');
+    assert.equal(await migrateGroups(), 1);
+    await settle();
+
+    const group = scene.getFlag('coffee-pub-puppeteer', 'groups').g1;
+    assert.equal(group.version, 4);
+    assert.equal(group.anchor.type, 'pin');
+    const pin = pins.get(group.anchor.id);
+    near(pin.x, 5050);
+    near(pin.y, 3050);
+    near(pin.rotation, 90);
+    // Every member is exactly where it was.
+    assert.deepEqual(scene.collections.Tile.get('T1')._source.x, tile.x);
+    assert.deepEqual(scene.collections.Tile.get('T1')._source.y, tile.y);
+    assert.deepEqual(scene.collections.AmbientLight.get('L1')._source.x, light.x);
+    // The token is an ordinary token again, unchanged but for no longer carrying the group's flag.
+    assert.equal(token.getFlag('coffee-pub-puppeteer', 'groupId'), undefined);
+    assert.equal(token._source.x, 5000);
+    assert.equal(token._source.texture, undefined);
+    assert.equal(toasts.length, 1);
+    assert.match(toasts[0].subtitle, /Cart used to follow a token/);
+});
+
+test('the converted group follows its pin, and the old token no longer drives it', async () => {
+    const { scene, pins, token, settle } = await tokenGroup();
+    const { migrateGroups } = await import('../scripts/migrate.js');
+    await migrateGroups();
+    await settle();
+    const group = scene.getFlag('coffee-pub-puppeteer', 'groups').g1;
+    const before = scene.collections.Tile.get('T1')._source.x;
+
+    await token.update({ x: 7000, y: 5000 });
+    await settle();
+    assert.equal(scene.collections.Tile.get('T1')._source.x, before);
+
+    await pins.update(group.anchor.id, { x: 5650, y: 3050 });
+    await settle();
+    near(scene.collections.Tile.get('T1')._source.x - before, 600);
+});
+
+test('a group whose token is gone is converted too, to a pin where the group last was', async () => {
+    const { scene, pins, settle } = await tokenGroup({ withToken: false });
+    const { migrateGroups } = await import('../scripts/migrate.js');
+    assert.equal(await migrateGroups(), 1);
+    await settle();
+    const group = scene.getFlag('coffee-pub-puppeteer', 'groups').g1;
+    assert.equal(group.anchor.type, 'pin');
+    const pin = pins.get(group.anchor.id);
+    near(pin.x, 5050);
+    near(pin.y, 3050);
+});
+
+test('with no token groups, nothing is announced', async () => {
+    const { scene, toasts } = await tokenGroup();
+    scene.flags['coffee-pub-puppeteer'].groups.g1.version = 4;
+    scene.flags['coffee-pub-puppeteer'].groups.g1.anchor = { type: 'pin', id: 'p1' };
+    const { migrateGroups } = await import('../scripts/migrate.js');
+    assert.equal(await migrateGroups(), 0);
+    assert.equal(toasts.length, 0);
 });

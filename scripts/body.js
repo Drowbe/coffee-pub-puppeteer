@@ -12,7 +12,7 @@ import { getGroup } from './store.js';
 export const TRANSPARENT_IMAGE = `modules/${MODULE_ID}/images/transparent.png`;
 
 // A light or a sound has a position and no size, so it says nothing about how big the group is. A note is the same.
-const SIZED = ['Tile', 'Drawing', 'Wall', 'Region'];
+export const SIZED = ['Tile', 'Drawing', 'Wall', 'Region'];
 
 // The smallest a body is allowed to be, in grid squares, so a group of one thin wall still has something to click.
 const MIN_SQUARES = 0.5;
