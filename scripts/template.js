@@ -27,9 +27,11 @@ const withoutOmitted = (data) => {
  * @param {object} group    A group record from the store.
  * @param {Map<string, object>} sources  Source data of the members' documents, keyed `${type}:${id}`.
  *                          A member with no entry (its document is gone) is left out.
+ * @param {{actorId: string, actorName?: string, linked?: boolean}} [body]  The actor the group represents, if any.
+ *                          Only the actor travels: the body token is made again, to fit, on every stamp.
  * @returns {object} The template.
  */
-export function buildTemplate(group, sources) {
+export function buildTemplate(group, sources, body) {
     const members = [];
     for (const member of group.members) {
         const source = sources.get(`${member.type}:${member.id}`);
@@ -41,6 +43,7 @@ export function buildTemplate(group, sources) {
         version: TEMPLATE_VERSION,
         name: group.name,
         anchorType: group.anchor.type,
+        ...(body ? { body: { ...body } } : {}),
         members
     };
 }
@@ -51,6 +54,7 @@ export function validateTemplate(template) {
     if (!template || typeof template !== 'object') fail('not an object');
     if (template.version !== TEMPLATE_VERSION) fail(`version ${template.version}, expected ${TEMPLATE_VERSION}`);
     if (!Array.isArray(template.members)) fail('no members list');
+    if (template.body !== undefined && typeof template.body?.actorId !== 'string') fail('its body names no actor');
     template.members.forEach((member, i) => {
         if (!MEMBER_TYPES.includes(member?.type)) fail(`member ${i} has an unsupported type`);
         if (!member.data || typeof member.data !== 'object') fail(`member ${i} has no data`);

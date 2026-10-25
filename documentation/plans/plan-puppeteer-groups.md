@@ -13,8 +13,8 @@ Group tiles, lights, sounds, walls, drawings, notes and regions, and move and ro
 Agreed with the user after the token-anchor mode was built and used. It replaces the earlier "pin or token anchor" split. Durable description: `architecture/architecture-groups.md`.
 
 - **The pin is always the grip.** One way to move and turn a group, with everything a pin offers (hide it, restyle it, permissions, drag, Shift + wheel). There is no mode in which a token is the grip.
-- **A body token is an optional layer.** A group may represent an actor. Puppeteer then manages a token for it: transparent image set on the placed token only (the actor's art is untouched), sized to cover the group, locked, moved with the group like a member. It is what takes attacks and damage. The user never places or sizes it.
-- **Two ways to get one.** Choose the actor in the group's settings (or stamp a Library entry that names one); or drag an actor from the sidebar onto the map and Puppeteer adopts the token Foundry creates there.
+- **A body token is an optional layer.** Most groups have none; nothing requires an actor. A group may represent an actor. Puppeteer then manages a token for it: transparent image set on the placed token only (the actor's art is untouched), sized to cover the group, locked, moved with the group like a member. It is what takes attacks and damage. The user never places or sizes it.
+- **Two ways to get one.** Drag an actor onto the group's body row in the Group Editor, or stamp a Library entry that names one. Dropping an actor on the map over a group is reserved for mounting it as a rider, so it never makes a body.
 - **Unlinked by default,** linked optionally, so many copies of a prefab each have their own hit points.
 - **Riders come later,** on the same machinery: tokens carried by the group, free to move inside it.
 - **Token-anchored groups are retired.** Existing ones convert on load: a pin appears at the token's centre and the token becomes the body. Attach to Token, On Selected Token, detach and the token-removed question go.
@@ -24,7 +24,7 @@ Agreed with the user after the token-anchor mode was built and used. It replaces
 
 1. **Pin-anchored groups of scene elements.** Built. The GM makes a group on a Blacksmith pin, adds and removes members, and dragging or turning the pin moves the whole group. Offsets in the pin's frame, committed state, one batched write per type.
 2. **Body token.** A group can represent an actor and be targeted. Shares its machinery with riders: tokens as members, moved by displace-style moves, locked, auto-sized footprint. Also converts the old token-anchored groups.
-3. **Prefabs.** Save a group as a template and stamp it as many times as wanted, each stamp an independent copy. All templates live in the Puppeteer library; a template can name an actor to represent. Dragging an actor from the sidebar adopts a body token.
+3. **Prefabs.** Save a group as a template and stamp it as many times as wanted, each stamp an independent copy. All templates live in the Puppeteer library; a template can name an actor to represent.
 4. **Riders.** Tokens carried by a group, free to move inside it, dismounting when they leave the footprint. Boarding through `gmRequest`, announced by chat cards.
 5. **Polish.** Group behaviour options, menubar tool and secondary bar, sounds, toast channel, Scene Config tab, events for other modules.
 

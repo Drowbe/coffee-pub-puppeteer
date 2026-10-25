@@ -30,7 +30,7 @@ Show group bounds (title-bar icon) draws the box around each group, its pivot an
 
 ## Save and reuse
 
-Save to Library stores a group so you can stamp it onto any scene, as many times as you like. Each stamp is an independent copy with its own pin. Libraries can be exported to and imported from JSON files.
+Save to Library stores a group so you can stamp it onto any scene, as many times as you like. Each stamp is an independent copy with its own pin. If the group is a target, every stamp is too: it comes with its own body for the same actor, with its own hit points. The Library shows which actor an entry represents. A stamp in a world that does not have that actor has no body, and you are told. Libraries can be exported to and imported from JSON files.
 
 ## Delete
 
@@ -38,7 +38,7 @@ Deleting a group asks whether to remove its parts from the map too. Choose Delet
 
 ## Make a group a target
 
-By default nothing on a group can be attacked. Give it a body and the whole group becomes one target.
+Most groups do not need this. A group is a pin and its parts, and it moves and turns without any actor. Add a body only when the group itself should be something players can attack, such as a siege engine, a wagon or a monster that is built from scenery. Give it a body and the whole group becomes one target.
 
 1. In the Group Editor, drag an actor from the Actors sidebar onto the group's body row. (Or select a token already on the map and choose Use Selected Token.)
 2. Puppeteer adds an invisible token for that actor, as big as the group. Click anywhere over the group to select or target it; attacks, damage and the sheet work as for any monster.
@@ -54,4 +54,4 @@ Notes:
 
 ## Coming next
 
-Naming an actor in a library entry, so every stamp comes with its body, and carrying other tokens as riders.
+Carrying other tokens as riders, and a choice of how a group eases when it moves.

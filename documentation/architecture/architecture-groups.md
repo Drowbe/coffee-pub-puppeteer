@@ -72,18 +72,20 @@ Tile, AmbientLight, AmbientSound and Note `x, y`, and every number in a Wall's `
 
 ## Body token
 
-A group may represent an actor. The body token is how the group takes attacks and damage (`scripts/body.js`, with the operations in `scripts/groups.js`).
+A body is optional, and most groups have none: a group with no actor is a pin and its parts, and nothing in Puppeteer requires an actor. A group may represent an actor, and the body token is how it then takes attacks and damage (`scripts/body.js`, with the operations in `scripts/groups.js`).
 
 - **Record.** `group.body = { tokenId, actorId }`. The token carries `flags.coffee-pub-puppeteer.groupId` and `body: true`. It is not in `members`: it has no offset, because it is derived from them.
 - **Made from an actor** (`setBody`): the actor makes the token data, so name, bars and disposition are the actor's. Unlinked by default, linked optionally (`setBodyLinked`). In the Group Editor, drag an actor from the sidebar onto the group's body row. Actors in a compendium must be imported first.
-- **Adopted from a token** (`adoptBody`): a token already on the map, such as one just dropped from the sidebar, becomes the body. A token with no actor, or one that already belongs to a group, is refused.
+- **Adopted from a token** (`adoptBody`): a token already on the map becomes the body. Dropping an actor on the map over a group is reserved for riders and never makes a body. A token with no actor, or one that already belongs to a group, is refused.
 - **Looks.** A transparent image, `images/transparent.png`, set on this placed token only; the actor's own art is untouched. Vision is off.
 - **Footprint.** Token `width` and `height` are positive numbers and need not be whole squares. The body is the axis-aligned bounding box of the group's Tiles, Drawings, Walls and Regions as they sit now, at least half a square each way. Lights, Sounds and Notes have a place and no size, so they are left out; a group with nothing sized gets a half-square body on its pivot. It is refitted (`fitBody`) after the follower moves the members, after a hand edit is re-recorded, and after parts are added or removed. The footprint does not turn with the group, so at diagonal headings it covers more than the group.
 - **Locked.** `locked: true` stops anyone dragging it, the GM included; Foundry warns "You cannot take this action while the Token object is locked". A plain `update({ x })` is refused too, so the follower moves the body with `teleport: true, animate: false`, which Foundry treats as a `displace` move that ignores walls, speed and cost.
 - **Targeting.** Selection and hover outline the whole footprint, not the image, so clicking anywhere in it targets the actor. Attacks, damage, the sheet and initiative work as for any token.
 - **Not the grip.** The body never drives the group. Deleting it by hand leaves the group without a body; deleting the group deletes the body; `clearBody` removes only the body.
 
-Not built yet: stamping a library entry that names an actor, adopting the token Foundry creates when an actor is dropped on the map, converting token-anchored groups, and animating the body (it jumps to its new place with the parts that cannot be tweened).
+A template saved from a group with a body carries the actor (`body: { actorId, actorName, linked }`), never the token. Each stamp makes its own body, sized to that stamp's heading. If the actor is not in the world, the stamp has no body and the GM is told.
+
+Not built yet: converting token-anchored groups, and animating the body (it jumps to its new place with the parts that cannot be tweened).
 
 Group behaviour options (designed): whether the group turns with its pin or only on request, a facing offset for art that does not face down, movement style (glide or jump), and, with riders, whether the group is mountable and whether riders move freely inside it.
 

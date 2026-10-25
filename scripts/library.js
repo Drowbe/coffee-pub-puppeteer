@@ -8,7 +8,8 @@ import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, normAngle } from './geometry.js';
 import { stampMembers, validateTemplate } from './template.js';
-import { createGroup, deleteGroup, exportGroup } from './groups.js';
+import { createGroup, deleteGroup, exportGroup, setBody } from './groups.js';
+import { getGroup } from './store.js';
 import { patchGroup } from './store.js';
 
 const KEY = 'library';
@@ -29,7 +30,7 @@ function write(library) {
 /** What the library holds, by name. */
 export function listTemplates() {
     return Object.entries(read())
-        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, savedAt: template.savedAt ?? 0 }))
+        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, actor: template.body?.actorName ?? null, savedAt: template.savedAt ?? 0 }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -112,5 +113,20 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
     const members = source.members.map(({ data, ...offsets }, index) => ({ ...structuredClone(offsets), id: created[index].id }));
     await patchGroup(scene, group.id, { members, applied: anchor });
     utils.postConsoleAndNotification(MODULE_NAME, `Stamped "${source.name}" with ${members.length} member(s)`, { groupId: group.id, anchor }, true, false);
-    return { ...group, members, applied: anchor };
+
+    // The group stands without a body if the actor is not in this world (a template from another world, or an
+    // actor since deleted): say so, and leave the stamp as it is. The GM can give it one from the editor.
+    if (source.body) {
+        if (game.actors.get(source.body.actorId)) {
+            await setBody(scene, group.id, source.body.actorId, { linked: source.body.linked });
+        } else {
+            getBlacksmith().toast.show({
+                title: 'No body for this group',
+                subtitle: `${source.body.actorName ?? 'The actor'} is not in this world, so the stamped group cannot be targeted. Drop an actor on its body row to fix that.`,
+                icon: 'fa-solid fa-user-shield',
+                duration: 8
+            });
+        }
+    }
+    return getGroup(scene, group.id);
 }

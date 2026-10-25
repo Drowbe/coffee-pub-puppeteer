@@ -172,3 +172,70 @@ test('deleting the group deletes its body', async () => {
     await g.settle();
     assert.equal(g.scene.tokens.has(token.id), false);
 });
+
+// ---- the library: a template that names an actor stamps with its body --------------------------------------
+
+test('a group with a body saves the actor to the library, and no token', async () => {
+    const g = await stage();
+    const library = await import('../scripts/library.js');
+    await g.groups.setBody(g.scene, g.group.id, 'A1', { linked: true });
+    const id = await library.saveGroupToLibrary(g.scene, g.group.id);
+    const template = library.getTemplate(id);
+    assert.deepEqual(template.body, { actorId: 'A1', actorName: 'Merchant', linked: true });
+    assert.equal(JSON.stringify(template).includes('transparent.png'), false);
+    assert.equal(library.listTemplates()[0].actor, 'Merchant');
+});
+
+test('every stamp of it comes with its own body, sized to that stamp', async () => {
+    const g = await stage();
+    const library = await import('../scripts/library.js');
+    await g.groups.setBody(g.scene, g.group.id, 'A1');
+    const id = await library.saveGroupToLibrary(g.scene, g.group.id);
+
+    const one = await library.stampTemplate(g.scene, id, { x: 6000, y: 4000 });
+    const two = await library.stampTemplate(g.scene, id, { x: 8000, y: 4000 }, { heading: 90 });
+    await g.settle();
+    assert.ok(one.body && two.body && one.body.tokenId !== two.body.tokenId);
+
+    const first = g.scene.tokens.get(one.body.tokenId)._source;
+    assert.equal(first.locked, true);
+    assert.equal(first.actorLink, false);
+    assert.equal(first.texture.src, TRANSPARENT);
+    assert.equal(first.x, 6200);                           // the same tile, 400 px right of its own pin
+    near(first.width, 4, 0.001);
+    const second = g.scene.tokens.get(two.body.tokenId)._source;
+    near(second.width, 2, 0.01);                           // turned a quarter: 200 wide, 400 tall
+    near(second.height, 4, 0.01);
+});
+
+test('a stamp whose actor is not in this world has no body, and says so', async () => {
+    const g = await stage();
+    const library = await import('../scripts/library.js');
+    const { getBlacksmith } = await import('../scripts/blacksmith.js');
+    const toasts = [];
+    getBlacksmith().toast.show = (options) => toasts.push(options);
+    await g.groups.setBody(g.scene, g.group.id, 'A1');
+    const id = await library.saveGroupToLibrary(g.scene, g.group.id);
+    game.actors.delete('A1');
+
+    const stamped = await library.stampTemplate(g.scene, id, { x: 6000, y: 4000 });
+    assert.equal(stamped.body, undefined);
+    assert.equal(stamped.members.length, 2);
+    assert.equal(toasts.length, 1);
+    assert.match(toasts[0].subtitle, /Merchant is not in this world/);
+});
+
+test('a template with no actor stamps with no body, as before', async () => {
+    const g = await stage();
+    const library = await import('../scripts/library.js');
+    const id = await library.saveGroupToLibrary(g.scene, g.group.id);
+    assert.equal(library.getTemplate(id).body, undefined);
+    const stamped = await library.stampTemplate(g.scene, id, { x: 6000, y: 4000 });
+    assert.equal(stamped.body, undefined);
+    assert.equal(g.scene.tokens.size, 0);
+});
+
+test('a template whose body names no actor is refused', async () => {
+    const { validateTemplate } = await import('../scripts/template.js');
+    assert.throws(() => validateTemplate({ version: 2, members: [], body: {} }), /names no actor/);
+});

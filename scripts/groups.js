@@ -534,7 +534,14 @@ export function exportGroup(scene, groupId) {
         const doc = scene.getEmbeddedCollection(member.type).get(member.id);
         if (doc) sources.set(`${member.type}:${member.id}`, doc._source);
     }
-    return buildTemplate(group, sources);
+    // A group that represents an actor says so, so every stamp of it comes with its body.
+    const token = bodyToken(scene, group);
+    const body = group.body && {
+        actorId: group.body.actorId,
+        actorName: game.actors.get(group.body.actorId)?.name ?? token?.name,
+        linked: !!token?._source.actorLink
+    };
+    return buildTemplate(group, sources, body);
 }
 
 /**

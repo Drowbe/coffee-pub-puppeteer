@@ -239,7 +239,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const rows = templates.map((template) => `
             <li class="puppeteer-template">
                 <i class="fa-solid fa-cubes"></i>
-                <span class="puppeteer-template-name">${esc(template.name)} <span class="puppeteer-template-count">${template.members} member${template.members === 1 ? '' : 's'}</span></span>
+                <span class="puppeteer-template-name">${esc(template.name)} <span class="puppeteer-template-count">${template.members} member${template.members === 1 ? '' : 's'}${template.actor ? `, represents ${esc(template.actor)}` : ''}</span></span>
                 <button type="button" class="puppeteer-btn puppeteer-btn-primary" data-action="stampTemplate" data-template-id="${esc(template.id)}" data-tooltip="Place a copy at the centre of your view"><i class="fa-solid fa-stamp"></i> Stamp</button>
                 <button type="button" class="puppeteer-btn" data-action="exportTemplate" data-template-id="${esc(template.id)}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
                 <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteTemplate" data-template-id="${esc(template.id)}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
@@ -369,7 +369,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             return `
             <div class="puppeteer-group-row puppeteer-body puppeteer-drop" data-drop-group="${id}">
                 <i class="fa-solid fa-user-shield"></i>
-                <span class="puppeteer-body-text">Not targetable. Drag an actor here to make the whole group one target, or</span>
+                <span class="puppeteer-body-text">Optional: drag an actor here to make the whole group one target that can be attacked, or</span>
                 <button type="button" class="puppeteer-btn" data-action="adoptBody" data-group-id="${id}" data-tooltip="Use the selected token as the group's body: it is made transparent, locked and sized to cover the group">Use Selected Token</button>
             </div>`;
         }

@@ -60,8 +60,8 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 |---|---|
 | `exportGroup(groupId, scene)` | A portable template (format version 2) of the group. |
 | `library.list()` | Saved templates. |
-| `library.save(groupId, scene)` | Saves the group to the world library. |
-| `library.stamp(templateId, { scene, point, heading, name })` | Creates new parts, a new pin and a new group from a template. |
+| `library.save(groupId, scene)` | Saves the group to the world library. A group with a body saves the actor it represents. |
+| `library.stamp(templateId, { scene, point, heading, name })` | Creates new parts, a new pin and a new group from a template, with a body if the template names an actor that exists in this world. |
 | `library.remove(templateId)` | Deletes a template. |
 | `library.import(jsonText)` | Adds a template from exported JSON. Version 1 templates are refused with a message. |
 
@@ -77,6 +77,5 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 
 ## Changes agreed, not yet in the API
 
-- Naming an actor in a library template, so a stamp comes with its body.
 - Group behaviour options.
 - Events other modules can listen to when a group is created, moved or deleted.
