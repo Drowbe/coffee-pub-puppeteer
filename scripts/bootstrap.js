@@ -19,6 +19,7 @@ const REQUIRED = [
     'dialog',
     'canvas.pickArea',
     'toast',
+    'toolEditable.isEditing',
     'toast.registerChannel',
     'chatCards',
     'chatCards.post',

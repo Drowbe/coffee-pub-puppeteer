@@ -19,7 +19,7 @@ If the saved group could be attacked (see [Making a group something that can be 
 
 ## Name and describe an entry
 
-Each entry is a card. Type in its name to rename it, and write a description underneath so you remember what it is. Both are kept straight away.
+Each entry shows its name and a description. Choose the pencil beside either to change it, then press Enter or click away to keep it, or Escape to put it back.
 
 ## Change an entry
 

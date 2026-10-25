@@ -1,11 +1,11 @@
 /*
  * The Group Editor is a Blacksmith tool window, so the frame, the themes, the fields, the tabs (blacksmith-tabs), the list
  * rows (blacksmith-list), the toggle switches (blacksmith-toggle) and the badges (blacksmith-badge) all come from
- * Blacksmith, and buttons are plain Foundry buttons. This file only lays Puppeteer's own pieces out, and every colour in
+ * Blacksmith, as are its buttons (blacksmith-tool-btn) and its segmented control (blacksmith-tool-segmented). This file only lays Puppeteer's own pieces out, and every colour in
  * it is a --blacksmith-tool-* variable, so it follows Light, Dark and Glass with no theme rules of its own.
  *
- * What Blacksmith does not offer yet, and is written here until it does: a tool-themed section (a rule and a caption,
- * the way Blacksmith's own rest window groups its form) and a card with a collapsed line.
+ * The cards (blacksmith-tool-card), sections (blacksmith-tool-section), hints and empty states are Blacksmith's too. What
+ * is written here is layout of Puppeteer's own rows, and the drop target, which Blacksmith does not offer yet.
  */
 
 /* ---- the body ---------------------------------------------------------------------------------------- */
@@ -18,103 +18,11 @@
     padding: 8px;
 }
 
-.puppeteer-group-editor .puppeteer-empty,
-.puppeteer-group-editor .puppeteer-note {
-    margin: 0;
-    color: var(--blacksmith-tool-text-muted);
-}
-
-.puppeteer-group-editor .puppeteer-empty {
-    padding: 8px;
-}
-
-.puppeteer-group-editor .puppeteer-warning {
-    margin: 8px 0 0;
-    padding: 6px 8px;
-    border: 1px solid rgba(200, 120, 0, 0.7);
-    border-radius: 4px;
-}
-
-/* ---- a group card: one line when closed ---------------------------------------------------------------- */
-.puppeteer-group-editor .puppeteer-group {
-    display: flex;
-    flex-direction: column;
-    flex: 0 0 auto;
-    padding: 8px 10px;
-    border: 1px solid var(--blacksmith-tool-divider);
-    border-radius: 6px;
-    background: var(--blacksmith-tool-surface-sunken);
-}
-
-.puppeteer-group-editor .puppeteer-card-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 8px;
-}
-
-.puppeteer-group-editor .puppeteer-card-head .puppeteer-name {
-    flex: 1 1 10em;
-    min-width: 8em;
-    font-weight: bold;
-}
-
-.puppeteer-group-editor .puppeteer-card-actions {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-left: auto;
-}
-
-.puppeteer-group-editor .puppeteer-card-toggle {
-    flex: 0 0 auto;
-    min-width: 0;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border-color: transparent;
-    background: transparent;
-    /* A plain button's text is light, which vanishes on the Light theme once its own fill is gone. */
-    color: var(--blacksmith-tool-text);
-}
-
-.puppeteer-group-editor .puppeteer-group.is-hidden .puppeteer-name {
-    opacity: 0.6;
-    font-style: italic;
-}
-
-/* A button that is switched on: Move Pivot, and a group that is hidden. Brand orange, as the shell uses for state. */
-.puppeteer-group-editor button.is-active {
-    border-color: var(--blacksmith-color-brand-accent, #c15701);
-    color: var(--blacksmith-color-brand-accent, #c15701);
-}
-
 /* ---- an open card: a section for each thing a group has ---------------------------------------------- */
 .puppeteer-group-editor .puppeteer-card-body {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-top: 8px;
-}
-
-/* A rule and a caption rather than a box: the card is already a surface, and boxing inside it stacks two frames. */
-.puppeteer-group-editor .puppeteer-section {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-top: 8px;
-    border-top: 1px solid var(--blacksmith-tool-divider);
-}
-
-.puppeteer-group-editor .puppeteer-section h4 {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    color: var(--blacksmith-tool-accent);
-    font-size: 0.8em;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
 }
 
 .puppeteer-group-editor .puppeteer-inline {
@@ -153,16 +61,6 @@
 }
 
 /* ---- rows ------------------------------------------------------------------------------------------ */
-.puppeteer-group-editor .blacksmith-list-row-main .puppeteer-name,
-.puppeteer-group-editor .puppeteer-description {
-    width: 100%;
-}
-
-.puppeteer-group-editor .puppeteer-description {
-    margin: 4px 0;
-    resize: vertical;
-}
-
 .puppeteer-group-editor .puppeteer-template .puppeteer-inline {
     margin-top: 4px;
 }
@@ -195,3 +93,30 @@
 .puppeteer-group-editor .puppeteer-id:hover {
     color: var(--blacksmith-tool-accent);
 }
+
+/* A hidden group's name is struck back, as its parts are. */
+.puppeteer-group-editor .blacksmith-tool-card.is-hidden .blacksmith-tool-card-title .blacksmith-tool-editable-text {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+/* ---- a name that is text until it is edited ---------------------------------------------------------- */
+/* The label is Blacksmith's (blacksmith-tool-editable). A name with nothing in it shows its placeholder, muted. */
+.puppeteer-group-editor .blacksmith-tool-editable.is-empty .blacksmith-tool-editable-text {
+    color: var(--blacksmith-tool-text-muted);
+    font-style: italic;
+}
+
+/* ---- a part is one line: its name, then its id ------------------------------------------------------- */
+/* The shared row's main block stacks a title over a meta line; a part wants them side by side. */
+.puppeteer-group-editor .puppeteer-part {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.puppeteer-group-editor .puppeteer-part .puppeteer-id {
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+

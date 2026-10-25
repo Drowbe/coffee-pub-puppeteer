@@ -178,6 +178,7 @@ export function installFakes({ dropOptions = false } = {}) {
         },
         toast: { show() {}, registerChannel() {} },
         chatCards: { post: async (card) => { cards.push(card); return card; } },
+        toolEditable: { isEditing: () => false },
         registerSecondaryBarType: async () => true,
         registerSecondaryBarItem() {},
         registerSecondaryBarTool() {},

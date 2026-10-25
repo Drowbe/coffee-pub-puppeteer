@@ -102,7 +102,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         saveToLibrary: (event, target, win) => win._saveToLibrary(target.dataset.groupId),
         stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
         updateTemplate: (event, target, win) => win._updateTemplate(target.dataset.templateId),
-        toggleCard: (event, target, win) => win._toggleCard(target.dataset.groupId),
         toggleGroupHidden: (event, target, win) => win._toggleGroupHidden(target.dataset.groupId),
         toggleMemberHidden: (event, target, win) => win._toggleMemberHidden(target.dataset.groupId, target.dataset.type, target.dataset.id),
         exportTemplate: (event, target, win) => win._exportTemplate(target.dataset.templateId),
@@ -139,7 +138,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         expanded.add(groupId);
         const win = await GroupEditorWindow.open();
         await win.render({ force: true });
-        win.element?.querySelector(`.puppeteer-group[data-group-id="${CSS.escape(groupId)}"]`)?.scrollIntoView({ block: 'nearest' });
+        win.element?.querySelector(`.blacksmith-tool-card[data-group-id="${CSS.escape(groupId)}"]`)?.scrollIntoView({ block: 'nearest' });
     }
 
     get _hookContext() {
@@ -158,7 +157,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             options: { debounceMs: 100 },
             callback: (scene, changes) => {
                 if (scene.id !== canvas.scene?.id) return;
-                if (groupsTouched(changes)) this.render();
+                if (groupsTouched(changes)) this._redraw();
             }
         });
         getBlacksmith().HookManager.registerHook({
@@ -167,12 +166,16 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             context: this._hookContext,
             priority: 4,
             key: `${this._hookContext}-scene`,
-            callback: () => this.render()
+            callback: () => this._redraw()
         });
     }
 
     async _onRender(context, options) {
         await super._onRender?.(context, options);
+        if (this.element.dataset.puppeteerEditable !== 'bound') {
+            this.element.dataset.puppeteerEditable = 'bound';
+            this.element.addEventListener('change', (event) => this._onEditableChange(event));
+        }
         // Text and number fields commit on change, not on click, so they are wired here.
         for (const input of this.element.querySelectorAll('input[data-field], select[data-field], textarea[data-field]')) {
             input.addEventListener('change', () => this._commitField(input));
@@ -206,8 +209,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const groups = scene ? listGroups(scene) : [];
         const library = listTemplates();
         const footer = {
-            groups: `<button type="button" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>`,
-            library: `<button type="button" data-action="importTemplate"><i class="fa-solid fa-file-import"></i> Import</button>
+            groups: `<button type="button" class="blacksmith-window-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>`,
+            library: `<button type="button" class="blacksmith-window-btn-secondary" data-action="importTemplate"><i class="fa-solid fa-file-import"></i> Import</button>
                 <input type="file" accept="application/json,.json" data-field="importFile" hidden>`,
             tools: ''
         }[tab];
@@ -236,9 +239,9 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     }
 
     _groupsHtml(scene, groups) {
-        if (!scene) return '<p class="puppeteer-empty">There is no scene in view.</p>';
+        if (!scene) return '<p class="blacksmith-tool-empty">There is no scene in view.</p>';
         if (!groups.length) {
-            return `<p class="puppeteer-empty">No groups on <strong>${esc(scene.name)}</strong>. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings, notes or regions on the canvas, then choose <strong>Add Selected</strong> on the group.</p>`;
+            return `<p class="blacksmith-tool-empty">No groups on <strong>${esc(scene.name)}</strong>. Choose <strong>New Group</strong>, select some tiles, lights, sounds, walls, drawings, notes or regions on the canvas, then choose <strong>Add Selected</strong> on the group.</p>`;
         }
         return groups.map((group) => this._groupHtml(scene, group)).join('');
     }
@@ -250,25 +253,25 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             return `
             <div class="blacksmith-list-row puppeteer-template" data-template-id="${id}">
                 <div class="blacksmith-list-row-main">
-                    <input type="text" class="puppeteer-name" data-field="templateName" data-template-id="${id}" value="${esc(template.name)}">
+                    <div class="blacksmith-list-row-title">${this._editableHtml('templateName', template.name, 'Entry', { 'template-id': template.id }, { required: true })}</div>
                     <div class="blacksmith-list-row-meta">${template.members} part${template.members === 1 ? '' : 's'}${template.actor ? `, represents ${esc(template.actor)}` : ''}</div>
-                    <textarea class="puppeteer-description" rows="2" data-field="templateDescription" data-template-id="${id}" placeholder="Describe this entry">${esc(template.description)}</textarea>
+                    ${this._editableHtml('templateDescription', template.description, 'No description', { 'template-id': template.id }, { multiline: true, tooltip: 'Describe' })}
                     <div class="puppeteer-inline">
                         <select data-field="updateSource" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="The group on this scene to copy the entry's parts from">
                             ${options || '<option value="">No groups on this scene</option>'}
                         </select>
-                        <button type="button" data-action="updateTemplate" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="Replace this entry's parts with the chosen group. Copies already placed are not changed."><i class="fa-solid fa-arrows-rotate"></i> Update from group</button>
+                        <button type="button" class="blacksmith-tool-btn" data-action="updateTemplate" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="Replace this entry's parts with the chosen group. Copies already placed are not changed."><i class="fa-solid fa-arrows-rotate"></i> Update from group</button>
                     </div>
                 </div>
                 <div class="blacksmith-list-row-action">
-                    <button type="button" data-action="stampTemplate" data-template-id="${id}" data-tooltip="Fabricate a new copy at the centre of your view"><i class="fa-solid fa-hammer"></i> Fabricate</button>
-                    <button type="button" data-action="exportTemplate" data-template-id="${id}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
-                    <button type="button" data-action="deleteTemplate" data-template-id="${id}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
+                    <button type="button" class="blacksmith-tool-btn" data-action="stampTemplate" data-template-id="${id}" data-tooltip="Fabricate a new copy at the centre of your view"><i class="fa-solid fa-hammer"></i> Fabricate</button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="exportTemplate" data-template-id="${id}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="deleteTemplate" data-template-id="${id}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>`;
         }).join('');
         return `
-        <p class="puppeteer-note">Saved copies of groups. An entry is not tied to any scene: <strong>Fabricate</strong> builds a fresh, independent copy on this scene, as many times as you like. Make one with <strong>Save to Library</strong> on a group.</p>
+        <p class="blacksmith-tool-hint">Saved copies of groups. An entry is not tied to any scene: <strong>Fabricate</strong> builds a fresh, independent copy on this scene, as many times as you like. Make one with <strong>Save to Library</strong> on a group.</p>
         <div class="blacksmith-list">${rows || '<div class="blacksmith-list-empty">Nothing saved yet.</div>'}</div>`;
     }
 
@@ -280,27 +283,37 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <div class="blacksmith-list-row-meta">${group.members.length} part${group.members.length === 1 ? '' : 's'}</div>
                 </div>
                 <div class="blacksmith-list-row-action">
-                    <button type="button" data-action="diagnose" data-group-id="${esc(group.id)}" data-tooltip="Write where this group's anchor and every part is, against where it should be, to the browser console (F12)"><i class="fa-solid fa-stethoscope"></i> Diagnose</button>
+                    <button type="button" class="blacksmith-tool-btn" data-action="diagnose" data-group-id="${esc(group.id)}" data-tooltip="Write where this group's anchor and every part is, against where it should be, to the browser console (F12)"><i class="fa-solid fa-stethoscope"></i> Diagnose</button>
                 </div>
             </div>`).join('');
         const puppeteer = game.modules.get(MODULE_ID);
         const blacksmith = game.modules.get('coffee-pub-blacksmith');
         return `
-        <section class="puppeteer-section">
-            <h4>Bring groups up to date</h4>
-            <p class="puppeteer-note">Move every group's parts to where its pin is now. This happens by itself while a GM is connected; use it after a pin moved while no GM was online and you want to be sure.</p>
-            <button type="button" data-action="syncAll"><i class="fa-solid fa-rotate"></i> Update all groups</button>
+        <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Bring groups up to date</span></header>
+            <p class="blacksmith-tool-hint">Move every group's parts to where its pin is now. This happens by itself while a GM is connected; use it after a pin moved while no GM was online and you want to be sure.</p>
+            <button type="button" class="blacksmith-tool-btn" data-action="syncAll"><i class="fa-solid fa-rotate"></i> Update all groups</button>
         </section>
-        <section class="puppeteer-section">
-            <h4>Diagnosis</h4>
-            <p class="puppeteer-note">If a group is not where you expect, a report of where its anchor and every part is, against where it should be, goes to the browser console (F12).</p>
+        <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Diagnosis</span></header>
+            <p class="blacksmith-tool-hint">If a group is not where you expect, a report of where its anchor and every part is, against where it should be, goes to the browser console (F12).</p>
             <div class="blacksmith-list">${rows || `<div class="blacksmith-list-empty">No groups on ${esc(scene?.name ?? 'this scene')}.</div>`}</div>
         </section>
-        <section class="puppeteer-section">
-            <h4>About</h4>
-            <p class="puppeteer-note">Puppeteer ${esc(puppeteer?.version)} on Blacksmith ${esc(blacksmith?.version)} (API ${esc(blacksmith?.api?.version)}).</p>
-            <p class="puppeteer-note">Show or hide the group bounds with the dotted-box icon in this window's title bar.</p>
+        <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">About</span></header>
+            <p class="blacksmith-tool-hint">Puppeteer ${esc(puppeteer?.version)} on Blacksmith ${esc(blacksmith?.version)} (API ${esc(blacksmith?.api?.version)}).</p>
+            <p class="blacksmith-tool-hint">Show or hide the group bounds with the dotted-box icon in this window's title bar.</p>
         </section>`;
+    }
+
+    /**
+     * A name shown as text with a pencil, Blacksmith's `blacksmith-tool-editable`. The field exists only while it is being
+     * edited, and a change arrives as a `change` event on the root with the new value (`_onEditableChange`). `attrs` are
+     * the data attributes the save needs, and `field` says which save it is.
+     */
+    _editableHtml(field, value, placeholder, attrs, { multiline = false, required = false, tooltip = 'Rename' } = {}) {
+        const data = Object.entries(attrs).map(([key, val]) => ` data-${key}="${esc(val)}"`).join('');
+        return `<span class="blacksmith-tool-editable${value ? '' : ' is-empty'}" data-edit-field="${field}" data-value="${esc(value)}" data-placeholder="${esc(placeholder)}"${multiline ? ' data-multiline="true"' : ''}${required ? ' data-required="true"' : ''}${data}>`
+            + `<span class="blacksmith-tool-editable-text">${esc(value || placeholder)}</span>`
+            + `<button type="button" class="blacksmith-tool-btn is-icon blacksmith-tool-editable-edit" data-tooltip="${esc(tooltip)}"><i class="fa-solid fa-pen"></i></button>`
+            + '</span>';
     }
 
     /** A toggle switch with its label: Blacksmith's own control, wired through `data-field` like any other field. */
@@ -335,37 +348,42 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         ].join('');
 
         const warnings = [
-            lost ? '<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>' : '',
-            group.movePivot ? '<div class="puppeteer-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Drag the pin to where the grip should be: it moves only the pin, nothing else moves, and this switches itself off when you drop it. Choose Move Pivot again to cancel.</div>' : ''
+            lost ? '<div class="blacksmith-tool-card-notice is-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>' : '',
+            group.movePivot ? '<div class="blacksmith-tool-card-notice is-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Drag the pin to where the grip should be: it moves only the pin, nothing else moves, and this switches itself off when you drop it. Choose Move Pivot again to cancel.</div>' : ''
         ].join('');
 
         return `
-        <section class="puppeteer-group${open ? ' is-open' : ''}${group.hidden ? ' is-hidden' : ''}" data-group-id="${id}">
-            <div class="puppeteer-card-head">
-                <button type="button" class="puppeteer-card-toggle" data-action="toggleCard" data-group-id="${id}" aria-expanded="${open}" data-tooltip="${open ? 'Collapse' : 'Expand'}"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
-                <input type="text" class="puppeteer-name" data-field="name" data-group-id="${id}" value="${esc(group.name)}">
-                <span class="blacksmith-badge">${count} part${count === 1 ? '' : 's'}, ${Math.round(heading)}&deg;</span>
-                ${badges}
-                <span class="puppeteer-card-actions">
-                    <button type="button" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i> Go To Pin</button>
-                    <button type="button" class="${group.hidden ? 'is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: its tiles, drawings, lights, sounds, regions and body. Walls and notes cannot be hidden."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i> ${group.hidden ? 'Show' : 'Hide'}</button>
-                    <button type="button" data-action="deleteGroup" data-group-id="${id}" data-tooltip="Delete the group"><i class="fa-solid fa-trash"></i></button>
+        <div class="blacksmith-tool-card${group.hidden ? ' is-hidden' : ''}" data-group-id="${id}">
+            <div class="blacksmith-tool-card-head">
+                <label class="blacksmith-tool-card-summary">
+                    <input type="checkbox" class="blacksmith-tool-card-toggle" data-field="cardOpen" data-group-id="${id}"${open ? ' checked' : ''}>
+                    <i class="blacksmith-tool-card-caret fa-solid fa-chevron-right"></i>
+                    <span class="blacksmith-tool-card-title">${this._editableHtml('name', group.name, 'Group', { 'group-id': group.id }, { required: true })}</span>
+                    <span class="blacksmith-tool-card-badges">
+                        <span class="blacksmith-badge">${count} part${count === 1 ? '' : 's'}, ${Math.round(heading)}&deg;</span>
+                        ${badges}
+                    </span>
+                </label>
+                <span class="blacksmith-tool-card-actions">
+                    <button type="button" class="blacksmith-tool-btn" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i> Go To Pin</button>
+                    <button type="button" class="blacksmith-tool-btn${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: its tiles, drawings, lights, sounds, regions and body. Walls and notes cannot be hidden."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i> ${group.hidden ? 'Show' : 'Hide'}</button>
+                    <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="deleteGroup" data-group-id="${id}" data-tooltip="Delete the group"><i class="fa-solid fa-trash"></i></button>
                 </span>
             </div>
             ${warnings}
-            ${open ? this._cardBodyHtml(scene, group, heading) : ''}
-        </section>`;
+            <div class="blacksmith-tool-card-body">${this._cardBodyHtml(scene, group, heading)}</div>
+        </div>`;
     }
 
     /** The open half of a group's card. */
     _cardBodyHtml(scene, group, heading) {
         const id = esc(group.id);
         const button = (action, icon, label, tooltip = '') => `
-            <button type="button" data-action="${action}" data-group-id="${id}"${tooltip ? ` data-tooltip="${esc(tooltip)}"` : ''}>
+            <button type="button" class="blacksmith-tool-btn" data-action="${action}" data-group-id="${id}"${tooltip ? ` data-tooltip="${esc(tooltip)}"` : ''}>
                 <i class="${icon}"></i> ${label}
             </button>`;
         const step = (degrees, icon) => `
-            <button type="button" data-action="rotate"
+            <button type="button" class="blacksmith-tool-btn" data-action="rotate"
                 data-group-id="${id}" data-degrees="${degrees}"${group.rotates === false ? ' disabled' : ''}
                 data-tooltip="Rotate ${Math.abs(degrees)} degrees ${degrees < 0 ? 'counter-clockwise' : 'clockwise'}">
                 <i class="${icon}"></i> ${Math.abs(degrees)}
@@ -379,23 +397,19 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const hiddenNow = !!doc?._source.hidden;
             return `
                 <div class="blacksmith-list-row${present ? '' : ' puppeteer-missing'}">
-                    <button type="button" data-action="selectMember" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="selectMember" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                         data-tooltip="Select this ${esc((TYPE_LABEL[member.type] ?? member.type).toLowerCase())} on the canvas (Shift to add to the selection)"${present ? '' : ' disabled'}>
                         <i class="${TYPE_ICON[member.type] ?? 'fa-solid fa-circle'}"></i>
                     </button>
-                    <div class="blacksmith-list-row-main">
-                        <input type="text" class="puppeteer-name" data-field="memberLabel" data-group-id="${id}"
-                            data-type="${esc(member.type)}" data-id="${esc(member.id)}"
-                            value="${esc(member.label ?? '')}" placeholder="${esc(kind)}"${present ? '' : ' disabled'}>
-                        <div class="blacksmith-list-row-meta">
-                            <button type="button" class="puppeteer-id" data-action="copyUuid" data-uuid="${esc(`${scene.uuid}.${member.type}.${member.id}`)}"
-                                data-tooltip="${esc(`${scene.uuid}.${member.type}.${member.id}`)} (click to copy)">${esc(member.id)}</button>${present ? '' : ' missing'}
-                        </div>
+                    <div class="blacksmith-list-row-main puppeteer-part">
+                        ${present ? this._editableHtml('memberLabel', member.label ?? '', kind, { 'group-id': group.id, type: member.type, id: member.id }) : `<span>${esc(kind)} (missing)</span>`}
+                        <button type="button" class="puppeteer-id" data-action="copyUuid" data-uuid="${esc(`${scene.uuid}.${member.type}.${member.id}`)}"
+                            data-tooltip="${esc(`${scene.uuid}.${member.type}.${member.id}`)} (click to copy)">${esc(member.id)}</button>
                     </div>
                     <div class="blacksmith-list-row-action">
-                        ${canHide ? `<button type="button" data-action="toggleMemberHidden" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
+                        ${canHide ? `<button type="button" class="blacksmith-tool-btn is-icon" data-action="toggleMemberHidden" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                             data-tooltip="${hiddenNow ? 'Show this part' : 'Hide this part'}"><i class="fa-solid fa-eye${hiddenNow ? '-slash' : ''}"></i></button>` : ''}
-                        <button type="button" data-action="removeMember"
+                        <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="removeMember"
                             data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                             data-tooltip="Remove from group"><i class="fa-solid fa-xmark"></i></button>
                     </div>
@@ -405,15 +419,14 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const counts = {};
         for (const member of group.members) counts[member.type] = (counts[member.type] ?? 0) + 1;
         const chips = Object.entries(counts).map(([type, count]) => `
-            <button type="button" data-action="selectMembers"
+            <button type="button" class="blacksmith-tool-btn" data-action="selectMembers"
                 data-group-id="${id}" data-type="${esc(type)}" data-tooltip="Select these ${esc(TYPE_PLURAL[type] ?? type)} on the canvas">
                 <i class="${TYPE_ICON[type] ?? 'fa-solid fa-circle'}"></i> ${esc(TYPE_PLURAL[type] ?? type)} ${count}
             </button>`).join('');
 
         return `
             <div class="puppeteer-card-body">
-                <section class="puppeteer-section">
-                    <h4>Parts</h4>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Parts</span></header>
                     ${chips ? `<div class="puppeteer-inline">${chips}</div>` : ''}
                     <div class="puppeteer-inline">
                         ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
@@ -422,8 +435,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     </div>
                     <div class="blacksmith-list">${members || '<div class="blacksmith-list-empty">No parts yet.</div>'}</div>
                 </section>
-                <section class="puppeteer-section">
-                    <h4>Pivot and heading</h4>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Pivot and heading</span></header>
                     <div class="puppeteer-inline">
                         <label class="puppeteer-heading">Heading
                             <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1"${group.rotates === false ? ' disabled' : ''}>&deg;
@@ -432,19 +444,16 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     </div>
                     <div class="puppeteer-inline">
                         ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot', 'Move the pin to the middle of the group without moving anything')}
-                        <button type="button" class="${group.movePivot ? 'is-active' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: drag the pin once and only the pin moves. This switches itself off when you drop the pin."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
+                        <button type="button" class="blacksmith-tool-btn${group.movePivot ? ' is-active' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: drag the pin once and only the pin moves. This switches itself off when you drop the pin."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
                     </div>
                 </section>
-                <section class="puppeteer-section">
-                    <h4>Body</h4>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Body</span></header>
                     ${this._bodyHtml(scene, group)}
                 </section>
-                <section class="puppeteer-section">
-                    <h4>Riders</h4>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Riders</span></header>
                     ${this._ridersHtml(scene, group)}
                 </section>
-                <section class="puppeteer-section">
-                    <h4>Behaviour</h4>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Behaviour</span></header>
                     ${this._behaviourHtml(group)}
                 </section>
                 <div class="puppeteer-inline">
@@ -460,20 +469,26 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const ease = easeOf(group);
         return `
                 <div class="puppeteer-inline">
-                    <label class="puppeteer-field" data-tooltip="How the group moves on screen when its pin moves or turns. Jump shows no movement between the two places.">
-                        Moves by
-                        <select data-field="easeMode" data-group-id="${id}">
-                            <option value="ease"${ease.mode === 'ease' ? ' selected' : ''}>Gliding</option>
-                            <option value="jump"${ease.mode === 'jump' ? ' selected' : ''}>Jumping</option>
-                        </select>
-                    </label>
+                    <span>Moves by</span>
+                    <div class="blacksmith-tool-segmented" role="radiogroup" aria-label="Moves by" data-tooltip="How the group moves on screen when its pin moves or turns. Jumping shows no movement between the two places.">
+                        <label class="blacksmith-tool-segment">
+                            <input type="radio" name="ease-${id}" value="ease" data-field="easeMode" data-group-id="${id}"${ease.mode === 'ease' ? ' checked' : ''}>
+                            <i class="fa-solid fa-wind"></i><span>Gliding</span>
+                        </label>
+                        <label class="blacksmith-tool-segment">
+                            <input type="radio" name="ease-${id}" value="jump" data-field="easeMode" data-group-id="${id}"${ease.mode === 'jump' ? ' checked' : ''}>
+                            <i class="fa-solid fa-forward-step"></i><span>Jumping</span>
+                        </label>
+                    </div>
                     <label class="puppeteer-field" data-tooltip="How long a glide takes, in milliseconds (100 to 3000).">
                         over <input type="number" data-field="easeMs" data-group-id="${id}" value="${ease.ms}" min="100" max="3000" step="50"${ease.mode === 'jump' ? ' disabled' : ''}> ms
                     </label>
                 </div>
+                <div class="blacksmith-tool-stack">
                 ${this._toggleHtml('rotates', group.id, 'Turns when its pin turns', group.rotates !== false, 'Off, the group keeps the way it faces and only follows its pin about; turning the pin turns nothing.')}
                 ${this._toggleHtml('announce', group.id, 'Announce boarding in chat', !!group.announce, 'Post a chat card, with a sound, when a token boards or leaves.')}
-                ${this._toggleHtml('ridersFree', group.id, 'Riders can move about', group.ridersFree !== false, 'Off, a rider moved by hand is put back where it rides.')}`;
+                ${this._toggleHtml('ridersFree', group.id, 'Riders can move about', group.ridersFree !== false, 'Off, a rider moved by hand is put back where it rides.')}
+                </div>`;
     }
 
     /** The riders: tokens the group carries. They can be moved by hand inside it, and are let go when they leave. */
@@ -487,14 +502,14 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                         <div class="blacksmith-list-row-title"><i class="fa-solid fa-person-walking"></i> ${esc(token?.name ?? 'Missing token')}</div>
                     </div>
                     <div class="blacksmith-list-row-action">
-                        <button type="button" data-action="dismount" data-group-id="${id}" data-token-id="${esc(rider.tokenId)}" data-tooltip="Let this token go. It stays where it is."><i class="fa-solid fa-person-walking-arrow-right"></i> Dismount</button>
+                        <button type="button" class="blacksmith-tool-btn" data-action="dismount" data-group-id="${id}" data-token-id="${esc(rider.tokenId)}" data-tooltip="Let this token go. It stays where it is."><i class="fa-solid fa-person-walking-arrow-right"></i> Dismount</button>
                     </div>
                 </div>`;
         }).join('');
         return `
                 <div class="puppeteer-inline">
                     <span class="puppeteer-grow">${(group.riders ?? []).length} aboard</span>
-                    <button type="button" data-action="boardSelected" data-group-id="${id}" data-tooltip="Put the selected tokens aboard. They must be on the group."><i class="fa-solid fa-person-walking-luggage"></i> Board Selected</button>
+                    <button type="button" class="blacksmith-tool-btn" data-action="boardSelected" data-group-id="${id}" data-tooltip="Put the selected tokens aboard. They must be on the group."><i class="fa-solid fa-person-walking-luggage"></i> Board Selected</button>
                 </div>
                 ${this._toggleHtml('mountable', group.id, 'Tokens board when they move onto it', !!group.mountable, 'A token that moves onto this group, or is dropped on it from the sidebar, boards it. Off, nothing boards unless you choose Board Selected.')}
                 ${riders ? `<div class="blacksmith-list">${riders}</div>` : ''}`;
@@ -508,7 +523,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <div class="puppeteer-inline puppeteer-drop" data-drop-group="${id}">
                     <i class="fa-solid fa-user-shield"></i>
                     <span class="puppeteer-grow">Optional: drag an actor here to make the whole group one target that can be attacked, or</span>
-                    <button type="button" data-action="adoptBody" data-group-id="${id}" data-tooltip="Use the selected token as the group's body: it is made transparent, locked and sized to cover the group">Use Selected Token</button>
+                    <button type="button" class="blacksmith-tool-btn" data-action="adoptBody" data-group-id="${id}" data-tooltip="Use the selected token as the group's body: it is made transparent, locked and sized to cover the group">Use Selected Token</button>
                 </div>`;
         }
         const token = bodyToken(scene, group);
@@ -518,17 +533,42 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <div class="puppeteer-inline puppeteer-drop" data-drop-group="${id}">
                     <i class="fa-solid fa-user-shield"></i>
                     <span class="puppeteer-grow">Represents <strong>${esc(name)}</strong>${token ? '' : ' (token missing)'}</span>
-                    <button type="button" data-action="openBodyActor" data-group-id="${id}"${actor ? '' : ' disabled'} data-tooltip="Open the actor's sheet"><i class="fa-solid fa-id-card"></i></button>
-                    <button type="button" data-action="clearBody" data-group-id="${id}" data-tooltip="Remove the body token. The group, its pin and its parts stay."><i class="fa-solid fa-xmark"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="openBodyActor" data-group-id="${id}"${actor ? '' : ' disabled'} data-tooltip="Open the actor's sheet"><i class="fa-solid fa-id-card"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="clearBody" data-group-id="${id}" data-tooltip="Remove the body token. The group, its pin and its parts stay."><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 ${this._toggleHtml('bodyLinked', group.id, 'Linked', !!token?.actorLink, 'Linked: one set of hit points shared by every token of this actor. Unlinked: this token has its own.', !token)}`;
     }
 
     // ---- actions ---------------------------------------------------------------------------------
 
+    /** Redraw, unless a name is being typed: a redraw would take the field away mid-word. It redraws when it is done. */
+    _redraw() {
+        if (getBlacksmith().toolEditable.isEditing(this.element)) return;
+        this.render();
+    }
+
+    /**
+     * A name was changed through Blacksmith's editable label. It arrives as a `change` event on the label's root, which
+     * carries the new value; the label's data attributes say what it was a name of. Saved as the field it replaced was.
+     */
+    async _onEditableChange(event) {
+        const root = event.target;
+        if (!(root instanceof HTMLElement) || !root.classList.contains('blacksmith-tool-editable')) return;
+        event.stopPropagation();
+        const stand = { value: event.detail?.value ?? '', checked: false, dataset: { ...root.dataset, field: root.dataset.editField } };
+        await this._commitField(stand);
+        this.render();
+    }
+
     _commitField(input) {
         const scene = canvas.scene;
         const groupId = input.dataset.groupId;
+        // A card opens and closes by itself; this only remembers which are open, so a redraw keeps them.
+        if (input.dataset.field === 'cardOpen') {
+            if (input.checked) expanded.add(groupId);
+            else expanded.delete(groupId);
+            return null;
+        }
         if (input.dataset.field === 'updateSource') return null;
         return run('Update group', async () => {
             if (input.dataset.field === 'templateName') {
@@ -620,12 +660,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const group = listGroups(canvas.scene).find((g) => g.id === groupId);
             await game.actors.get(group?.body?.actorId)?.sheet.render({ force: true });
         });
-    }
-
-    _toggleCard(groupId) {
-        if (expanded.has(groupId)) expanded.delete(groupId);
-        else expanded.add(groupId);
-        return this.render();
     }
 
     _toggleGroupHidden(groupId) {
