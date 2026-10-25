@@ -28,5 +28,5 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 ## Other controls that live beside it
 
 - **Tokens board when they move onto it** is on the group's riders row (see [Carrying tokens as riders](userguide-riders.md)).
-- The menubar button that shows or hides group bounds lights up while the bounds are shown.
+- The **Group Bounds** button on the Puppeteer bar (see [Getting started](userguide-getting-started.md)) lights up while the bounds are shown.
 - Puppeteer's messages come on their own channel. A GM can switch them off in Blacksmith's notification settings.

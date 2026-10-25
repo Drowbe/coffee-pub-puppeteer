@@ -2,14 +2,17 @@
 // window. Everything registers through Blacksmith.
 import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
-import { toggleBounds, boundsShown, BOUNDS_MENUBAR_TOOL } from './overlay.js';
+import { toggleBounds, boundsShown, BOUNDS_BAR_ITEM } from './overlay.js';
+import { syncAllGroups } from './follower.js';
 import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup } from './groups.js';
 
 export const EDITOR_WINDOW = `${MODULE_ID}-group-editor`;
+export const MENUBAR_TOOL = `${MODULE_ID}-menubar`;
+export const MENUBAR_BAR = MODULE_ID;
 
 const groupIdOf = (pin) => pin?.config?.puppeteer?.groupId ?? null;
 
-export function registerUi() {
+export async function registerUi() {
     const blacksmith = getBlacksmith();
 
     // The window class is loaded when it is first opened, not at startup.
@@ -23,7 +26,7 @@ export function registerUi() {
     });
 
     registerToolbar(blacksmith);
-    registerMenubar(blacksmith);
+    await registerMenubar(blacksmith);
     registerPinMenu(blacksmith);
 
     // Double-clicking a group's pin opens the Group Editor at that group. A single click belongs to Blacksmith's pins
@@ -37,37 +40,93 @@ export function registerUi() {
     }, { moduleId: MODULE_ID });
 }
 
-function registerMenubar(blacksmith) {
-    // The overlay switch, where the GM already looks for the table's tools; it shows whether the overlay is on.
-    blacksmith.registerMenubarTool(BOUNDS_MENUBAR_TOOL, {
+/**
+ * One Puppeteer button in the middle of the menubar, with the other Coffee Pub tools. It opens a bar below the menubar
+ * holding what is useful with no group chosen: the editor, a new group, the bounds overlay, and bringing groups up to
+ * date. The bar is where those live, so the menubar itself carries a single button.
+ */
+async function registerMenubar(blacksmith) {
+    await blacksmith.registerSecondaryBarType(MENUBAR_BAR, {
+        size: 'default',
+        persistence: 'manual',
+        groups: {
+            groups: { mode: 'default', order: 10 },
+            view: { mode: 'default', order: 20 }
+        }
+    });
+
+    const item = (id, data) => blacksmith.registerSecondaryBarItem(MENUBAR_BAR, id, { zone: 'middle', toggleable: false, ...data });
+    item('editor', {
+        icon: 'fa-solid fa-sliders',
+        label: 'Group Editor',
+        tooltip: 'Open the Group Editor',
+        group: 'groups',
+        order: 10,
+        onClick: () => blacksmith.openWindow(EDITOR_WINDOW)
+    });
+    item('new-group', {
+        icon: 'fa-solid fa-plus',
+        label: 'New Group',
+        tooltip: 'Make a new group with its pin at the centre of your view',
+        group: 'groups',
+        order: 20,
+        onClick: () => newGroupAtCentre(blacksmith)
+    });
+    item('update-all', {
+        icon: 'fa-solid fa-rotate',
+        label: 'Update All Groups',
+        tooltip: 'Move every group\'s parts to where its pin is now',
+        group: 'groups',
+        order: 30,
+        onClick: async () => {
+            await syncAllGroups();
+            blacksmith.toast.show({ title: 'Groups brought up to date', subtitle: 'Every group\'s parts now match its pin.', icon: 'fa-solid fa-rotate', channel: TOAST_CHANNEL, duration: 4 });
+        }
+    });
+    item(BOUNDS_BAR_ITEM, {
         icon: 'fa-solid fa-border-none',
-        name: BOUNDS_MENUBAR_TOOL,
-        title: 'Puppeteer: show group bounds',
+        label: 'Group Bounds',
         tooltip: 'Show or hide the box that holds each group, its pivot and its heading',
-        zone: 'left',
-        group: 'puppeteer',
-        groupOrder: 50,
-        order: 1,
-        moduleId: MODULE_ID,
-        gmOnly: true,
+        group: 'view',
+        order: 10,
         toggleable: true,
         active: boundsShown(),
         onClick: () => toggleBounds()
     });
-    blacksmith.registerMenubarTool(`${MODULE_ID}-editor`, {
+
+    blacksmith.registerMenubarTool(MENUBAR_TOOL, {
         icon: 'fa-solid fa-up-down-left-right',
-        name: `${MODULE_ID}-editor`,
-        title: 'Puppeteer: open the Group Editor',
-        tooltip: 'Open the Group Editor',
-        zone: 'left',
-        group: 'puppeteer',
-        groupOrder: 50,
-        order: 2,
+        name: MENUBAR_TOOL,
+        title: 'Puppeteer',
+        tooltip: 'Puppeteer: groups that move and turn as one',
+        zone: 'middle',
+        group: 'utility',
+        order: 5,
         moduleId: MODULE_ID,
         gmOnly: true,
-        toggleable: false,
-        onClick: () => blacksmith.openWindow(EDITOR_WINDOW)
+        toggleable: true,
+        active: false,
+        onClick: () => blacksmith.toggleSecondaryBar(MENUBAR_BAR)
     });
+    // The button lights while the bar is open, and goes out when another bar replaces it.
+    blacksmith.registerSecondaryBarTool(MENUBAR_BAR, MENUBAR_TOOL);
+}
+
+/** A group with its pin at the centre of the view, opened in the editor. */
+async function newGroupAtCentre(blacksmith) {
+    try {
+        const group = await createGroup(canvas.scene, { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y }, { name: 'Group' });
+        blacksmith.toast.show({
+            title: 'Group created',
+            subtitle: `${group.name} is at the centre of your view. Open the Group Editor to add parts.`,
+            icon: 'fa-solid fa-up-down-left-right',
+            channel: TOAST_CHANNEL,
+            duration: 6
+        });
+    } catch (error) {
+        console.error(`${MODULE_ID}: creating a group failed`, error);
+        blacksmith.utils.postConsoleAndNotification(MODULE_NAME, `Creating a group failed: ${error.message}`, null, false, true);
+    }
 }
 
 function registerToolbar(blacksmith) {

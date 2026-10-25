@@ -28,7 +28,11 @@ const REQUIRED = [
     'openWindow',
     'registerToolbarTool',
     'registerMenubarTool',
-    'updateMenubarToolActive',
+    'registerSecondaryBarType',
+    'registerSecondaryBarItem',
+    'registerSecondaryBarTool',
+    'toggleSecondaryBar',
+    'updateSecondaryBarItemActive',
     'registerSceneConfigTab'
 ];
 

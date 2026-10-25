@@ -148,6 +148,17 @@ export async function addMembers(scene, groupId, documents) {
     if (added.length) {
         await patchGroup(scene, groupId, { members: [...group.members, ...added] });
         await fitBody(scene, groupId);
+        // A part added to a hidden group is hidden with it.
+        if (group.hidden) {
+            const byType = new Map();
+            for (const member of added) {
+                const doc = HIDEABLE.includes(member.type) ? scene.getEmbeddedCollection(member.type).get(member.id) : null;
+                if (!doc || doc._source.hidden) continue;
+                if (!byType.has(member.type)) byType.set(member.type, []);
+                byType.get(member.type).push({ _id: member.id, hidden: true });
+            }
+            await writeHidden(scene, byType);
+        }
     }
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": added ${added.length}, skipped ${skipped}`, { anchor, added, unsupported }, true, false);
     return { added: added.length, skipped, unsupported };
@@ -519,6 +530,83 @@ export function setBehaviour(scene, groupId, options = {}) {
         if (Object.keys(patch).length) await patchGroup(scene, groupId, patch);
         return getGroup(scene, groupId);
     });
+}
+
+// ---- hiding -------------------------------------------------------------------------------------------------
+
+/** The member types Foundry lets a GM hide. Walls and notes have no hidden state, so they are left as they are. */
+export const HIDEABLE = Object.freeze(['Tile', 'Drawing', 'AmbientLight', 'AmbientSound', 'Region']);
+
+const FOLLOWER_WRITE = () => ({ puppeteer: { follower: true } });
+
+/** Every hideable document of a group that is on the scene: its parts, and its body token. */
+function hideableDocuments(scene, group) {
+    const documents = [];
+    for (const member of group.members) {
+        if (!HIDEABLE.includes(member.type)) continue;
+        const doc = scene.getEmbeddedCollection(member.type).get(member.id);
+        if (doc) documents.push(doc);
+    }
+    const body = bodyToken(scene, group);
+    if (body) documents.push(body);
+    return documents;
+}
+
+/** Write `hidden` to documents, one call per type. */
+async function writeHidden(scene, byType) {
+    for (const [type, updates] of byType) {
+        if (updates.length) await scene.updateEmbeddedDocuments(type, updates, FOLLOWER_WRITE());
+    }
+}
+
+const keyOfDocument = (doc) => `${doc.documentName}:${doc.id}`;
+
+/**
+ * Hide or show a whole group: its tiles, drawings, lights, sounds, regions and body token. Anything that was already
+ * hidden when the group was hidden stays hidden when it is shown. Walls and notes cannot be hidden and are left alone,
+ * and so are riders, because they are somebody's token.
+ * @returns {Promise<boolean>} Whether the group is now hidden.
+ */
+export function setGroupHidden(scene, groupId, hidden) {
+    return runExclusive(scene, groupId, async () => {
+        const group = requireGroup(scene, groupId);
+        const on = !!hidden;
+        if (on === !!group.hidden) return on;
+        const documents = hideableDocuments(scene, group);
+        const byType = new Map();
+        const push = (doc, value) => {
+            if (!byType.has(doc.documentName)) byType.set(doc.documentName, []);
+            byType.get(doc.documentName).push({ _id: doc.id, hidden: value });
+        };
+
+        if (on) {
+            const before = [];
+            for (const doc of documents) {
+                if (doc._source.hidden) before.push(keyOfDocument(doc));
+                else push(doc, true);
+            }
+            await writeHidden(scene, byType);
+            await patchGroup(scene, groupId, { hidden: true, hiddenBefore: before });
+        } else {
+            const keep = new Set(group.hiddenBefore ?? []);
+            for (const doc of documents) {
+                if (!keep.has(keyOfDocument(doc)) && doc._source.hidden) push(doc, false);
+            }
+            await writeHidden(scene, byType);
+            await patchGroup(scene, groupId, { '-=hidden': null, '-=hiddenBefore': null });
+        }
+        return on;
+    });
+}
+
+/** Hide or show one part of a group. Only the types in HIDEABLE can be hidden. */
+export async function setMemberHidden(scene, groupId, type, id, hidden) {
+    const group = requireGroup(scene, groupId);
+    if (!HIDEABLE.includes(type)) throw new Error(`${MODULE_ID}: a ${type} cannot be hidden`);
+    if (!group.members.some((m) => m.type === type && m.id === id)) throw new Error(`${MODULE_ID}: that ${type} is not in group "${group.name}"`);
+    const doc = scene.getEmbeddedCollection(type).get(id);
+    if (!doc) throw new Error(`${MODULE_ID}: that ${type} is not on the scene`);
+    await scene.updateEmbeddedDocuments(type, [{ _id: id, hidden: !!hidden }], FOLLOWER_WRITE());
 }
 
 /** Set whether the body's actor is linked (one set of hit points everywhere) or unlinked (this token's own). */

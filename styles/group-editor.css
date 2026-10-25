@@ -76,19 +76,19 @@
     color: rgb(200, 70, 60);
 }
 
-/* ---- layout: the body fills the window, a group fills the body, an open member list fills the group ---- */
+/* ---- layout: the body is a stack of group cards; a card is one line until it is opened ---------------------- */
 .puppeteer-group-editor .blacksmith-window-tool-body {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.puppeteer-group-editor .puppeteer-group {
+.puppeteer-group-editor .puppeteer-group,
+.puppeteer-group-editor .puppeteer-template-card {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
-    min-height: min-content;
-    padding: 10px;
+    flex: 0 0 auto;
+    padding: 8px 10px;
     border: 1px solid var(--blacksmith-tool-divider);
     border-radius: 6px;
     background: var(--blacksmith-tool-surface-sunken);
@@ -322,4 +322,101 @@
     align-items: center;
     gap: 6px;
     margin-bottom: 4px;
+}
+
+/* ---- cards ------------------------------------------------------------------------------------------------ */
+.puppeteer-group-editor .puppeteer-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+}
+
+.puppeteer-group-editor .puppeteer-card-head .puppeteer-group-name {
+    flex: 1 1 10em;
+    min-width: 8em;
+}
+
+.puppeteer-group-editor .puppeteer-card-meta {
+    color: var(--blacksmith-tool-text-muted);
+    white-space: nowrap;
+}
+
+.puppeteer-group-editor .puppeteer-card-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.puppeteer-group-editor .puppeteer-card-toggle {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--blacksmith-tool-text);
+    cursor: pointer;
+}
+
+.puppeteer-group-editor .puppeteer-card-toggle:hover {
+    background: var(--blacksmith-tool-surface-hover);
+    color: var(--blacksmith-tool-accent);
+}
+
+.puppeteer-group-editor .puppeteer-badge {
+    color: var(--blacksmith-tool-text-muted);
+    white-space: nowrap;
+}
+
+.puppeteer-group-editor .puppeteer-group.is-hidden .puppeteer-group-name {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.puppeteer-group-editor .puppeteer-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.puppeteer-group-editor .puppeteer-subpanel {
+    padding: 8px;
+    border: 1px solid var(--blacksmith-tool-divider);
+    border-radius: 4px;
+    background: var(--blacksmith-tool-surface-raised);
+}
+
+.puppeteer-group-editor .puppeteer-subpanel h4 {
+    margin: 0 0 6px;
+    padding: 0;
+    border: 0;
+    color: var(--blacksmith-tool-text-muted);
+    font-size: 0.9rem;
+    font-weight: bold;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.puppeteer-group-editor .puppeteer-members {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    max-height: 18em;
+    overflow-y: auto;
+}
+
+.puppeteer-group-editor .puppeteer-template-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.puppeteer-group-editor .puppeteer-template-description {
+    width: 100%;
+    margin: 6px 0;
+    resize: vertical;
 }

@@ -8,7 +8,7 @@ import { getGroups, groupsTouched } from './store.js';
 import { anchorState } from './anchor.js';
 
 const STORAGE_KEY = `${MODULE_ID}.showBounds`;
-export const BOUNDS_MENUBAR_TOOL = `${MODULE_ID}-bounds`;
+export const BOUNDS_BAR_ITEM = 'bounds';
 const COLOUR = 0xff9a1f;
 const MEMBER_COLOUR = 0x39d2ff;
 
@@ -24,9 +24,9 @@ export const boundsShown = () => enabled;
 
 export function setBoundsShown(value) {
     enabled = !!value;
-    // The menubar button shows whether the overlay is on, however it was switched.
+    // The button on the Puppeteer bar shows whether the overlay is on, however it was switched.
     try { localStorage.setItem(STORAGE_KEY, enabled ? '1' : '0'); } catch { /* a remembered choice is a convenience */ }
-    getBlacksmith().updateMenubarToolActive(BOUNDS_MENUBAR_TOOL, enabled);
+    getBlacksmith().updateSecondaryBarItemActive(MODULE_ID, BOUNDS_BAR_ITEM, enabled);
     draw();
 }
 

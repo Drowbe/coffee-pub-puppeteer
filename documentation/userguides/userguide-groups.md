@@ -6,25 +6,33 @@ Everything here is GM only. A group is a pin on the map plus the tiles, drawings
 
 ## Add and remove parts
 
-1. Open the Group Editor with **Puppeteer Groups** in the toolbar, and find the group on the **Scene Groups** tab.
+1. Open the Group Editor with **Puppeteer Groups** in the toolbar. Each group on the **Scene Groups** tab is a card. A closed card is one line: its name, how many parts it has and which way it faces, with **Go To Pin**, **Hide** and delete beside them. Choose the arrow at its left to open it. Open cards stay open until you close them.
 2. Select objects on the map and choose **Add Selected**. Foundry shows one layer at a time, so add one layer's objects, then switch layers and add the next. Regions are added this way too.
 3. Or choose **Capture Area** and drag a box. Everything inside it, on every layer, joins the group.
-4. To take parts out, select them and choose **Remove Selected**, or use the cross beside a part under **Members**.
+4. To take parts out, select them and choose **Remove Selected**, or use the cross beside a part under **Parts**.
 
 Right-clicking the pin gives the same actions, and double-clicking the pin opens the Group Editor on that group.
 
 ## Name parts and find them again
 
-Under **Members**, type a name beside any part, such as "Left lantern". Choose the small icon beside a part to select it on the map, and hold Shift to add to your selection. Choose a part's id to copy its UUID.
+Under **Parts**, type a name beside any part, such as "Left lantern". Choose the small icon beside a part to select it on the map, and hold Shift to add to your selection. Choose a part's id to copy its UUID.
 
-**Show group bounds** (an icon in the editor's title bar, a toolbar tool and a menubar button) draws the box around each group, its pivot and the way it faces. It is off by default and remembered for you.
+**Show group bounds** (an icon in the editor's title bar, a toolbar tool, and **Group Bounds** on the Puppeteer bar) draws the box around each group, its pivot and the way it faces. It is off by default and remembered for you.
+
+## Hide and show a group
+
+Choose **Hide** on a closed or open card to hide the group's tiles, drawings, lights, sounds, regions and body token. The button becomes **Show**, and the group's name turns italic. Walls and notes have no hidden state in Foundry, so they stay as they are, and so do any riders, because they are somebody's token. Parts that were already hidden when you hid the group stay hidden when you show it.
+
+To hide one part, choose the eye beside it under **Parts**. Hiding the group does not stop it moving: drag the pin and the hidden parts follow.
 
 ## Move and turn a group
 
 - **Move:** drag the pin.
-- **Turn:** select the pin, hold Shift and scroll the mouse wheel over the board. Each notch is 5 degrees. The **Heading** field and the rotate buttons in the Group Editor do the same.
+- **Turn:** select the pin, hold Shift and scroll the mouse wheel over the board. Each notch is 5 degrees. The **Heading** field and the rotate buttons under **Pivot and heading** do the same.
 
 ## Choose where the group turns about
+
+Both are under **Pivot and heading** on an open card.
 
 - **Centre Pivot** moves the pin to the middle of the group without moving anything, so the group turns about its own centre.
 - **Move Pivot** puts the pin anywhere, such as the prow of a ship, a wagon's hitch or a door's hinge. Choose **Move Pivot** on the group (the button turns blue and a notice appears) and drag the pin to where you want it. The pin moves, nothing else does, and Move Pivot switches itself off when you drop the pin. After that the group moves and turns about the new spot. Choose **Move Pivot** again before dragging to cancel.

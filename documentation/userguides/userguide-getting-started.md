@@ -14,7 +14,7 @@ Puppeteer lets you group the pieces of a scene, such as the tiles, lights, walls
 Only the GM sees anything new.
 
 - The Blacksmith toolbar gains three tools: **Puppeteer Groups** (opens the Group Editor), **Show or hide group bounds**, and **New Puppeteer Group**.
-- The Blacksmith menubar gains two buttons: **Puppeteer: show group bounds** and **Puppeteer: open the Group Editor**.
+- The Blacksmith menubar gains a **Puppeteer** button, in the middle with the other Coffee Pub tools. Choose it and a bar opens below the menubar with **Group Editor**, **New Group**, **Update All Groups** and **Group Bounds**. The button stays lit while the bar is open.
 - A group's pin has extra items in its right-click menu.
 
 Nothing else on the map changes until you make a group.
@@ -23,7 +23,7 @@ Nothing else on the map changes until you make a group.
 
 1. Open the scene that has the pieces of something you want to move, such as a cart drawn from a tile, a light and a sound.
 2. Choose **New Puppeteer Group** in the toolbar. A pin appears at the centre of your view.
-3. Select the tile, the light and the sound, one layer at a time or with Shift. Open the Group Editor with **Puppeteer Groups**, find your group on the **Scene Groups** tab and choose **Add Selected**. Or choose **Capture Area** and drag a box around everything.
+3. Select the tile, the light and the sound, one layer at a time or with Shift. Open the Group Editor with **Puppeteer Groups**. Your new group is on the **Scene Groups** tab as a card that opens when it is new; under **Parts**, choose **Add Selected**. Or choose **Capture Area** and drag a box around everything.
 4. Drag the pin. Everything you added moves with it.
 5. Select the pin, hold Shift and scroll the mouse wheel over the board. The whole group turns about the pin.
 

@@ -44,6 +44,13 @@ await puppeteer.rotateBy(group.id, 90);
 
 To move a group, move its pin (`BlacksmithAPI.pins.update(pinId, { x, y })`); the follower does the rest.
 
+## Hiding
+
+| Call | Does |
+|---|---|
+| `setHidden(groupId, hidden, scene)` | Hides or shows the group's tiles, drawings, lights, sounds, regions and body token. Parts already hidden when the group is hidden stay hidden when it is shown. Walls, notes and riders are left alone. Returns whether the group is now hidden. |
+| `setMemberHidden(groupId, type, id, hidden, scene)` | Hides or shows one part. Only Tile, Drawing, AmbientLight, AmbientSound and Region can be hidden. |
+
 ## Making a group a target
 
 | Call | Does |
@@ -72,6 +79,9 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 | `library.save(groupId, scene)` | Saves the group to the world library. A group with a body saves the actor it represents. |
 | `library.stamp(templateId, { scene, point, heading, name })` | Creates new parts, a new pin and a new group from a template, with a body if the template names an actor that exists in this world. |
 | `library.remove(templateId)` | Deletes a template. |
+| `library.rename(templateId, name)` | Renames an entry. A blank name is refused. |
+| `library.describe(templateId, text)` | Sets an entry's description. A blank one removes it. |
+| `library.updateFromGroup(templateId, groupId, scene)` | Replaces an entry's parts with those of a group. The entry keeps its id, name and description; copies already placed are not changed. |
 | `library.import(jsonText)` | Adds a template from exported JSON. Version 1 templates are refused with a message. |
 
 ## Behaviour

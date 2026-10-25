@@ -31,7 +31,7 @@ function write(library) {
 /** What the library holds, by name. */
 export function listTemplates() {
     return Object.entries(read())
-        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, actor: template.body?.actorName ?? null, savedAt: template.savedAt ?? 0 }))
+        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, actor: template.body?.actorName ?? null, description: template.description ?? '', savedAt: template.savedAt ?? 0 }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -44,6 +44,39 @@ export async function saveTemplate(template, id = foundry.utils.randomID()) {
     validateTemplate(template);
     await write({ ...read(), [id]: { ...structuredClone(template), savedAt: Date.now() } });
     return id;
+}
+
+/** Give a library entry a new name. */
+export async function renameTemplate(id, name) {
+    const library = read();
+    if (!library[id]) throw new Error(`Puppeteer: no template ${id} in the library`);
+    const text = String(name ?? '').trim();
+    if (!text) throw new Error('Puppeteer: a library entry needs a name');
+    await write({ ...library, [id]: { ...library[id], name: text } });
+}
+
+/** Set the description of a library entry. An empty one removes it. */
+export async function setTemplateDescription(id, description) {
+    const library = read();
+    if (!library[id]) throw new Error(`Puppeteer: no template ${id} in the library`);
+    const { description: old, ...rest } = library[id];
+    const text = String(description ?? '').trim();
+    await write({ ...library, [id]: text ? { ...rest, description: text } : rest });
+}
+
+/**
+ * Replace a library entry's parts with a group on a scene. The entry keeps its id, name and description. Copies already
+ * placed on scenes are not changed, because each one is its own.
+ */
+export async function updateTemplateFromGroup(scene, groupId, id) {
+    const library = read();
+    const old = library[id];
+    if (!old) throw new Error(`Puppeteer: no template ${id} in the library`);
+    const fresh = exportGroup(scene, groupId);
+    validateTemplate(fresh);
+    const entry = { ...structuredClone(fresh), name: old.name, savedAt: Date.now() };
+    if (old.description) entry.description = old.description;
+    await write({ ...library, [id]: entry });
 }
 
 export async function deleteTemplate(id) {

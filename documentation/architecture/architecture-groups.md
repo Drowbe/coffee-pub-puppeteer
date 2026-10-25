@@ -32,6 +32,7 @@ A group record holds:
 | `riders` | `[{ tokenId, dx, dy, drot }]`, the tokens the group carries. |
 | `mountable`, `announce`, `ridersFree`, `rotates`, `fixedHeading`, `ease` | Behaviour choices (see Behaviour). Absent means the default. |
 | `movePivot` | Present while Move Pivot is armed. |
+| `hidden`, `hiddenBefore` | Present while the group is hidden; `hiddenBefore` lists the documents (`Type:id`) that were already hidden when it was. |
 
 `id` is the embedded document id on the scene, not a UUID, because a UUID names the scene and breaks when a scene is duplicated or imported. Foundry keeps embedded ids when it duplicates a scene (`keepEmbeddedIds` defaults to true), so a duplicated scene carries working groups of its own: the same ids, in its own flags, independent of the original's.
 
@@ -72,7 +73,7 @@ Tile, AmbientLight, AmbientSound and Note `x, y`, and every number in a Wall's `
 
 - **Capture Area** (`api.canvas.pickArea`) adds every supported placeable whose centre is in a dragged box, across layers. **Add Selected** and **Remove Member** handle single elements. Deleted members are pruned (`scripts/prune.js`).
 - A **template** is a portable snapshot: offsets from the pivot plus a copy of each member's data, minus scene-bound fields (`_id`, `_stats`, `levels`). Format version 2. Built by `exportGroup`, turned into creation data by `stampMembers` (`scripts/template.js`).
-- The **library** is a world setting, `library` (`scripts/library.js`). Stamping creates the group first, then fresh documents for the stored heading, so two stamps are two independent copies; a failed stamp cleans up after itself.
+- The **library** is a world setting, `library` (`scripts/library.js`). An entry can be renamed, given a description and brought up to date from a group on a scene (`renameTemplate`, `setTemplateDescription`, `updateTemplateFromGroup`); an update keeps the entry's id, name and description and changes nothing already placed. Stamping (called Fabricate in the editor) creates the group first, then fresh documents for the stored heading, so two stamps are two independent copies; a failed stamp cleans up after itself.
 
 ## Body token
 
@@ -120,6 +121,10 @@ Capture Area uses Blacksmith's `pickArea`: every supported placeable whose centr
 
 Deleting a group from the editor asks, when it has parts, for one of three choices: Cancel, Delete group only (the parts stay on the map), or Delete group and its parts. A group with no parts gets a plain confirmation. Whichever is chosen, the group's record, its pin and its body token are removed and its riders are let go where they stand. The library is not touched, because a library entry is its own saved copy.
 
+## Hiding
+
+Foundry gives a `hidden` field to Tile, Drawing, AmbientLight, AmbientSound, Region and Token, and none to Wall or Note. `setGroupHidden` (`scripts/groups.js`) writes `hidden: true` to every such part of the group and to its body token, after recording in `hiddenBefore` the ones that were already hidden, and `hidden: false` to the rest when shown. Riders are never hidden, because they are somebody's token. The writes carry the follower marker, and `hidden` is not among the fields that count as a hand edit, so hiding never re-records an offset. A part added to a hidden group is hidden with it. The follower keeps moving a hidden group.
+
 ## Behaviour
 
 A group's record carries a few choices, set in the editor's Behaviour section or with `setBehaviour`:
@@ -130,7 +135,7 @@ A group's record carries a few choices, set in the editor's Behaviour section or
 - **`mountable`**: whether tokens that move onto the group, or are created on it, board it (see Riders).
 - **`announce`**: whether boarding and leaving post a public chat card (`chatCards.post`, in `announce.js`) and a soft sound heard by everyone (`utils.playSound`, broadcast). Off by default.
 
-Other feedback: a short sound on this screen only after a stamp or a Capture Area that added members; every toast goes out on the `puppeteer` channel, declared with `toast.registerChannel`, so a GM can switch them off; the menubar has a toggle for the bounds overlay (kept in step with the editor's and toolbar's switches through `updateMenubarToolActive`) and a button for the Group Editor.
+Other feedback: a short sound on this screen only after a stamp or a Capture Area that added members; every toast goes out on the `puppeteer` channel, declared with `toast.registerChannel`, so a GM can switch them off; the menubar has one Puppeteer button that opens a bar with the Group Editor, New Group, Update All Groups and a bounds switch (kept in step with the editor's and toolbar's switches).
 
 ## Moving the grip
 

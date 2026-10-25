@@ -8,6 +8,14 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 **Not proven:** everything listed here. Delete an item once it passes. Delete this file when it is empty.
 
+## Group cards, hiding and the library editor
+
+- [ ] A closed card shows name, parts, heading, Go To Pin, Hide and delete on one line at the default window width, and again at a narrow one. Opening and closing a card works, and an open card stays open while you drag a pin.
+- [ ] The editor's scroll position does not jump when a group moves while you are scrolled down.
+- [ ] Hide hides a tile, a light, a sound and a region, leaves a wall and a note, and Show restores them. A part hidden before the group was hidden stays hidden. The eye on a part works.
+- [ ] A hidden group still follows its pin, and a player cannot see its hidden parts.
+- [ ] Rename and describe a library entry, then Update from group, and check copies already placed are unchanged. Fabricate works.
+
 ## Move Pivot
 
 - [ ] Choose Move Pivot on a group with a rider and a body. Drag the pin to the prow. Nothing else moves, and the button and notice switch off by themselves when the pin is dropped.
@@ -48,7 +56,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 - [ ] A world that has a group saved with a token anchor (an earlier build) opens with it as a pin group where the token was, nothing moved, the token unchanged, and one toast.
 - [ ] Duplicate a scene that has groups, riders and a body. Move a group on each scene: both work and neither disturbs the other.
 - [ ] Undo (Ctrl+Z) of a rider's move, and a rider whose move is paused or stopped partway, leave it where Foundry committed it.
-- [ ] Capture Area, the pin menu, double-clicking a pin, the Group Editor tabs and delete flows, and the menubar buttons (the bounds button lights while the overlay is on).
+- [ ] Capture Area, the pin menu, double-clicking a pin, the Group Editor tabs and delete flows, and the menubar: one Puppeteer button in the middle zone beside the other Coffee Pub tools, nothing of Puppeteer in the left zone, the button opens a bar below with Group Editor, New Group, Update All Groups and Group Bounds, the button stays lit while the bar is open, and Group Bounds lights while the overlay is on.
 - [ ] Every Puppeteer toast can be switched off with the Puppeteer channel in Blacksmith's notification settings.
 
 ## User guides

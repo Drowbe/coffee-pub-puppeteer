@@ -3,7 +3,7 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID, TOAST_CHANNEL } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -12,7 +12,7 @@ import { migrateGroups } from './migrate.js';
 import { registerTween } from './tween.js';
 import { registerBoarding } from './boarding.js';
 import { syncAllGroups } from './follower.js';
-import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate } from './library.js';
+import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup } from './library.js';
 
 Hooks.once('ready', async () => {
     const blacksmith = await bootstrap();
@@ -41,7 +41,7 @@ Hooks.once('ready', async () => {
 
     registerFollower();
     registerPruning();
-    registerUi();
+    await registerUi();
     registerOverlay();
     registerTween();
     registerBoarding();
@@ -71,6 +71,9 @@ Hooks.once('ready', async () => {
                 { heading: options.heading, name: options.name }
             ),
             remove: (templateId) => deleteTemplate(templateId),
+            rename: (templateId, name) => renameTemplate(templateId, name),
+            describe: (templateId, text) => setTemplateDescription(templateId, text),
+            updateFromGroup: (templateId, groupId, scene = canvas.scene) => updateTemplateFromGroup(scene, groupId, templateId),
             import: (jsonText) => importTemplate(jsonText)
         },
         showBounds: (value) => (value === undefined ? toggleBounds() : setBoundsShown(value)),
@@ -87,6 +90,9 @@ Hooks.once('ready', async () => {
         setBehaviour: (groupId, options, scene = canvas.scene) => setBehaviour(scene, groupId, options),
         /** While on, dragging or turning the group's pin moves only the grip; nothing else moves. Off, the pin takes the group. */
         setMovePivot: (groupId, on, scene = canvas.scene) => setMovePivot(scene, groupId, on),
+        /** Hide or show a whole group: tiles, drawings, lights, sounds, regions and body. Walls and notes cannot be hidden. */
+        setHidden: (groupId, hidden, scene = canvas.scene) => setGroupHidden(scene, groupId, hidden),
+        setMemberHidden: (groupId, type, id, hidden, scene = canvas.scene) => setMemberHidden(scene, groupId, type, id, hidden),
         /** Put tokens (documents) aboard a group. They must be on it. Returns how many boarded and why others did not. */
         mount: (groupId, tokens, scene = canvas.scene) => mountTokens(scene, groupId, tokens),
         dismount: (groupId, tokenId, scene = canvas.scene) => dismountToken(scene, groupId, tokenId),

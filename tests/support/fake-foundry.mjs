@@ -178,7 +178,13 @@ export function installFakes({ dropOptions = false } = {}) {
         },
         toast: { show() {}, registerChannel() {} },
         chatCards: { post: async (card) => { cards.push(card); return card; } },
-        updateMenubarToolActive() {}
+        registerSecondaryBarType: async () => true,
+        registerSecondaryBarItem() {},
+        registerSecondaryBarTool() {},
+        registerMenubarTool() {},
+        toggleSecondaryBar() {},
+        openWindow() {},
+        updateSecondaryBarItemActive() {}
     });
 
     // Let everything queued (hooks, the follower's chain, flag writes) run to the end.

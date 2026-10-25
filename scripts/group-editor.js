@@ -6,7 +6,8 @@ import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
-    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour
+    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
+    setGroupHidden, setMemberHidden, HIDEABLE
 } from './groups.js';
 import { easeOf } from './tween.js';
 import { bodyToken } from './body.js';
@@ -14,7 +15,7 @@ import { boundsShown, toggleBounds } from './overlay.js';
 import { syncAllGroups } from './follower.js';
 import { anchorState, anchorExists } from './anchor.js';
 import { groupsTouched } from './store.js';
-import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate } from './library.js';
+import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
 
@@ -28,7 +29,7 @@ const TYPE_ICON = {
     Region: 'fa-solid fa-draw-polygon'
 };
 
-// Which groups have their member list open. Module level so it survives a redraw and a close and reopen.
+// Which group cards are open. Module level so it survives a redraw and a close and reopen.
 const expanded = new Set();
 
 const TYPE_PLURAL = {
@@ -100,6 +101,10 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         exportGroup: (event, target, win) => win._exportGroup(target.dataset.groupId),
         saveToLibrary: (event, target, win) => win._saveToLibrary(target.dataset.groupId),
         stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
+        updateTemplate: (event, target, win) => win._updateTemplate(target.dataset.templateId),
+        toggleCard: (event, target, win) => win._toggleCard(target.dataset.groupId),
+        toggleGroupHidden: (event, target, win) => win._toggleGroupHidden(target.dataset.groupId),
+        toggleMemberHidden: (event, target, win) => win._toggleMemberHidden(target.dataset.groupId, target.dataset.type, target.dataset.id),
         exportTemplate: (event, target, win) => win._exportTemplate(target.dataset.templateId),
         deleteTemplate: (event, target, win) => win._deleteTemplate(target.dataset.templateId),
         importTemplate: (event, target, win) => win.element.querySelector('input[data-field="importFile"]')?.click(),
@@ -169,7 +174,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     async _onRender(context, options) {
         await super._onRender?.(context, options);
         // Text and number fields commit on change, not on click, so they are wired here.
-        for (const input of this.element.querySelectorAll('input[data-field], select[data-field]')) {
+        for (const input of this.element.querySelectorAll('input[data-field], select[data-field], textarea[data-field]')) {
             input.addEventListener('change', () => this._commitField(input));
         }
         // An actor dragged from the sidebar onto a group's body row becomes the group's body.
@@ -177,13 +182,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             zone.addEventListener('dragover', (event) => { event.preventDefault(); zone.classList.add('is-over'); });
             zone.addEventListener('dragleave', () => zone.classList.remove('is-over'));
             zone.addEventListener('drop', (event) => { event.preventDefault(); zone.classList.remove('is-over'); this._dropActor(event, zone.dataset.dropGroup); });
-        }
-        // Remember which member lists are open, so a redraw does not collapse them.
-        for (const details of this.element.querySelectorAll('details[data-group-id]')) {
-            details.addEventListener('toggle', () => {
-                if (details.open) expanded.add(details.dataset.groupId);
-                else expanded.delete(details.dataset.groupId);
-            });
         }
     }
 
@@ -215,7 +213,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         }[tab];
         const body = {
             groups: () => this._groupsHtml(scene, groups),
-            library: () => this._libraryHtml(library),
+            library: () => this._libraryHtml(scene, library, groups),
             tools: () => this._toolsHtml(scene, groups)
         }[tab]();
 
@@ -245,19 +243,35 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         return groups.map((group) => this._groupHtml(scene, group)).join('');
     }
 
-    _libraryHtml(templates) {
-        const rows = templates.map((template) => `
-            <li class="puppeteer-template">
-                <i class="fa-solid fa-cubes"></i>
-                <span class="puppeteer-template-name">${esc(template.name)} <span class="puppeteer-template-count">${template.members} member${template.members === 1 ? '' : 's'}${template.actor ? `, represents ${esc(template.actor)}` : ''}</span></span>
-                <button type="button" class="puppeteer-btn puppeteer-btn-primary" data-action="stampTemplate" data-template-id="${esc(template.id)}" data-tooltip="Place a copy at the centre of your view"><i class="fa-solid fa-stamp"></i> Stamp</button>
-                <button type="button" class="puppeteer-btn" data-action="exportTemplate" data-template-id="${esc(template.id)}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
-                <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteTemplate" data-template-id="${esc(template.id)}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
-            </li>`).join('');
+    _libraryHtml(scene, templates, groups) {
+        const options = groups.map((group) => `<option value="${esc(group.id)}">${esc(group.name)}</option>`).join('');
+        const cards = templates.map((template) => {
+            const id = esc(template.id);
+            return `
+            <li class="puppeteer-template-card" data-template-id="${id}">
+                <div class="puppeteer-card-head">
+                    <i class="fa-solid fa-cubes"></i>
+                    <input type="text" class="puppeteer-group-name" data-field="templateName" data-template-id="${id}" value="${esc(template.name)}">
+                    <span class="puppeteer-card-meta">${template.members} part${template.members === 1 ? '' : 's'}${template.actor ? `, represents ${esc(template.actor)}` : ''}</span>
+                    <span class="puppeteer-card-actions">
+                        <button type="button" class="puppeteer-btn puppeteer-btn-primary" data-action="stampTemplate" data-template-id="${id}" data-tooltip="Fabricate a new copy at the centre of your view"><i class="fa-solid fa-hammer"></i> Fabricate</button>
+                        <button type="button" class="puppeteer-btn" data-action="exportTemplate" data-template-id="${id}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
+                        <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteTemplate" data-template-id="${id}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
+                    </span>
+                </div>
+                <textarea class="puppeteer-template-description" rows="2" data-field="templateDescription" data-template-id="${id}" placeholder="Describe this entry">${esc(template.description)}</textarea>
+                <div class="puppeteer-group-row">
+                    <select data-field="updateSource" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="The group on this scene to copy the entry's parts from">
+                        ${options || '<option value="">No groups on this scene</option>'}
+                    </select>
+                    <button type="button" class="puppeteer-btn" data-action="updateTemplate" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="Replace this entry's parts with the chosen group. Copies already placed are not changed."><i class="fa-solid fa-arrows-rotate"></i> Update from group</button>
+                </div>
+            </li>`;
+        }).join('');
         return `
         <section class="puppeteer-panel">
-            <p>Saved copies of groups. A template is not tied to any scene: <strong>Stamp</strong> puts a fresh, independent copy on this scene, as many times as you like. Make one with <strong>Save to Library</strong> on a group.</p>
-            <ul>${rows || '<li class="puppeteer-member-none">Nothing saved yet.</li>'}</ul>
+            <p>Saved copies of groups. An entry is not tied to any scene: <strong>Fabricate</strong> builds a fresh, independent copy on this scene, as many times as you like. Make one with <strong>Save to Library</strong> on a group.</p>
+            <ul class="puppeteer-template-list">${cards || '<li class="puppeteer-member-none">Nothing saved yet.</li>'}</ul>
         </section>`;
     }
 
@@ -288,22 +302,68 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         </section>`;
     }
 
+    /**
+     * One group as a card. Collapsed it is a single line with what you reach for while using the group: where it is,
+     * whether it shows, and delete. Open, it has a panel for each thing a group has: parts, pivot and heading, body,
+     * riders and behaviour.
+     */
     _groupHtml(scene, group) {
         const id = esc(group.id);
-        const step = (degrees, icon) => `
-            <button type="button" class="puppeteer-btn puppeteer-step" data-action="rotate"
-                data-group-id="${id}" data-degrees="${degrees}"${group.rotates === false ? ' disabled' : ''}
-                data-tooltip="Rotate ${Math.abs(degrees)}° ${degrees < 0 ? 'counter-clockwise' : 'clockwise'}">
-                <i class="${icon}"></i> ${Math.abs(degrees)}
-            </button>`;
+        const open = expanded.has(group.id);
+        const heading = anchorState(scene, group)?.heading ?? group.heading;
+        const count = group.members.length;
+        const riders = (group.riders ?? []).length;
+        const lost = !anchorExists(scene, group);
+
+        const badges = [
+            group.body ? '<i class="fa-solid fa-user-shield puppeteer-badge" data-tooltip="Can be attacked: it has a body"></i>' : '',
+            riders ? `<span class="puppeteer-badge" data-tooltip="Riders aboard"><i class="fa-solid fa-person-walking"></i> ${riders}</span>` : '',
+            group.movePivot ? '<i class="fa-solid fa-crosshairs puppeteer-badge" data-tooltip="Move Pivot is on"></i>' : ''
+        ].join('');
+
+        const warnings = [
+            lost ? '<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>' : '',
+            group.movePivot ? '<div class="puppeteer-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Drag the pin to where the grip should be: it moves only the pin, nothing else moves, and this switches itself off when you drop it. Choose Move Pivot again to cancel.</div>' : ''
+        ].join('');
+
+        return `
+        <section class="puppeteer-group${open ? ' is-open' : ''}${group.hidden ? ' is-hidden' : ''}" data-group-id="${id}">
+            <div class="puppeteer-card-head">
+                <button type="button" class="puppeteer-card-toggle" data-action="toggleCard" data-group-id="${id}" aria-expanded="${open}" data-tooltip="${open ? 'Collapse' : 'Expand'}"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
+                <input type="text" class="puppeteer-group-name" data-field="name" data-group-id="${id}" value="${esc(group.name)}">
+                <span class="puppeteer-card-meta">${count} part${count === 1 ? '' : 's'}, ${Math.round(heading)}&deg;</span>
+                ${badges}
+                <span class="puppeteer-card-actions">
+                    <button type="button" class="puppeteer-btn" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i> Go To Pin</button>
+                    <button type="button" class="puppeteer-btn${group.hidden ? ' puppeteer-btn-primary' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: its tiles, drawings, lights, sounds, regions and body. Walls and notes cannot be hidden."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i> ${group.hidden ? 'Show' : 'Hide'}</button>
+                    <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteGroup" data-group-id="${id}" data-tooltip="Delete the group"><i class="fa-solid fa-trash"></i></button>
+                </span>
+            </div>
+            ${warnings}
+            ${open ? this._cardBodyHtml(scene, group, heading) : ''}
+        </section>`;
+    }
+
+    /** The open half of a group's card. */
+    _cardBodyHtml(scene, group, heading) {
+        const id = esc(group.id);
         const button = (action, icon, label, tooltip = '') => `
             <button type="button" class="puppeteer-btn" data-action="${action}" data-group-id="${id}"${tooltip ? ` data-tooltip="${esc(tooltip)}"` : ''}>
                 <i class="${icon}"></i> ${label}
             </button>`;
+        const step = (degrees, icon) => `
+            <button type="button" class="puppeteer-btn puppeteer-step" data-action="rotate"
+                data-group-id="${id}" data-degrees="${degrees}"${group.rotates === false ? ' disabled' : ''}
+                data-tooltip="Rotate ${Math.abs(degrees)} degrees ${degrees < 0 ? 'counter-clockwise' : 'clockwise'}">
+                <i class="${icon}"></i> ${Math.abs(degrees)}
+            </button>`;
 
         const members = group.members.map((member) => {
-            const present = !!scene.getEmbeddedCollection(member.type).get(member.id);
+            const doc = scene.getEmbeddedCollection(member.type).get(member.id);
+            const present = !!doc;
             const kind = `${TYPE_LABEL[member.type] ?? member.type} ${member.id.slice(0, 6)}`;
+            const canHide = HIDEABLE.includes(member.type) && present;
+            const hiddenNow = !!doc?._source.hidden;
             return `
                 <li class="puppeteer-member${present ? '' : ' puppeteer-member-missing'}">
                     <button type="button" class="puppeteer-member-select" data-action="selectMember" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
@@ -316,6 +376,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     ${present ? '' : '<span class="puppeteer-member-gone">missing</span>'}
                     <button type="button" class="puppeteer-member-id" data-action="copyUuid" data-uuid="${esc(`${scene.uuid}.${member.type}.${member.id}`)}"
                         data-tooltip="${esc(`${scene.uuid}.${member.type}.${member.id}`)} (click to copy)">${esc(member.id)}</button>
+                    ${canHide ? `<button type="button" class="puppeteer-member-remove" data-action="toggleMemberHidden" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
+                        data-tooltip="${hiddenNow ? 'Show this part' : 'Hide this part'}"><i class="fa-solid fa-eye${hiddenNow ? '-slash' : ''}"></i></button>` : ''}
                     <button type="button" class="puppeteer-member-remove" data-action="removeMember"
                         data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                         data-tooltip="Remove from group"><i class="fa-solid fa-xmark"></i></button>
@@ -329,49 +391,49 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 data-group-id="${id}" data-type="${esc(type)}" data-tooltip="Select these ${esc(TYPE_PLURAL[type] ?? type)} on the canvas">
                 <i class="${TYPE_ICON[type] ?? 'fa-solid fa-circle'}"></i> ${esc(TYPE_PLURAL[type] ?? type)} ${count}
             </button>`).join('');
-        const lost = !anchorExists(scene, group);
-        const warning = lost
-            ? `<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. Delete the group and make a new one.</div>`
-            : '';
-        const pivotWarning = group.movePivot
-            ? `<div class="puppeteer-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Drag the pin to where the grip should be: it moves only the pin, nothing else moves, and this switches itself off when you drop it. Choose Move Pivot again to cancel.</div>`
-            : '';
-        const heading = anchorState(scene, group)?.heading ?? group.heading;
-        const bodyRow = this._bodyHtml(scene, group) + this._ridersHtml(scene, group) + this._behaviourHtml(group);
 
         return `
-        <section class="puppeteer-group" data-group-id="${id}">
-            <div class="puppeteer-group-head">
-                <input type="text" class="puppeteer-group-name" data-field="name" data-group-id="${id}" value="${esc(group.name)}">
-                <span class="puppeteer-group-count">${group.members.length} member${group.members.length === 1 ? '' : 's'}</span>
-            </div>
-            ${warning}${pivotWarning}
-            ${chips ? `<div class="puppeteer-group-row puppeteer-group-types">${chips}</div>` : ''}
-            <div class="puppeteer-group-row">
-                <label class="puppeteer-heading">Heading
-                    <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1"${group.rotates === false ? ' disabled' : ''}>°
-                </label>
-                ${step(-90, 'fa-solid fa-rotate-left')}${step(-15, 'fa-solid fa-rotate-left')}${step(15, 'fa-solid fa-rotate-right')}${step(90, 'fa-solid fa-rotate-right')}
-            </div>
-            <div class="puppeteer-group-row">
-                ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
-                ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}
-                ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
-                ${button('panTo', 'fa-solid fa-location-crosshairs', 'Go To Pin')}
-                ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot')}
-                <button type="button" class="puppeteer-btn${group.movePivot ? ' puppeteer-btn-primary' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: drag the pin once and only the pin moves. This switches itself off when you drop the pin."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
-                ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
-                ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
-                <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="deleteGroup" data-group-id="${id}">
-                    <i class="fa-solid fa-trash"></i> Delete
-                </button>
-            </div>
-            ${bodyRow}
-            <details class="puppeteer-group-members" data-group-id="${id}"${expanded.has(group.id) ? ' open' : ''}>
-                <summary>Members</summary>
-                <ul>${members || '<li class="puppeteer-member-none">No members yet.</li>'}</ul>
-            </details>
-        </section>`;
+            <div class="puppeteer-card-body">
+                <section class="puppeteer-subpanel">
+                    <h4>Parts</h4>
+                    ${chips ? `<div class="puppeteer-group-row puppeteer-group-types">${chips}</div>` : ''}
+                    <div class="puppeteer-group-row">
+                        ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
+                        ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}
+                        ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
+                    </div>
+                    <ul class="puppeteer-members">${members || '<li class="puppeteer-member-none">No parts yet.</li>'}</ul>
+                </section>
+                <section class="puppeteer-subpanel">
+                    <h4>Pivot and heading</h4>
+                    <div class="puppeteer-group-row">
+                        <label class="puppeteer-heading">Heading
+                            <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1"${group.rotates === false ? ' disabled' : ''}>&deg;
+                        </label>
+                        ${step(-90, 'fa-solid fa-rotate-left')}${step(-15, 'fa-solid fa-rotate-left')}${step(15, 'fa-solid fa-rotate-right')}${step(90, 'fa-solid fa-rotate-right')}
+                    </div>
+                    <div class="puppeteer-group-row">
+                        ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot', 'Move the pin to the middle of the group without moving anything')}
+                        <button type="button" class="puppeteer-btn${group.movePivot ? ' puppeteer-btn-primary' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: drag the pin once and only the pin moves. This switches itself off when you drop the pin."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
+                    </div>
+                </section>
+                <section class="puppeteer-subpanel">
+                    <h4>Body</h4>
+                    ${this._bodyHtml(scene, group)}
+                </section>
+                <section class="puppeteer-subpanel">
+                    <h4>Riders</h4>
+                    ${this._ridersHtml(scene, group)}
+                </section>
+                <section class="puppeteer-subpanel">
+                    <h4>Behaviour</h4>
+                    ${this._behaviourHtml(group)}
+                </section>
+                <div class="puppeteer-group-row">
+                    ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
+                    ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
+                </div>
+            </div>`;
     }
 
     /** How the group behaves: how it eases, whether it turns with its pin, and whether its riders may wander. */
@@ -379,8 +441,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const id = esc(group.id);
         const ease = easeOf(group);
         return `
-            <details class="puppeteer-group-members puppeteer-behaviour" data-group-id="${id}-behaviour"${expanded.has(`${group.id}-behaviour`) ? ' open' : ''}>
-                <summary>Behaviour</summary>
                 <div class="puppeteer-group-row">
                     <label class="puppeteer-body-linked" data-tooltip="How the group moves on screen when its pin moves or turns. Jump shows no movement between the two places.">
                         Moves by
@@ -403,8 +463,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <label class="puppeteer-body-linked" data-tooltip="Off, a rider moved by hand is put back where it rides.">
                         <input type="checkbox" data-field="ridersFree" data-group-id="${id}"${group.ridersFree === false ? '' : ' checked'}> Riders can move about
                     </label>
-                </div>
-            </details>`;
+                </div>`;
     }
 
     /** The riders: tokens the group carries. They can be moved by hand inside it, and are let go when they leave. */
@@ -420,41 +479,40 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 </li>`;
         }).join('');
         return `
-            <div class="puppeteer-group-row puppeteer-body">
-                <i class="fa-solid fa-users"></i>
-                <span class="puppeteer-body-text">Riders: ${(group.riders ?? []).length}</span>
-                <label class="puppeteer-body-linked" data-tooltip="A token that moves onto this group, or is dropped on it from the sidebar, boards it. Off, nothing boards unless you choose Board Selected.">
-                    <input type="checkbox" data-field="mountable" data-group-id="${id}"${group.mountable ? ' checked' : ''}> Tokens board when they move onto it
-                </label>
-                <button type="button" class="puppeteer-btn" data-action="boardSelected" data-group-id="${id}" data-tooltip="Put the selected tokens aboard. They must be on the group."><i class="fa-solid fa-person-walking-luggage"></i> Board Selected</button>
-            </div>
-            ${riders ? `<ul class="puppeteer-riders">${riders}</ul>` : ''}`;
+                <div class="puppeteer-group-row">
+                    <span class="puppeteer-body-text">${(group.riders ?? []).length} aboard</span>
+                    <label class="puppeteer-body-linked" data-tooltip="A token that moves onto this group, or is dropped on it from the sidebar, boards it. Off, nothing boards unless you choose Board Selected.">
+                        <input type="checkbox" data-field="mountable" data-group-id="${id}"${group.mountable ? ' checked' : ''}> Tokens board when they move onto it
+                    </label>
+                    <button type="button" class="puppeteer-btn" data-action="boardSelected" data-group-id="${id}" data-tooltip="Put the selected tokens aboard. They must be on the group."><i class="fa-solid fa-person-walking-luggage"></i> Board Selected</button>
+                </div>
+                ${riders ? `<ul class="puppeteer-riders">${riders}</ul>` : ''}`;
     }
 
-    /** The row that says what the group is as a target: nothing, or an actor's token that covers it. */
+    /** What the group is as a target: nothing, or an actor's token that covers it. */
     _bodyHtml(scene, group) {
         const id = esc(group.id);
         if (!group.body) {
             return `
-            <div class="puppeteer-group-row puppeteer-body puppeteer-drop" data-drop-group="${id}">
-                <i class="fa-solid fa-user-shield"></i>
-                <span class="puppeteer-body-text">Optional: drag an actor here to make the whole group one target that can be attacked, or</span>
-                <button type="button" class="puppeteer-btn" data-action="adoptBody" data-group-id="${id}" data-tooltip="Use the selected token as the group's body: it is made transparent, locked and sized to cover the group">Use Selected Token</button>
-            </div>`;
+                <div class="puppeteer-group-row puppeteer-body puppeteer-drop" data-drop-group="${id}">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span class="puppeteer-body-text">Optional: drag an actor here to make the whole group one target that can be attacked, or</span>
+                    <button type="button" class="puppeteer-btn" data-action="adoptBody" data-group-id="${id}" data-tooltip="Use the selected token as the group's body: it is made transparent, locked and sized to cover the group">Use Selected Token</button>
+                </div>`;
         }
         const token = bodyToken(scene, group);
         const actor = game.actors.get(group.body.actorId);
         const name = actor?.name ?? token?.name ?? 'an actor';
         return `
-            <div class="puppeteer-group-row puppeteer-body puppeteer-drop" data-drop-group="${id}">
-                <i class="fa-solid fa-user-shield"></i>
-                <span class="puppeteer-body-text">Represents <strong>${esc(name)}</strong>${token ? '' : ' <span class="puppeteer-member-gone">token missing</span>'}</span>
-                <label class="puppeteer-body-linked" data-tooltip="Linked: one set of hit points shared by every token of this actor. Unlinked: this token has its own.">
-                    <input type="checkbox" data-field="bodyLinked" data-group-id="${id}"${token?.actorLink ? ' checked' : ''}${token ? '' : ' disabled'}> Linked
-                </label>
-                <button type="button" class="puppeteer-btn" data-action="openBodyActor" data-group-id="${id}"${actor ? '' : ' disabled'} data-tooltip="Open the actor's sheet"><i class="fa-solid fa-id-card"></i></button>
-                <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="clearBody" data-group-id="${id}" data-tooltip="Remove the body token. The group, its pin and its parts stay."><i class="fa-solid fa-xmark"></i></button>
-            </div>`;
+                <div class="puppeteer-group-row puppeteer-body puppeteer-drop" data-drop-group="${id}">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span class="puppeteer-body-text">Represents <strong>${esc(name)}</strong>${token ? '' : ' <span class="puppeteer-member-gone">token missing</span>'}</span>
+                    <label class="puppeteer-body-linked" data-tooltip="Linked: one set of hit points shared by every token of this actor. Unlinked: this token has its own.">
+                        <input type="checkbox" data-field="bodyLinked" data-group-id="${id}"${token?.actorLink ? ' checked' : ''}${token ? '' : ' disabled'}> Linked
+                    </label>
+                    <button type="button" class="puppeteer-btn" data-action="openBodyActor" data-group-id="${id}"${actor ? '' : ' disabled'} data-tooltip="Open the actor's sheet"><i class="fa-solid fa-id-card"></i></button>
+                    <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="clearBody" data-group-id="${id}" data-tooltip="Remove the body token. The group, its pin and its parts stay."><i class="fa-solid fa-xmark"></i></button>
+                </div>`;
     }
 
     // ---- actions ---------------------------------------------------------------------------------
@@ -462,7 +520,13 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     _commitField(input) {
         const scene = canvas.scene;
         const groupId = input.dataset.groupId;
+        if (input.dataset.field === 'updateSource') return null;
         return run('Update group', async () => {
+            if (input.dataset.field === 'templateName') {
+                try { await renameTemplate(input.dataset.templateId, input.value); } catch (error) { this.render(); throw error; }
+                return this.render();
+            }
+            if (input.dataset.field === 'templateDescription') return setTemplateDescription(input.dataset.templateId, input.value);
             if (input.dataset.field === 'importFile') {
                 const file = input.files?.[0];
                 input.value = '';
@@ -549,9 +613,55 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         });
     }
 
+    _toggleCard(groupId) {
+        if (expanded.has(groupId)) expanded.delete(groupId);
+        else expanded.add(groupId);
+        return this.render();
+    }
+
+    _toggleGroupHidden(groupId) {
+        return run('Hide or show group', async () => {
+            const group = listGroups(canvas.scene).find((g) => g.id === groupId);
+            const now = await setGroupHidden(canvas.scene, groupId, !group?.hidden);
+            say(now ? 'Group hidden' : 'Group shown', now ? 'Its tiles, drawings, lights, sounds, regions and body are hidden. Walls and notes cannot be hidden.' : 'Everything it hid is shown again.');
+            this.render();
+        });
+    }
+
+    _toggleMemberHidden(groupId, type, id) {
+        return run('Hide or show part', async () => {
+            const doc = canvas.scene.getEmbeddedCollection(type).get(id);
+            await setMemberHidden(canvas.scene, groupId, type, id, !doc?._source.hidden);
+            this.render();
+        });
+    }
+
+    _updateTemplate(templateId) {
+        return run('Update library entry', async () => {
+            const select = this.element.querySelector(`select[data-field="updateSource"][data-template-id="${CSS.escape(templateId)}"]`);
+            const group = listGroups(canvas.scene).find((g) => g.id === select?.value);
+            if (!group) {
+                say('Choose a group', 'Pick the group on this scene to copy the entry from.');
+                return;
+            }
+            const template = getTemplate(templateId);
+            const confirmed = await getBlacksmith().dialog.confirm({
+                title: 'Update Library Entry',
+                content: `<p>Replace the parts of <strong>${esc(template?.name)}</strong> with those of <strong>${esc(group.name)}</strong>? Copies already placed on scenes are not changed.</p>`,
+                confirmLabel: 'Update',
+                confirmIcon: 'fa-solid fa-arrows-rotate'
+            });
+            if (!confirmed) return;
+            await updateTemplateFromGroup(canvas.scene, group.id, templateId);
+            say('Library entry updated', `${template?.name} now matches ${group.name}.`);
+            this.render();
+        });
+    }
+
     _newGroup() {
         return run('Create group', async () => {
             const group = await createGroup(canvas.scene, { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y }, { name: 'Group' });
+            expanded.add(group.id);
             say('Group created', `${group.name} is at the centre of your view.`);
         });
     }
@@ -587,9 +697,9 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     }
 
     _stamp(templateId) {
-        return run('Stamp template', async () => {
+        return run('Fabricate from library', async () => {
             const group = await stampTemplate(canvas.scene, templateId, { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y });
-            say('Template stamped', `${group.name} was placed at the centre of your view.`);
+            say('Fabricated', `${group.name} was placed at the centre of your view.`);
         });
     }
 

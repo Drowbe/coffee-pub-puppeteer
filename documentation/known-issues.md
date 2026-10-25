@@ -11,4 +11,5 @@ Limits we know about and have not removed, with a way round where there is one.
 - **Regions with token or grid shapes cannot be carried.** They are refused with a reason.
 - **Capture Area does not pick Regions yet.** Use Add Selected for them.
 - **Compendium actors cannot be dropped on a body row.** Import them into the world first.
+- **Walls and notes cannot be hidden.** Foundry gives them no hidden state, so hiding a group leaves them visible. Riders are never hidden.
 - **No GM, nothing moves.** Only the active GM writes, so a pin moved while no GM is connected moves its group when a GM next connects.
