@@ -83,7 +83,13 @@ export function installFakes({ dropOptions = false } = {}) {
                 parent: scene,
                 _source: structuredClone({ _id: id, width: 1, height: 1, rotation: 0, flags: {}, ...data }),
                 getFlag(scope, key) { return this._source.flags?.[scope]?.[key]; },
+                get actorId() { return this._source.actorId; },
                 async update(flat, options = {}) {
+                    // Foundry writes its own fields onto the options it is given (the parent, for one), so an options
+                    // object that is frozen, or shared and meant to stay unchanged, fails there. Do the same.
+                    options.parent = this.parent;
+                    // A locked token refuses an ordinary move, as Foundry does; a teleport gets through.
+                    if (this._source.locked && ('x' in flat || 'y' in flat) && !options.teleport) return this;
                     const changes = expand(flat);
                     mergeInto(this._source, changes);
                     await Promise.resolve();
@@ -103,7 +109,11 @@ export function installFakes({ dropOptions = false } = {}) {
             return docs;
         },
         async createEmbeddedDocuments(type, datas) {
-            const docs = datas.map((data) => this.add(type, Math.random().toString(36).slice(2, 18).padEnd(16, 'x'), data));
+            const make = (data) => {
+                const id = Math.random().toString(36).slice(2, 18).padEnd(16, 'x');
+                return type === 'Token' ? this.addToken(id, data) : this.add(type, id, data);
+            };
+            const docs = datas.map(make);
             await Promise.resolve();
             for (const doc of docs) fire(`create${type}`, doc, {}, 'u1');
             return docs;
@@ -114,6 +124,9 @@ export function installFakes({ dropOptions = false } = {}) {
             return doc;
         }
     };
+
+    // Tokens are an embedded collection of the scene like the rest.
+    scene.collections.Token = scene.tokens;
 
     const FLAG = 'flags.coffee-pub-blacksmith.pins';
     const list = () => scene.flags['coffee-pub-blacksmith']?.pins ?? [];
@@ -142,6 +155,8 @@ export function installFakes({ dropOptions = false } = {}) {
         user: { id: 'u1', isGM: true },
         scenes: [scene],
         settings: { register() {} },
+        // Actors a test can add; `getTokenDocument` is what Foundry gives an actor, returning something with `toObject()`.
+        actors: new Map(),
         users: { activeGM: { isSelf: true } },
         modules: new Map([['coffee-pub-puppeteer', { version: 'test' }]])
     };

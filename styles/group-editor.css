@@ -204,6 +204,29 @@
     padding: 8px;
 }
 
+/* ---- the body: what makes a group a target ---------------------------------------------------------- */
+.puppeteer-group-editor .puppeteer-body {
+    padding: 6px 8px;
+    border: 1px dashed var(--blacksmith-tool-divider);
+    border-radius: 4px;
+}
+
+.puppeteer-group-editor .puppeteer-body.is-over {
+    border-style: solid;
+    border-color: var(--blacksmith-tool-text-muted);
+}
+
+.puppeteer-group-editor .puppeteer-body-text {
+    flex: 1;
+    min-width: 12em;
+}
+
+.puppeteer-group-editor .puppeteer-body-linked {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 /* ---- library and tools ------------------------------------------------------------------------------ */
 .puppeteer-group-editor .puppeteer-panel {
     padding: 10px;

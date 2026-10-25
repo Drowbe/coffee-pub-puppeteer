@@ -6,8 +6,9 @@ import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
-    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember
+    setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, setBody, adoptBody, clearBody, setBodyLinked
 } from './groups.js';
+import { bodyToken } from './body.js';
 import { boundsShown, toggleBounds } from './overlay.js';
 import { syncAllGroups } from './follower.js';
 import { anchorState, anchorExists } from './anchor.js';
@@ -108,7 +109,10 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId, target.dataset.type || null),
         panTo: (event, target, win) => win._panTo(target.dataset.groupId),
         deleteGroup: (event, target, win) => win._deleteGroup(target.dataset.groupId),
-        removeMember: (event, target, win) => win._removeMember(target.dataset.groupId, target.dataset.type, target.dataset.id)
+        removeMember: (event, target, win) => win._removeMember(target.dataset.groupId, target.dataset.type, target.dataset.id),
+        adoptBody: (event, target, win) => win._adoptBody(target.dataset.groupId),
+        clearBody: (event, target, win) => win._clearBody(target.dataset.groupId),
+        openBodyActor: (event, target, win) => win._openBodyActor(target.dataset.groupId)
     };
 
     /** Open the editor, or bring the open one forward. */
@@ -156,6 +160,12 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         // Text and number fields commit on change, not on click, so they are wired here.
         for (const input of this.element.querySelectorAll('input[data-field]')) {
             input.addEventListener('change', () => this._commitField(input));
+        }
+        // An actor dragged from the sidebar onto a group's body row becomes the group's body.
+        for (const zone of this.element.querySelectorAll('[data-drop-group]')) {
+            zone.addEventListener('dragover', (event) => { event.preventDefault(); zone.classList.add('is-over'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('is-over'));
+            zone.addEventListener('drop', (event) => { event.preventDefault(); zone.classList.remove('is-over'); this._dropActor(event, zone.dataset.dropGroup); });
         }
         // Remember which member lists are open, so a redraw does not collapse them.
         for (const details of this.element.querySelectorAll('details[data-group-id]')) {
@@ -315,6 +325,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             ? `<div class="puppeteer-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its ${onToken ? 'token' : 'pin'}, so it cannot be moved. Delete the group and make a new one.</div>`
             : '';
         const heading = anchorState(scene, group)?.heading ?? group.heading;
+        const bodyRow = this._bodyHtml(scene, group);
 
         return `
         <section class="puppeteer-group" data-group-id="${id}">
@@ -343,11 +354,38 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <i class="fa-solid fa-trash"></i> Delete
                 </button>
             </div>
+            ${bodyRow}
             <details class="puppeteer-group-members" data-group-id="${id}"${expanded.has(group.id) ? ' open' : ''}>
                 <summary>Members</summary>
                 <ul>${members || '<li class="puppeteer-member-none">No members yet.</li>'}</ul>
             </details>
         </section>`;
+    }
+
+    /** The row that says what the group is as a target: nothing, or an actor's token that covers it. */
+    _bodyHtml(scene, group) {
+        const id = esc(group.id);
+        if (!group.body) {
+            return `
+            <div class="puppeteer-group-row puppeteer-body puppeteer-drop" data-drop-group="${id}">
+                <i class="fa-solid fa-user-shield"></i>
+                <span class="puppeteer-body-text">Not targetable. Drag an actor here to make the whole group one target, or</span>
+                <button type="button" class="puppeteer-btn" data-action="adoptBody" data-group-id="${id}" data-tooltip="Use the selected token as the group's body: it is made transparent, locked and sized to cover the group">Use Selected Token</button>
+            </div>`;
+        }
+        const token = bodyToken(scene, group);
+        const actor = game.actors.get(group.body.actorId);
+        const name = actor?.name ?? token?.name ?? 'an actor';
+        return `
+            <div class="puppeteer-group-row puppeteer-body puppeteer-drop" data-drop-group="${id}">
+                <i class="fa-solid fa-user-shield"></i>
+                <span class="puppeteer-body-text">Represents <strong>${esc(name)}</strong>${token ? '' : ' <span class="puppeteer-member-gone">token missing</span>'}</span>
+                <label class="puppeteer-body-linked" data-tooltip="Linked: one set of hit points shared by every token of this actor. Unlinked: this token has its own.">
+                    <input type="checkbox" data-field="bodyLinked" data-group-id="${id}"${token?.actorLink ? ' checked' : ''}${token ? '' : ' disabled'}> Linked
+                </label>
+                <button type="button" class="puppeteer-btn" data-action="openBodyActor" data-group-id="${id}"${actor ? '' : ' disabled'} data-tooltip="Open the actor's sheet"><i class="fa-solid fa-id-card"></i></button>
+                <button type="button" class="puppeteer-btn puppeteer-btn-critical" data-action="clearBody" data-group-id="${id}" data-tooltip="Remove the body token. The group, its pin and its parts stay."><i class="fa-solid fa-xmark"></i></button>
+            </div>`;
     }
 
     // ---- actions ---------------------------------------------------------------------------------
@@ -365,8 +403,55 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 return this.render();
             }
             if (input.dataset.field === 'memberLabel') return renameMember(scene, groupId, input.dataset.type, input.dataset.id, input.value);
+            if (input.dataset.field === 'bodyLinked') return setBodyLinked(scene, groupId, input.checked);
             if (input.dataset.field === 'name') await renameGroup(scene, groupId, input.value);
             if (input.dataset.field === 'heading') await setHeading(scene, groupId, Number(input.value) || 0);
+        });
+    }
+
+    _dropActor(event, groupId) {
+        return run('Make group a target', async () => {
+            const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
+            if (data?.type !== 'Actor') {
+                say('Drop an actor', 'Drag an actor from the Actors sidebar onto this row.');
+                return;
+            }
+            const actor = await fromUuid(data.uuid);
+            if (!actor) return;
+            if (actor.pack) {
+                say('Import the actor first', `${actor.name} is in a compendium. Import it to the world, then drop it here.`);
+                return;
+            }
+            await setBody(canvas.scene, groupId, actor.id);
+            say('Group is now a target', `Attacks and damage on this group go to ${actor.name}.`);
+        });
+    }
+
+    _adoptBody(groupId) {
+        return run('Use selected token as body', async () => {
+            const controlled = canvas.tokens.controlled;
+            if (controlled.length !== 1) {
+                say('Select one token', 'Select the token that should be the group\'s body, then try again.');
+                return;
+            }
+            const token = controlled[0].document;
+            await adoptBody(canvas.scene, groupId, token);
+            say('Group is now a target', `${token.name} is its body: transparent, locked, and sized to cover the group.`);
+        });
+    }
+
+    _clearBody(groupId) {
+        return run('Remove body', async () => {
+            await clearBody(canvas.scene, groupId);
+            say('Body removed', 'The body token is gone. The group, its pin and its parts are untouched.');
+            this.render();
+        });
+    }
+
+    _openBodyActor(groupId) {
+        return run('Open actor', async () => {
+            const group = listGroups(canvas.scene).find((g) => g.id === groupId);
+            await game.actors.get(group?.body?.actorId)?.sheet.render({ force: true });
         });
     }
 

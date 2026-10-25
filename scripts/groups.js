@@ -9,6 +9,7 @@ import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from '.
 import { syncGroup, runExclusive, apply } from './follower.js';
 import { anchorState, tokenAnchorState } from './anchor.js';
 import { buildTemplate } from './template.js';
+import { bodyFootprint, bodyTraits, bodyToken, fitBody, bodyMove } from './body.js';
 
 export const PIN_TYPE = 'group';
 const PIN_ICON = 'fa-solid fa-up-down-left-right';
@@ -203,7 +204,10 @@ export async function addMembers(scene, groupId, documents) {
         }
     }
     const skipped = documents.length - added.length;
-    if (added.length) await patchGroup(scene, groupId, { members: [...group.members, ...added] });
+    if (added.length) {
+        await patchGroup(scene, groupId, { members: [...group.members, ...added] });
+        await fitBody(scene, groupId);
+    }
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": added ${added.length}, skipped ${skipped}`, { anchor, added, unsupported }, true, false);
     return { added: added.length, skipped, unsupported };
 }
@@ -240,7 +244,10 @@ export async function removeSelected(scene, groupId) {
     const picked = new Set(layers.flatMap((layer) => layer?.controlled ?? [])
         .map((placeable) => `${placeable.document.documentName}:${placeable.document.id}`));
     const members = group.members.filter((m) => !picked.has(`${m.type}:${m.id}`));
-    if (members.length !== group.members.length) await patchGroup(scene, groupId, { members });
+    if (members.length !== group.members.length) {
+        await patchGroup(scene, groupId, { members });
+        await fitBody(scene, groupId);
+    }
     return group.members.length - members.length;
 }
 
@@ -368,8 +375,79 @@ export function diagnoseGroup(scene, groupId) {
 export async function removeMember(scene, groupId, type, id) {
     const group = requireGroup(scene, groupId);
     const members = group.members.filter((m) => !(m.type === type && m.id === id));
-    if (members.length !== group.members.length) await patchGroup(scene, groupId, { members });
+    if (members.length !== group.members.length) {
+        await patchGroup(scene, groupId, { members });
+        await fitBody(scene, groupId);
+    }
     return group.members.length - members.length;
+}
+
+// ---- the body token ----------------------------------------------------------------------------------
+
+/**
+ * Make a group targetable: give it a token of `actorId`, transparent, locked, sized to cover the group and moved
+ * with it. The token is unlinked unless `linked`, so a prefab stamped twice has two sets of hit points.
+ * @returns {Promise<TokenDocument>} The body token.
+ */
+export function setBody(scene, groupId, actorId, { linked = false } = {}) {
+    const { utils } = getBlacksmith();
+    return runExclusive(scene, groupId, async () => {
+        await apply(scene, groupId);
+        const group = requireGroup(scene, groupId);
+        if (group.body) throw new Error(`${MODULE_ID}: group "${group.name}" already has a body; clear it first`);
+        const actor = game.actors.get(actorId);
+        if (!actor) throw new Error(`${MODULE_ID}: there is no actor ${actorId}`);
+
+        const data = { ...bodyFootprint(scene, group), ...bodyTraits(groupId), actorLink: !!linked };
+        const document = await actor.getTokenDocument(data);
+        const [token] = await scene.createEmbeddedDocuments('Token', [document.toObject()]);
+        await patchGroup(scene, groupId, { body: { tokenId: token.id, actorId } });
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" now represents ${actor.name}`, { tokenId: token.id, linked: !!linked }, true, false);
+        return token;
+    });
+}
+
+/**
+ * Make a token that is already on the scene the group's body, for the actor it already has. Its image is changed
+ * to the transparent one on this token only. The token is moved and sized to cover the group.
+ * @returns {Promise<TokenDocument>} The body token.
+ */
+export function adoptBody(scene, groupId, token) {
+    const { utils } = getBlacksmith();
+    return runExclusive(scene, groupId, async () => {
+        await apply(scene, groupId);
+        const group = requireGroup(scene, groupId);
+        if (group.body) throw new Error(`${MODULE_ID}: group "${group.name}" already has a body; clear it first`);
+        if (!token.actorId) throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} has no actor to represent`);
+        if (token.getFlag(MODULE_ID, 'groupId')) throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} already belongs to a group`);
+
+        await token.update({ ...bodyFootprint(scene, group), ...bodyTraits(groupId) }, bodyMove());
+        await patchGroup(scene, groupId, { body: { tokenId: token.id, actorId: token.actorId } });
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" now uses ${token.name} as its body`, { tokenId: token.id }, true, false);
+        return token;
+    });
+}
+
+/**
+ * Take the body off a group and delete its token. The group, its pin and its parts are untouched.
+ * @returns {Promise<boolean>} Whether there was a body to clear.
+ */
+export function clearBody(scene, groupId) {
+    return runExclusive(scene, groupId, async () => {
+        const group = requireGroup(scene, groupId);
+        if (!group.body) return false;
+        const token = bodyToken(scene, group);
+        await patchGroup(scene, groupId, { '-=body': null });
+        if (token) await scene.deleteEmbeddedDocuments('Token', [token.id]);
+        return true;
+    });
+}
+
+/** Set whether the body's actor is linked (one set of hit points everywhere) or unlinked (this token's own). */
+export async function setBodyLinked(scene, groupId, linked) {
+    const token = bodyToken(scene, requireGroup(scene, groupId));
+    if (!token) throw new Error(`${MODULE_ID}: that group has no body`);
+    await token.update({ actorLink: !!linked }, { puppeteer: { follower: true } });
 }
 
 /** Set the heading in degrees (clockwise, 0 facing down). The follower moves the members. */
@@ -469,7 +547,10 @@ export async function deleteGroup(scene, groupId, { removeMembers = false } = {}
     const group = requireGroup(scene, groupId);
     // The store updates records in place, so take what is needed before the record goes.
     const parts = group.members.map((member) => ({ type: member.type, id: member.id }));
+    const body = bodyToken(scene, group);
     await deleteGroupRecord(scene, groupId);
+    // The body exists only for its group.
+    if (body) await scene.deleteEmbeddedDocuments('Token', [body.id]);
     // The pin may already be gone (deleted by hand); the record is what matters.
     if (group.anchor.type === 'pin' && pins.exists(group.anchor.id, { sceneId: scene.id })) {
         await pins.delete(group.anchor.id, { sceneId: scene.id });

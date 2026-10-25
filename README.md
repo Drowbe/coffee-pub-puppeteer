@@ -3,10 +3,10 @@
 ![Foundry v14](https://img.shields.io/badge/foundry-v14-green)
 ![MIT License](https://img.shields.io/badge/license-MIT-blue)
 
-Move scene elements as one. Group the tiles, lights, sounds, walls and drawings that make up a ship or a
-cart, and have them follow the vehicle token as it moves and turns, carrying the tokens aboard with it.
-
-This module is in design. Nothing is built yet.
+Move scene elements as one. Group the tiles, lights, sounds, walls, drawings, notes and regions that make up a
+ship, a cart or a drawbridge, then drag or turn a single Blacksmith pin to move and turn all of it. Save groups to
+a library and stamp as many copies as you like. A group can optionally represent an actor, so the whole thing can
+be targeted and attacked (designed, not yet built).
 
 ## Requirements
 

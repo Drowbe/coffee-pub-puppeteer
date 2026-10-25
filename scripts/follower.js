@@ -11,6 +11,7 @@ import { MEMBER_TYPES, recaptureMember, memberUpdate, memberOutOfStep, sameAncho
 import { getGroup, getGroups, patchGroup } from './store.js';
 import { anchorState } from './anchor.js';
 import { glideOptions } from './tween.js';
+import { fitBody } from './body.js';
 
 // One chain per group, so a move and the rotation that follows it a moment later never write concurrently.
 // Hook Manager callbacks are started back to back and not awaited.
@@ -186,6 +187,7 @@ async function recapture(scene, groupId, type, id) {
     const member = recaptureMember(current, doc._source, { ...group.applied });
     const members = group.members.map((m, i) => (i === index ? member : m));
     await patchGroup(scene, groupId, { members });
+    await fitBody(scene, groupId);
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": re-recorded ${type} ${id} after a manual edit`, member, true, false);
 }
 
@@ -253,5 +255,7 @@ export async function apply(scene, groupId) {
     patch.heading = anchor.heading;
     if (rerecorded || keep.length !== group.members.length) patch.members = keep;
     await patchGroup(scene, groupId, patch);
+    // The body covers the members, so it goes where they went.
+    await fitBody(scene, groupId);
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" moved ${keep.length} member(s)`, anchor, true, false);
 }

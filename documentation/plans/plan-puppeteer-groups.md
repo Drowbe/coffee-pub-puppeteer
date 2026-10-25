@@ -6,16 +6,43 @@ The design for moving scene elements as one group, anchored first to a Blacksmit
 
 ## Goal
 
-Group tiles, lights, sounds, walls, drawings and notes, and move and rotate them as one. A group does not need an actor or a token.
+Group tiles, lights, sounds, walls, drawings, notes and regions, and move and rotate them as one. A group does not need an actor or a token, and can optionally be made targetable.
+
+## Aligned model (decided)
+
+Agreed with the user after the token-anchor mode was built and used. It replaces the earlier "pin or token anchor" split. Durable description: `architecture/architecture-groups.md`.
+
+- **The pin is always the grip.** One way to move and turn a group, with everything a pin offers (hide it, restyle it, permissions, drag, Shift + wheel). There is no mode in which a token is the grip.
+- **A body token is an optional layer.** A group may represent an actor. Puppeteer then manages a token for it: transparent image set on the placed token only (the actor's art is untouched), sized to cover the group, locked, moved with the group like a member. It is what takes attacks and damage. The user never places or sizes it.
+- **Two ways to get one.** Choose the actor in the group's settings (or stamp a Library entry that names one); or drag an actor from the sidebar onto the map and Puppeteer adopts the token Foundry creates there.
+- **Unlinked by default,** linked optionally, so many copies of a prefab each have their own hit points.
+- **Riders come later,** on the same machinery: tokens carried by the group, free to move inside it.
+- **Token-anchored groups are retired.** Existing ones convert on load: a pin appears at the token's centre and the token becomes the body. Attach to Token, On Selected Token, detach and the token-removed question go.
+- **Accepted loss.** A player no longer drives a cart by moving a token, with walls, speed and a ruler. A player can still move a group if given edit access to the pin, with no movement rules.
 
 ## Phases
 
-1. **Pin-anchored groups of scene elements.** The GM makes a group on a Blacksmith pin, adds and removes members, and dragging the pin moves the whole group while a rotate action turns it. No tokens anywhere: this proves the model (offsets in the anchor's frame, committed state, one batched write per type) on things that are not actors. Set pieces such as a drawbridge, a barge on rails or a moving stage are the use case.
-2. **Tokens.** A token can anchor a group, so a vehicle a player pilots drags its parts, and tokens can be members, which is how passengers are carried (footprint plus an explicit boarded toggle).
-3. **Prefabs.** Save a group as a template and stamp it onto a scene as many times as wanted, each stamp an independent copy. Vehicles keep their template on an Actor; set pieces keep theirs in a Puppeteer library.
-4. **Polish.** Menubar tool and secondary bar, sounds, toast channel, Scene Config tab, the hard-dependency check.
+1. **Pin-anchored groups of scene elements.** Built. The GM makes a group on a Blacksmith pin, adds and removes members, and dragging or turning the pin moves the whole group. Offsets in the pin's frame, committed state, one batched write per type.
+2. **Body token.** A group can represent an actor and be targeted. Shares its machinery with riders: tokens as members, moved by displace-style moves, locked, auto-sized footprint. Also converts the old token-anchored groups.
+3. **Prefabs.** Save a group as a template and stamp it as many times as wanted, each stamp an independent copy. All templates live in the Puppeteer library; a template can name an actor to represent. Dragging an actor from the sidebar adopts a body token.
+4. **Riders.** Tokens carried by a group, free to move inside it, dismounting when they leave the footprint. Boarding through `gmRequest`, announced by chat cards.
+5. **Polish.** Group behaviour options, menubar tool and secondary bar, sounds, toast channel, Scene Config tab, events for other modules.
 
-The rest of this plan describes the end state. The pin follower is built first; the token follower reuses its math and adds what is specific to token movement.
+The token follower built earlier stays in the code until phase 2 converts its groups; its description below is kept for that reason.
+
+## Body token: what the probe found
+
+`tools/probes/body-token-probe.js`, run in Foundry v14.369 by the user on an actor with a dnd5e sheet.
+
+- **Fractional size works.** A 6.5 by 3.5 token was created and drawn at exactly 650 by 350 px on a 100 px grid.
+- **Selection and hover outline the whole footprint,** not the image, so a transparent token still shows where it is.
+- **Locked blocks dragging, for the GM too.** The warning "You cannot take this action while the Token object is locked" appears and the token does not move.
+- **Locked also stopped a plain `update({ x })`.** The token stayed put. An update with `teleport: true` and `move()` with action `displace` (walls and cost ignored) both moved it. So the follower moves the body with `teleport: true` or `displace`, never with a plain update.
+- **Targeting works,** programmatically and by hand.
+- **It is a real combatant target.** Double-click opened the actor's sheet, and a longbow attack from another token rolled against it and applied 9 damage to the actor (110 to 101).
+- **The probe's image was not transparent.** The base64 PNG in the first version of the probe was opaque, so the token drew a navy square. A real transparent PNG is now generated and shipped as `images/transparent.png`. Whether any shadow or border draws around a truly transparent token is not yet seen.
+
+Not yet observed: clicking a tile or light beneath the footprint, and whether a displace move counts against combat movement. The hit area printed empty (it is not a plain rectangle).
 
 ## Ground rules
 

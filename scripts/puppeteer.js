@@ -3,7 +3,7 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups } from './groups.js';
+import { registerPinType, createGroup, createTokenGroup, attachToToken, detachToPin, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -73,6 +73,12 @@ Hooks.once('ready', async () => {
             import: (jsonText) => importTemplate(jsonText)
         },
         showBounds: (value) => (value === undefined ? toggleBounds() : setBoundsShown(value)),
+        /** Make the group targetable: a transparent, locked token of this actor that covers it and moves with it. */
+        setBody: (groupId, actorId, options = {}) => setBody(options.scene ?? canvas.scene, groupId, actorId, { linked: options.linked }),
+        /** Use a token already on the scene as the group's body. */
+        adoptBody: (groupId, token, scene = token.parent) => adoptBody(scene, groupId, token),
+        clearBody: (groupId, scene = canvas.scene) => clearBody(scene, groupId),
+        setBodyLinked: (groupId, linked, scene = canvas.scene) => setBodyLinked(scene, groupId, linked),
         addSelected: (groupId, scene = canvas.scene) => addSelected(scene, groupId),
         addMembers: (groupId, documents, scene = canvas.scene) => addMembers(scene, groupId, documents),
         removeMember: (groupId, type, id, scene = canvas.scene) => removeMember(scene, groupId, type, id),
