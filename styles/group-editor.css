@@ -120,3 +120,15 @@
     flex: 0 0 auto;
 }
 
+
+/* A row that selects what it names: the whole row is the target. */
+.puppeteer-group-editor .puppeteer-clickable {
+    cursor: pointer;
+}
+
+.puppeteer-group-editor .puppeteer-type-icon {
+    flex: 0 0 auto;
+    width: 1.4em;
+    text-align: center;
+    color: var(--blacksmith-tool-text-muted);
+}

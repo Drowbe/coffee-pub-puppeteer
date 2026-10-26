@@ -235,6 +235,23 @@ export function selectMember(scene, type, id, { add = false, pan = true } = {}) 
 }
 
 /**
+ * Select a token on the canvas (a rider, say), adding to the selection when asked, and bring it into view if it is off
+ * screen.
+ * @returns {boolean} false when the token is not on the canvas.
+ */
+export function selectToken(scene, tokenId, { add = false, pan = true } = {}) {
+    const placeable = scene.tokens.get(tokenId)?.object;
+    if (!placeable) return false;
+    canvas.tokens?.activate();
+    placeable.control({ releaseOthers: !add });
+    if (pan && !onScreen(placeable)) {
+        const bounds = placeable.bounds;
+        canvas.animatePan({ x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, duration: 300 });
+    }
+    return true;
+}
+
+/**
  * Select the group's members of one type, and switch to that type's layer. Foundry selects one layer at a
  * time, so a group spanning tiles, lights and walls cannot be selected whole. With no `type`, the layer
  * in use is preferred, then the first type the group has.

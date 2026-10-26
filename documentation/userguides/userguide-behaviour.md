@@ -15,15 +15,15 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 
 ## Stop it turning
 
-**Turns when its pin turns** is on by default. Turn it off for a group that should slide about without ever turning, such as a platform on rails. The group keeps the way it faces now, the pin can be turned freely, and the **Heading** field and rotate buttons are disabled. Turning it on again records the group against the pin's own heading first, so nothing swings round.
+**Turns with its pin** is on by default. Turn it off for a group that should slide about without ever turning, such as a platform on rails. The group keeps the way it faces now, the pin can be turned freely, and the **Heading** field and rotate buttons are disabled. Turning it on again records the group against the pin's own heading first, so nothing swings round.
 
 ## Keep riders in place
 
-**Riders can move about** is on by default. Turn it off and a rider moved by hand is put straight back where it rides.
+**Riders move freely** is on by default. Turn it off and a rider moved by hand is put straight back where it rides.
 
 ## Announce boarding
 
-**Announce boarding in chat** posts a public card and plays a soft sound for everyone when a token boards or leaves. It is off by default.
+**Announce boarding** posts a public card and plays a soft sound for everyone when a token boards or leaves. It is off by default.
 
 ## Other controls that live beside it
 

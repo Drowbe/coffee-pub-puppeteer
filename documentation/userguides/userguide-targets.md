@@ -16,7 +16,7 @@ Actors in a compendium must be imported into the world before you can drop them.
 
 ## Choose whether it shares hit points
 
-The body is unlinked by default, so two copies of a group have separate hit points. Tick **Linked** on the row to share one set of hit points with the actor.
+The body is unlinked by default, so two copies of a group have separate hit points. Turn on **Linked** under **Body** to share one set of hit points with the actor.
 
 ## Things to know
 

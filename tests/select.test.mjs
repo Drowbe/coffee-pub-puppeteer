@@ -74,3 +74,32 @@ test('a member that is not on the canvas selects nothing and says so', async () 
     assert.deepEqual(calls.activated, []);
     assert.deepEqual(calls.controlled, []);
 });
+
+test('selecting a rider selects its token and switches to the token layer', async () => {
+    const env = installFakes();
+    const { selectToken } = await import('../scripts/groups.js');
+    const { calls } = canvasWith(env.scene);
+    calls.tokensActivated = 0;
+    globalThis.canvas.tokens = { activate: () => { calls.tokensActivated += 1; } };
+    const sailor = env.scene.addToken('R1', { x: 1000, y: 1000 });
+    sailor.object = { bounds: { x: 1000, y: 1000, width: 100, height: 100 }, control: (options) => calls.controlled.push({ id: 'R1', ...options }) };
+
+    assert.equal(selectToken(env.scene, 'R1'), true);
+    assert.equal(calls.tokensActivated, 1);
+    assert.deepEqual(calls.controlled, [{ id: 'R1', releaseOthers: true }]);
+    selectToken(env.scene, 'R1', { add: true });
+    assert.deepEqual(calls.controlled.at(-1), { id: 'R1', releaseOthers: false });
+    assert.equal(selectToken(env.scene, 'gone'), false);
+});
+
+test('a token that is off screen is brought into view', async () => {
+    const env = installFakes();
+    const { selectToken } = await import('../scripts/groups.js');
+    const { calls } = canvasWith(env.scene);
+    globalThis.canvas.tokens = { activate() {} };
+    const far = env.scene.addToken('R2', { x: 9000, y: 6000 });
+    far.object = { bounds: { x: 9000, y: 6000, width: 100, height: 100 }, control() {} };
+    selectToken(env.scene, 'R2');
+    assert.equal(calls.panned.length, 1);
+    assert.equal(calls.panned[0].x, 9050);
+});

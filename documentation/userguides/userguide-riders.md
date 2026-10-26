@@ -6,7 +6,7 @@ Setting this up is GM only. Players board by moving their own tokens.
 
 ## Let tokens board
 
-On the group's row in the Group Editor, tick **Tokens board when they move onto it**. From then on:
+On the group's row in the Group Editor, turn on **Tokens board when they move onto it**. From then on:
 
 - A token that moves onto the group boards it, whether the GM or a player moved it.
 - A token created on the group, by dragging an actor from the sidebar onto it, boards it.
@@ -18,7 +18,7 @@ Every token that moves onto the group boards while the option is on, enemies inc
 ## What riders do
 
 - **They are carried.** When the group moves or turns, its riders go with it, and a turn swings them round the pin. They move through walls and ignore speed while being carried.
-- **They can walk about.** A rider can be moved anywhere on the group, and it rides from wherever it was put. Switch off **Riders can move about** under **Behaviour** to put a rider straight back instead.
+- **They can walk about.** A rider can be moved anywhere on the group, and it rides from wherever it was put. Turn off **Riders move freely** under **Behaviour** to put a rider straight back instead.
 - **They get off by leaving.** Move a rider off the group and it dismounts where it stands. You are told.
 
 ## Put a rider off on purpose
@@ -27,7 +27,7 @@ Choose **Dismount** beside the rider on the group's row. It stays where it is an
 
 ## Announce boarding
 
-Tick **Announce boarding in chat** under **Behaviour** and a public card, with a soft sound, tells the table when a token boards or leaves.
+Turn on **Announce boarding** under **Behaviour** and a public card, with a soft sound, tells the table when a token boards or leaves.
 
 ## When something is deleted
 

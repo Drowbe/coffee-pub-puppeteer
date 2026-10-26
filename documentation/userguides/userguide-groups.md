@@ -15,7 +15,7 @@ Right-clicking the pin gives the same actions, and double-clicking the pin opens
 
 ## Name parts and find them again
 
-Under **Parts**, choose the pencil beside a part's name and type a new one, such as "Left lantern". Press Enter or click away to keep it, or Escape to put it back. A group's name is changed the same way, from the pencil in its card. Choose the small icon beside a part to select it on the map, and hold Shift to add to your selection. Choose a part's id to copy its UUID.
+Under **Parts**, choose the pencil beside a part's name and type a new one, such as "Left lantern". Press Enter or click away to keep it, or Escape to put it back. A group's name is changed the same way, from the pencil in its card. Choose a part's row to select it on the map, which makes a wall or a light easy to pick out, and hold Shift to add to your selection. The map pans to it if it is off screen. Choosing a rider's row under **Riders** selects its token the same way. Choose a part's id to copy its UUID.
 
 **Show group bounds** (an icon in the editor's title bar, a toolbar tool, and **Group Bounds** on the Puppeteer bar) draws the box around each group, its pivot and the way it faces. It is off by default and remembered for you.
 
