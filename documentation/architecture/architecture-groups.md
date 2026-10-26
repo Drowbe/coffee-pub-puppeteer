@@ -123,6 +123,8 @@ Deleting a group from the editor asks, when it has parts, for one of three choic
 
 ## Hiding
 
+For a Tile, a Drawing and a Region `hidden` hides the picture from players. For an AmbientLight and an AmbientSound it is Foundry's own on/off switch: a hidden light does not emit (`light.mjs`) and a hidden sound is not audible (`sound.mjs`), and a double-click on either toggles it. The editor therefore shows lights and sounds a power button, lit while on, and everything else an eye.
+
 Foundry gives a `hidden` field to Tile, Drawing, AmbientLight, AmbientSound, Region and Token, and none to Wall or Note. `setGroupHidden` (`scripts/groups.js`) writes `hidden: true` to every such part of the group and to its body token, after recording in `hiddenBefore` the ones that were already hidden, and `hidden: false` to the rest when shown. Riders are never hidden, because they are somebody's token. The writes carry the follower marker, and `hidden` is not among the fields that count as a hand edit, so hiding never re-records an offset. A part added to a hidden group is hidden with it. The follower keeps moving a hidden group.
 
 ## Behaviour

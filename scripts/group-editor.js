@@ -32,6 +32,9 @@ const TYPE_ICON = {
 // Which group cards are open. Module level so it survives a redraw and a close and reopen.
 const expanded = new Set();
 
+// Lights and sounds have no picture to hide: Foundry's own switch for them is the same field, and it turns them off.
+const EMITTERS = ['AmbientLight', 'AmbientSound'];
+
 const TYPE_PLURAL = {
     Tile: 'Tiles',
     Drawing: 'Drawings',
@@ -315,22 +318,26 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     }
 
     /**
-     * On/off options as segments of Blacksmith's segmented control, each a checkbox that is independently on or off and is
-     * filled when on. Several related options read as one control, and a single one as one compact pill, in place of a
-     * tall switch with a long capitalised label. The control is documented for radios; the checked style is the same
-     * for any input, so this works and is reported to Blacksmith as a multi-select mode.
+     * On/off options as Blacksmith's toggle switches, one to a line, the switch first and its label after it. The toggle is
+     * compact inside a tool window. Each is a checkbox wired through `data-field` like any other field, and the label is a
+     * real label, so clicking it flips the switch.
      * @param {string} groupId
-     * @param {string} label  What the group of options is, for assistive technology.
-     * @param {{field: string, icon: string, label: string, checked: boolean, tooltip: string, disabled?: boolean}[]} items
+     * @param {string} label  What the options are, for assistive technology.
+     * @param {{field: string, icon?: string, label: string, checked: boolean, tooltip: string, disabled?: boolean}[]} items
      */
     _optionsHtml(groupId, label, items) {
-        const segments = items.map((item) => `
-                <label class="blacksmith-tool-segment" data-tooltip="${esc(item.tooltip)}">
-                    <input type="checkbox" data-field="${item.field}" data-group-id="${esc(groupId)}"${item.checked ? ' checked' : ''}${item.disabled ? ' disabled' : ''}>
-                    <i class="${item.icon}"></i><span>${esc(item.label)}</span>
-                </label>`).join('');
-        return `<div class="blacksmith-tool-segmented" role="group" aria-label="${esc(label)}">${segments}
-            </div>`;
+        const rows = items.map((item) => {
+            const id = `${item.field}-${groupId}`;
+            return `
+                <div class="blacksmith-toggle-row" data-tooltip="${esc(item.tooltip)}">
+                    <label class="blacksmith-toggle">
+                        <input type="checkbox" class="blacksmith-toggle-input" id="${esc(id)}" data-field="${item.field}" data-group-id="${esc(groupId)}"${item.checked ? ' checked' : ''}${item.disabled ? ' disabled' : ''}>
+                        <span class="blacksmith-toggle-slider"></span>
+                    </label>
+                    <label class="blacksmith-toggle-label" for="${esc(id)}">${esc(item.label)}</label>
+                </div>`;
+        }).join('');
+        return `<div role="group" aria-label="${esc(label)}">${rows}</div>`;
     }
 
     /**
@@ -371,7 +378,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 </label>
                 <span class="blacksmith-tool-card-actions">
                     <button type="button" class="blacksmith-tool-btn" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i> Go To Pin</button>
-                    <button type="button" class="blacksmith-tool-btn${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: its tiles, drawings, lights, sounds, regions and body. Walls and notes cannot be hidden."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i> ${group.hidden ? 'Show' : 'Hide'}</button>
+                    <button type="button" class="blacksmith-tool-btn${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i> ${group.hidden ? 'Show' : 'Hide'}</button>
                     <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="deleteGroup" data-group-id="${id}" data-tooltip="Delete the group"><i class="fa-solid fa-trash"></i></button>
                 </span>
             </div>
@@ -409,8 +416,11 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                             data-tooltip="${esc(`${scene.uuid}.${member.type}.${member.id}`)} (click to copy)">${esc(member.id)}</button>
                     </div>
                     <div class="blacksmith-list-row-action">
-                        ${canHide ? `<button type="button" class="blacksmith-tool-btn is-icon" data-action="toggleMemberHidden" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
-                            data-tooltip="${hiddenNow ? 'Show this part' : 'Hide this part'}"><i class="fa-solid fa-eye${hiddenNow ? '-slash' : ''}"></i></button>` : ''}
+                        ${canHide ? (EMITTERS.includes(member.type)
+        ? `<button type="button" class="blacksmith-tool-btn is-icon${hiddenNow ? '' : ' is-active'}" data-action="toggleMemberHidden" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
+                            data-tooltip="${hiddenNow ? 'Off. Turn this on' : 'On. Turn this off'}"><i class="fa-solid fa-power-off"></i></button>`
+        : `<button type="button" class="blacksmith-tool-btn is-icon" data-action="toggleMemberHidden" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
+                            data-tooltip="${hiddenNow ? 'Hidden. Show this part' : 'Shown. Hide this part'}"><i class="fa-solid fa-eye${hiddenNow ? '-slash' : ''}"></i></button>`) : ''}
                         <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="removeMember"
                             data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                             data-tooltip="Remove from group"><i class="fa-solid fa-xmark"></i></button>
@@ -429,7 +439,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         return `
             <div class="puppeteer-card-body">
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Parts</span></header>
-                    ${chips ? `<div class="blacksmith-tool-btn-group">${chips}</div>` : ''}
+                    ${chips ? `<div class="puppeteer-inline"><span>Select on the map</span><div class="blacksmith-tool-btn-group">${chips}</div></div>` : ''}
                     <div class="puppeteer-inline">
                         ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
                         ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}

@@ -21,9 +21,9 @@ Under **Parts**, choose the pencil beside a part's name and type a new one, such
 
 ## Hide and show a group
 
-Choose **Hide** on a closed or open card to hide the group's tiles, drawings, lights, sounds, regions and body token. The button becomes **Show**, and the group's name turns italic. Walls and notes have no hidden state in Foundry, so they stay as they are, and so do any riders, because they are somebody's token. Parts that were already hidden when you hid the group stay hidden when you show it.
+Choose **Hide** on a closed or open card to hide the group's tiles, drawings, regions and body token, and to turn its lights and sounds off. The button becomes **Show**, and the group's name turns italic. Walls and notes have no hidden state in Foundry, so they stay as they are, and so do any riders, because they are somebody's token. Parts that were already hidden or off when you hid the group stay that way when you show it.
 
-To hide one part, choose the eye beside it under **Parts**. Hiding the group does not stop it moving: drag the pin and the hidden parts follow.
+To hide one part, choose the eye beside it under **Parts**. A light or a sound has a power button instead, lit orange while it is on, because turning it off is what Foundry means by hiding it. Hiding the group does not stop it moving: drag the pin and the hidden parts follow.
 
 ## Move and turn a group
 
