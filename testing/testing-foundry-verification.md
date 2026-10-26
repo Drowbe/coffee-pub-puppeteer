@@ -12,11 +12,12 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 - [ ] With the Blacksmith that has tool-themed toggles and badges (in its working tree, not yet released), the toggle labels, the off sliders and the badges are readable on the Light theme, and still right on Dark and Glass.
 - [ ] With the Blacksmith that has the tool-window controls (working tree, not yet released): every button in the editor is the shared 24px button, the icon-only ones are square with a tooltip, Delete, Remove and Clear turn red on hover, Hide, Show and Move Pivot show the orange selected state, and the footer New Group and Import are the compact themed footer buttons.
+- [ ] The body's drop target is a dashed zone that turns solid orange while an actor is dragged over it, and a calm solid border once it holds an actor.
 - [ ] Each group is a Blacksmith card: the caret turns when it opens, clicking the title line or the caret opens and closes it, pressing Go To Pin, Hide or Delete never opens or closes it, and an open card stays open when the editor redraws. The group's name is text with a pencil in the card's title: the pencil turns it into a field with the text selected, Enter, Tab or clicking away saves it, Escape puts it back and returns focus to the pencil, an empty group or entry name is refused, and neither opens or closes the card. The same pencil works on a part's name and on a library entry's name and description, and a scene change while typing does not take the field away.
 - [ ] Clicking anywhere on a part's row selects it on the map (a wall or a light is easy to pick out), Shift adds, the map pans to an off-screen part, and the pencil, eye and remove buttons still do their own job. The same for a rider's row. There is clear space between the controls in each section.
 - [ ] Sections inside an open card have a rule above each one and a small caption, and hints and empty states read on the Light theme.
 - [ ] The on/off options (Turns with its pin, Announce boarding, Riders move freely; Tokens board; Linked) are compact switches, one to a line, the switch first and its label after it, in normal case. Clicking the switch or the label flips only that option, and the off and on states are readable on the Light theme.
-- [ ] Moves by is a segmented control: Gliding or Jumping, the chosen one filled orange, arrow keys move it, and choosing one saves it and enables or disables the milliseconds field.
+- [ ] Moves by is a segmented control: Gliding, Travelling or Jumping, the chosen one filled orange, arrow keys move it, and choosing one saves it and enables or disables the milliseconds field.
 - [ ] The tab bar is underline tabs with a count pill that lines up with its label, the open tab has an orange underline, and the inactive tabs are readable. The four select-by-type buttons under Parts are one joined row.
 - [ ] The editor looks right in the Light, Dark and Glass themes: the tabs, the list rows and the badges are Blacksmith's own, there is 8px of padding round the body, and nothing is a stray dark panel on the Light theme.
 - [ ] A closed card shows name, parts, heading, Go To Pin, Hide and delete on one line at the default window width, and again at a narrow one. Opening and closing a card works, and an open card stays open while you drag a pin.
@@ -24,6 +25,10 @@ Everything below has shipped and has not been proven in a running world. The aut
 - [ ] A light and a sound have a power button, lit orange while on, that turns them off and on (the same as double-clicking them); a tile, a drawing and a region have an eye. Hide hides a tile and a region and turns a light and a sound off, leaves a wall and a note, and Show restores them. A part hidden before the group was hidden stays hidden. The eye on a part works.
 - [ ] A hidden group still follows its pin, and a player cannot see its hidden parts.
 - [ ] Rename and describe a library entry, then Update from group, and check copies already placed are unchanged. Fabricate works.
+
+## Duplicate
+
+- [ ] The copy button on a card makes a second group two squares to the right with its own pin and parts, and the new card opens. The two move independently. A group with a body gets a second body; riders stay on the original.
 
 ## Move Pivot
 
@@ -34,6 +39,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 ## Behaviour
 
 - [ ] Moves by Gliding: the group glides on a pin drop and follows the pointer during a drag. With 1000 ms it takes visibly longer.
+- [ ] Moves by Travelling at 6 squares a second: a six-square move takes about a second, a twelve-square move about two, a nudge is not instant, a half turn takes about a second, the members and riders move at a steady pace (not slowing at the end), and a drag still follows the pointer. The pace field appears for Travelling and the milliseconds field for Gliding.
 - [ ] Moves by Jumping: no movement between the two places and nothing follows a drag.
 - [ ] Riders glide along with the group, and a turn swings them on an arc.
 - [ ] Turns when its pin turns, switched off: turning the pin turns nothing, the heading field and rotate buttons are disabled, moving the pin still carries the group. Switch it back on and nothing swings.
@@ -56,6 +62,8 @@ Everything below has shipped and has not been proven in a running world. The aut
 - [ ] A teleport move of the body does not count against combat movement.
 
 ## Library
+
+- [ ] Save a group to the library and the entry shows a picture of it: the tiles' images where they sit, walls as dark lines, lights and sounds as dots, centred in a square with nothing of the map under it. Update from group redraws it. A tile that is a video or a missing image shows as a plain box.
 
 - [ ] Save, Stamp, Import and Export. A stamp of a group that has a body, once turned, has its own body for that stamp.
 - [ ] A stamp in a world without that actor has no body and a toast says so.

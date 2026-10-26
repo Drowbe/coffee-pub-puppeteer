@@ -23,5 +23,5 @@ The body is unlinked by default, so two copies of a group have separate hit poin
 - You cannot drag the body. Move the group by its pin.
 - Lights, sounds and notes do not count towards the body's size.
 - At a diagonal heading the body is a little larger than the group, because a token's outline does not turn.
-- Use the cross on the row to remove the body. The group, its pin and its parts stay. Deleting the group deletes its body.
+- Use **Remove Body** to remove the body. The group, its pin and its parts stay. Deleting the group deletes its body.
 - Dropping an actor onto the map over a group does not make a body. It boards the actor as a rider if the group allows it (see [Carrying tokens as riders](userguide-riders.md)).

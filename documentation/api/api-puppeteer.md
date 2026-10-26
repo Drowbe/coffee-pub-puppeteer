@@ -20,6 +20,7 @@ await puppeteer.rotateBy(group.id, 90);
 | `scene()` | The scene in view. |
 | `listGroups(scene)` | The scene's group records. |
 | `createGroup({ scene, point, name })` | Makes a group on a new pin at `point` (default: the centre of the view). Returns the record. |
+| `duplicate(groupId, { name }, scene)` | Copies a group on its scene: new parts and pin two squares to the right, the same heading and behaviour, and its own body if it has one. Riders are not copied. Returns the new record. |
 | `deleteGroup(groupId, scene)` | Deletes the group record. Parts stay on the map. |
 | `renameMember(groupId, type, id, label, scene)` | Names a member. The name survives hand edits and travels in templates. |
 | `diagnose(groupId, scene)` | Reports where the pin, record and members are against where they should be. |
@@ -88,7 +89,7 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 
 | Call | Does |
 |---|---|
-| `setBehaviour(groupId, options, scene)` | Sets any of: `ease` (`{ mode: 'ease' \| 'jump', ms }`; `ms` is kept between 100 and 3000), `rotates` (whether the group turns when its pin turns), `ridersFree` (whether riders may be moved about inside it), `announce` (chat card and sound when a token boards or leaves). Anything left out is unchanged. Turning `rotates` off freezes the heading the group has now; turning it on records every part against the pin's own heading, so nothing swings. Returns the group record. |
+| `setBehaviour(groupId, options, scene)` | Sets any of: `ease` (`{ mode: 'ease' \| 'travel' \| 'jump', ms, speed }`; `ms` is kept between 100 and 3000 and `speed`, in squares a second, between 0.5 and 60), `rotates` (whether the group turns when its pin turns), `ridersFree` (whether riders may be moved about inside it), `announce` (chat card and sound when a token boards or leaves). Anything left out is unchanged. Turning `rotates` off freezes the heading the group has now; turning it on records every part against the pin's own heading, so nothing swings. Returns the group record. |
 
 `setHeading` and `rotateBy` refuse, with a message, on a group whose `rotates` is off.
 

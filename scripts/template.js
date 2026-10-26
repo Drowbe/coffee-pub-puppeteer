@@ -55,6 +55,7 @@ export function validateTemplate(template) {
     if (template.version !== TEMPLATE_VERSION) fail(`version ${template.version}, expected ${TEMPLATE_VERSION}`);
     if (!Array.isArray(template.members)) fail('no members list');
     if (template.body !== undefined && typeof template.body?.actorId !== 'string') fail('its body names no actor');
+    if (template.thumbnail !== undefined && !(typeof template.thumbnail === 'string' && template.thumbnail.startsWith('data:image/'))) fail('its thumbnail is not an image');
     template.members.forEach((member, i) => {
         if (!MEMBER_TYPES.includes(member?.type)) fail(`member ${i} has an unsupported type`);
         if (!member.data || typeof member.data !== 'object') fail(`member ${i} has no data`);

@@ -6,7 +6,7 @@ Everything here is GM only. A group is a pin on the map plus the tiles, drawings
 
 ## Add and remove parts
 
-1. Open the Group Editor with **Puppeteer Groups** in the toolbar. Each group on the **Scene Groups** tab is a card. A closed card is one line: its name, how many parts it has and which way it faces, with **Go To Pin**, **Hide** and delete beside them. Choose the arrow at its left to open it. Open cards stay open until you close them.
+1. Open the Group Editor with **Puppeteer Groups** in the toolbar. Each group on the **Scene Groups** tab is a card. A closed card is one line: its name, how many parts it has and which way it faces, with **Go To Pin**, **Hide**, duplicate and delete beside them. Choose the arrow at its left to open it. Open cards stay open until you close them.
 2. Select objects on the map and choose **Add Selected**. Foundry shows one layer at a time, so add one layer's objects, then switch layers and add the next. Regions are added this way too.
 3. Or choose **Capture Area** and drag a box. Everything inside it, on every layer, joins the group.
 4. To take parts out, select them and choose **Remove Selected**, or use the cross beside a part under **Parts**.
@@ -40,6 +40,10 @@ Both are under **Pivot and heading** on an open card.
 ## Edit parts by hand
 
 Move, turn or resize any part directly on the map. The group remembers the new position and nothing snaps back on the next move.
+
+## Duplicate a group
+
+Choose the copy button on a group's card. A new group appears two squares to the right of the original, named with "copy" after it, with its own parts and its own pin, facing the same way. It keeps the original's behaviour settings and, if the original can be attacked, gets its own body for the same actor. Riders are not copied. If the original is hidden, the copy is shown, except for anything that was already hidden before the group was. Nothing is added to the library; for a copy you want to place again and again, use **Save to Library**.
 
 ## Delete a group
 

@@ -28,18 +28,47 @@ const TWEENED = ['Tile', 'Drawing', 'Note'];
 // refresh closes that gap.
 const HOLD_MS = 250;
 
-// A pin glide is quick: it is there to take the edge off a jump, not to be watched. A group can choose its own
-// duration, or none (`ease: { mode: 'jump' }`), which also stops the members following a drag.
+// How a group moves on screen between where it was and where its pin is now. Three ways:
+//   ease    a short glide of a set time, to take the edge off a jump (350 ms unless the group says otherwise)
+//   travel  at a steady speed, as a token moves: the time follows the distance, and a long move is a long glide
+//   jump    no movement between the two places; it also stops the members following a drag
 export const DEFAULT_EASE_MS = 350;
 export const EASE_LIMITS = Object.freeze({ min: 100, max: 3000 });
+// A token's own animation moves 6 squares a second by default, so a group travels at the same pace.
+export const DEFAULT_TRAVEL_SPEED = 6;
+export const TRAVEL_SPEED_LIMITS = Object.freeze({ min: 0.5, max: 60 });
+// A travel is never shorter than this, so a nudge still reads as movement, nor longer than this, so a move across the
+// map does not hold the screen for half a minute.
+const TRAVEL_MS_LIMITS = Object.freeze({ min: 150, max: 20000 });
+// A turn is as quick as a token's: a half turn takes about a second.
+const TURN_DEGREES_PER_SECOND = 180;
 
-/** How a group eases: `{ mode: 'ease' | 'jump', ms }`. */
+const MODES = ['ease', 'travel', 'jump'];
+
+/** How a group moves: `{ mode: 'ease' | 'travel' | 'jump', ms, speed }`. */
 export function easeOf(group) {
     const ms = Number(group?.ease?.ms);
+    const speed = Number(group?.ease?.speed);
     return {
-        mode: group?.ease?.mode === 'jump' ? 'jump' : 'ease',
-        ms: Number.isFinite(ms) ? Math.min(EASE_LIMITS.max, Math.max(EASE_LIMITS.min, ms)) : DEFAULT_EASE_MS
+        mode: MODES.includes(group?.ease?.mode) ? group.ease.mode : 'ease',
+        ms: Number.isFinite(ms) ? Math.min(EASE_LIMITS.max, Math.max(EASE_LIMITS.min, ms)) : DEFAULT_EASE_MS,
+        speed: Number.isFinite(speed) ? Math.min(TRAVEL_SPEED_LIMITS.max, Math.max(TRAVEL_SPEED_LIMITS.min, speed)) : DEFAULT_TRAVEL_SPEED
     };
+}
+
+/**
+ * How long a travel takes, in milliseconds: the distance at `speed` squares a second, or the turn at a token's pace,
+ * whichever is longer, kept within sensible limits.
+ * @param {{x: number, y: number, heading: number}} from
+ * @param {{x: number, y: number, heading: number}} to
+ * @param {number} speed  Squares a second.
+ * @param {number} grid   The size of a square, in scene pixels.
+ */
+export function travelMs(from, to, speed, grid) {
+    const squares = Math.hypot(to.x - from.x, to.y - from.y) / grid;
+    const turn = Math.abs((((to.heading - from.heading) % 360) + 540) % 360 - 180);
+    const seconds = Math.max(squares / speed, turn / TURN_DEGREES_PER_SECOND);
+    return Math.min(TRAVEL_MS_LIMITS.max, Math.max(TRAVEL_MS_LIMITS.min, seconds * 1000));
 }
 
 // A drop is saved and followed a moment after the last drag move; a glide that began within this long of a live
@@ -190,9 +219,17 @@ function beginGlide(doc, options) {
     if (running && performance.now() - running.start < 50) return;
 
     const group = getGroup(scene, glide.groupId);
-    if (!group || easeOf(group).mode === 'jump') return;
+    if (!group) return;
+    const ease = easeOf(group);
+    if (ease.mode === 'jump') return;
     // From where it is drawn if it is already moving, so a second move does not snap back first.
-    glides.set(key, { scene, groupId: group.id, from: running?.shown ?? glide.from, shown: null, start: performance.now(), ms: easeOf(group).ms });
+    const from = running?.shown ?? glide.from;
+    let ms = ease.ms;
+    if (ease.mode === 'travel') {
+        const to = anchorState(scene, group);
+        if (to) ms = travelMs(from, to, ease.speed, scene.grid.sizeX ?? scene.grid.size);
+    }
+    glides.set(key, { scene, groupId: group.id, from, shown: null, start: performance.now(), ms, linear: ease.mode === 'travel' });
     if (!ticking) startTicking();
 }
 
@@ -221,7 +258,8 @@ function tick() {
             continue;
         }
         const t = Math.min(1, (now - glide.start) / glide.ms);
-        glide.shown = lerpAnchor(glide.from, to, easeOut(t));
+        // A token moves at a steady pace, so a travel is linear; a glide eases out.
+        glide.shown = lerpAnchor(glide.from, to, glide.linear ? t : easeOut(t));
         showGroup(glide.scene, group, glide.shown);
         if (t >= 1) glides.delete(key);
     }

@@ -5,7 +5,7 @@
  * it is a --blacksmith-tool-* variable, so it follows Light, Dark and Glass with no theme rules of its own.
  *
  * The cards (blacksmith-tool-card), sections (blacksmith-tool-section), hints and empty states are Blacksmith's too. What
- * is written here is layout of Puppeteer's own rows, and the drop target, which Blacksmith does not offer yet.
+ * is written here is layout of Puppeteer's own rows.
  */
 
 /* ---- the body ---------------------------------------------------------------------------------------- */
@@ -47,17 +47,6 @@
 
 .puppeteer-group-editor .puppeteer-heading input {
     width: 4.5em;
-}
-
-.puppeteer-group-editor .puppeteer-drop {
-    padding: 6px 8px;
-    border: 1px dashed var(--blacksmith-tool-divider);
-    border-radius: 4px;
-}
-
-.puppeteer-group-editor .puppeteer-drop.is-over {
-    border-style: solid;
-    border-color: var(--blacksmith-tool-text-muted);
 }
 
 /* ---- rows ------------------------------------------------------------------------------------------ */
@@ -130,5 +119,13 @@
     flex: 0 0 auto;
     width: 1.4em;
     text-align: center;
+    color: var(--blacksmith-tool-text-muted);
+}
+
+/* A library entry saved without a picture shows a placeholder the size of one. */
+.puppeteer-group-editor .puppeteer-thumb-none {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--blacksmith-tool-text-muted);
 }

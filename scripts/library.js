@@ -8,9 +8,11 @@ import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, normAngle } from './geometry.js';
 import { stampMembers, validateTemplate } from './template.js';
-import { createGroup, deleteGroup, exportGroup, setBody } from './groups.js';
+import { createGroup, deleteGroup, exportGroup, setBody, HIDEABLE } from './groups.js';
+import { anchorState } from './anchor.js';
 import { getGroup } from './store.js';
 import { playCue } from './announce.js';
+import { makeThumbnail } from './thumbnail.js';
 import { patchGroup } from './store.js';
 
 const KEY = 'library';
@@ -31,7 +33,7 @@ function write(library) {
 /** What the library holds, by name. */
 export function listTemplates() {
     return Object.entries(read())
-        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, actor: template.body?.actorName ?? null, description: template.description ?? '', savedAt: template.savedAt ?? 0 }))
+        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, actor: template.body?.actorName ?? null, description: template.description ?? '', thumbnail: template.thumbnail ?? null, savedAt: template.savedAt ?? 0 }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -73,6 +75,8 @@ export async function updateTemplateFromGroup(scene, groupId, id) {
     const old = library[id];
     if (!old) throw new Error(`Puppeteer: no template ${id} in the library`);
     const fresh = exportGroup(scene, groupId);
+    const thumbnail = await makeThumbnail(scene, getGroup(scene, groupId));
+    if (thumbnail) fresh.thumbnail = thumbnail;
     validateTemplate(fresh);
     const entry = { ...structuredClone(fresh), name: old.name, savedAt: Date.now() };
     if (old.description) entry.description = old.description;
@@ -86,9 +90,48 @@ export async function deleteTemplate(id) {
     return true;
 }
 
+// What a copy keeps of how its original behaves.
+const BEHAVIOUR = ['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce'];
+
+/**
+ * Make a copy of a group on the same scene: new parts, a new pin two squares to the right, a new group facing the same
+ * way. It is a fabrication from the group itself, so the copy has its own body for the same actor if the original has
+ * one, and keeps the original's behaviour choices. Riders are not copied, because they are somebody's tokens. The copy is
+ * shown even when the original is hidden, apart from anything that was already hidden before the original was.
+ * @returns {Promise<object>} The new group record.
+ */
+export async function duplicateGroup(scene, groupId, { name } = {}) {
+    const group = getGroup(scene, groupId);
+    if (!group) throw new Error(`${MODULE_ID}: no group ${groupId} on scene ${scene.name}`);
+    const state = anchorState(scene, group) ?? { ...group.applied };
+    const template = exportGroup(scene, groupId);
+
+    // A hidden group's parts are hidden only because it is. The template follows `group.members` in order, less any
+    // member whose document is gone, so the two are walked together.
+    if (group.hidden) {
+        const keep = new Set(group.hiddenBefore ?? []);
+        const present = group.members.filter((member) => scene.getEmbeddedCollection(member.type).get(member.id));
+        template.members.forEach((entry, index) => {
+            const member = present[index];
+            if (HIDEABLE.includes(entry.type) && !keep.has(`${member.type}:${member.id}`)) entry.data.hidden = false;
+        });
+    }
+
+    const grid = scene.grid.sizeX ?? scene.grid.size;
+    const copy = await stampTemplate(scene, template, { x: state.x + (2 * grid), y: state.y }, { heading: state.heading, name: name ?? `${group.name} copy` });
+    const behaviour = {};
+    for (const key of BEHAVIOUR) if (group[key] !== undefined) behaviour[key] = structuredClone(group[key]);
+    if (Object.keys(behaviour).length) await patchGroup(scene, copy.id, behaviour);
+    return getGroup(scene, copy.id);
+}
+
 /** Save a group on the scene as a template in the library. */
-export function saveGroupToLibrary(scene, groupId) {
-    return saveTemplate(exportGroup(scene, groupId));
+export async function saveGroupToLibrary(scene, groupId) {
+    const template = exportGroup(scene, groupId);
+    // A picture of the group as it is now. Without a canvas, or if drawing it fails, the entry is saved without one.
+    const thumbnail = await makeThumbnail(scene, getGroup(scene, groupId));
+    if (thumbnail) template.thumbnail = thumbnail;
+    return saveTemplate(template);
 }
 
 /** Read a template from JSON text (an exported file) into the library. */

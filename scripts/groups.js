@@ -8,7 +8,7 @@ import {
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
 import { syncGroup, runExclusive, apply, repivot } from './follower.js';
 import { anchorState, headingOf } from './anchor.js';
-import { EASE_LIMITS } from './tween.js';
+import { EASE_LIMITS, TRAVEL_SPEED_LIMITS, DEFAULT_TRAVEL_SPEED } from './tween.js';
 import { announceBoarding, playCue } from './announce.js';
 import { buildTemplate } from './template.js';
 import { bodyFootprint, bodyTraits, bodyToken, fitBody, bodyMove } from './body.js';
@@ -506,7 +506,8 @@ export function setMovePivot(scene, groupId, on) {
 
 /**
  * Choose how a group behaves.
- *  - `ease`: `{ mode: 'ease' | 'jump', ms }`. How the group moves on screen when its pin moves or turns.
+ *  - `ease`: `{ mode: 'ease' | 'travel' | 'jump', ms, speed }`. How the group moves on screen when its pin moves or turns:
+ *    a short glide of `ms`, a steady travel at `speed` squares a second, or no movement between the two places.
  *  - `rotates`: whether the group turns when its pin does. Off, it keeps the way it faces now and only follows the pin
  *    about. Turning it back on records the group again against the pin's own heading, so nothing swings.
  *  - `ridersFree`: whether a rider may be moved about inside the group. Off, a rider moved by hand is put back.
@@ -522,10 +523,16 @@ export function setBehaviour(scene, groupId, options = {}) {
 
         if (options.ease) {
             const mode = options.ease.mode ?? group.ease?.mode ?? 'ease';
-            if (!['ease', 'jump'].includes(mode)) throw new Error(`${MODULE_ID}: easing is "ease" or "jump", not "${mode}"`);
+            if (!['ease', 'travel', 'jump'].includes(mode)) throw new Error(`${MODULE_ID}: movement is "ease", "travel" or "jump", not "${mode}"`);
             const ms = Number(options.ease.ms ?? group.ease?.ms ?? 350);
             if (!Number.isFinite(ms)) throw new Error(`${MODULE_ID}: the easing time must be a number of milliseconds`);
-            patch.ease = { mode, ms: Math.min(EASE_LIMITS.max, Math.max(EASE_LIMITS.min, Math.round(ms))) };
+            const speed = Number(options.ease.speed ?? group.ease?.speed ?? DEFAULT_TRAVEL_SPEED);
+            if (!Number.isFinite(speed)) throw new Error(`${MODULE_ID}: the travel speed must be a number of squares a second`);
+            patch.ease = {
+                mode,
+                ms: Math.min(EASE_LIMITS.max, Math.max(EASE_LIMITS.min, Math.round(ms))),
+                speed: Math.min(TRAVEL_SPEED_LIMITS.max, Math.max(TRAVEL_SPEED_LIMITS.min, Math.round(speed * 10) / 10))
+            };
         }
         if ('ridersFree' in options) patch.ridersFree = !!options.ridersFree;
         if ('announce' in options) patch.announce = !!options.announce;

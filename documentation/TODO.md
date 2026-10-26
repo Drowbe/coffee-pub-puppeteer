@@ -19,23 +19,17 @@ Effort is for building and testing under Node, not for checking in Foundry. **S*
 
 | Rank | Todo | Effort | Why here |
 |---|---|---|---|
-| 1 | Library: thumbnail | M | Description, rename and Fabricate are done. A thumbnail needs a decision first: a snapshot of the group taken when it is saved, or an image the GM picks. |
-| 2 | Pin context menu actions | M | Hide and show now exists, so this is mostly wiring. A sound submenu needs the public API. |
-| 3 | Face the direction of travel | S | One option in Behaviour, with the pin's drag direction as input. Small, and makes carts and boats feel right. |
-| 4 | Public API: what else to expose | M | Needs a short design pass (what would an animated scene want?) before code. Cheap to start with a read-only speed and heading. |
-| 5 | Group events | L | Wants the public API first, plus a list of event names and a set of actions. The most open-ended item. |
-| 6 | Resize a group, proportionally | L | Every member type scales differently (tiles, drawings, walls, regions, light and sound radius, riders, the body). Easy to get subtly wrong. |
-| 7 | Damage levels | L | Wants events as a trigger and a group that can swap its images. Best as a use of events, not its own system. |
-| 8 | Smoother movement for lights, walls, sounds, regions and the body | L | Foundry works out sight from their saved positions, so only small stepped writes are possible. Low value for the cost. |
-| 9 | Decisions and waiting on others | S | Levels, snapping, a deleted pin, screenshots, and the Blacksmith items. Not ours to start, or a decision rather than work. |
+| 1 | Pin context menu actions | M | Hide and show now exists, so this is mostly wiring. A sound submenu needs the public API. |
+| 2 | Face the direction of travel | S | One option in Behaviour, with the pin's drag direction as input. Small, and makes carts and boats feel right. |
+| 3 | Public API: what else to expose | M | Needs a short design pass (what would an animated scene want?) before code. Cheap to start with a read-only speed and heading. |
+| 4 | Group events | L | Wants the public API first, plus a list of event names and a set of actions. The most open-ended item. |
+| 5 | Resize a group, proportionally | L | Every member type scales differently (tiles, drawings, walls, regions, light and sound radius, riders, the body). Easy to get subtly wrong. |
+| 6 | Damage levels | L | Wants events as a trigger and a group that can swap its images. Best as a use of events, not its own system. |
+| 7 | Decisions and waiting on others | S | Levels, snapping, a deleted pin, screenshots, and the Blacksmith items. Not ours to start, or a decision rather than work. |
 
 ---
 
 Each entry says what and why, the files it touches, and how it will be verified.
-
-**Library: thumbnail**
-
-Give each entry a thumbnail. It could be a snapshot of the group taken when it is saved, or an image the GM picks. Touches `scripts/library.js`, `scripts/group-editor.js` and `documentation/userguides/userguide-library.md`. Verify with a test that entries without a thumbnail still list and fabricate, then in Foundry.
 
 **Pin context menu actions**
 
@@ -61,15 +55,11 @@ Scale every member about the pin, and the body and riders with it. Touches `scri
 
 A group with states, such as a cart whose image becomes a broken cart at a damage threshold. Wants group events first. Verify in Foundry by damaging a body and watching the image change.
 
-**Smoother movement for lights, walls, sounds, regions and the body**
-
-They still jump. Possibly paths and speed as well. Touches `scripts/tween.js`. Verify in Foundry that sight and sound stay correct while a group moves.
-
 **Owed to the hub**
 
 Requests for Blacksmith, to hand to the hub's own TODO. Each empties once the hub has taken it.
 
-- Blacksmith's shared tool-window controls, accepted by the author and namespaced `blacksmith-tool-*`. Built in Blacksmith's working tree, not released and not yet seen in a window: `blacksmith-tool-btn` (default, `is-active`, `is-danger`, `:disabled`, `is-icon`) and `blacksmith-tool-segmented` with `blacksmith-tool-segment` (a radio, an optional icon and a label; listen for `change`). Adopted by the Group Editor: the button, the segmented control, `blacksmith-tool-section`, `blacksmith-tool-card`, `blacksmith-tool-hint` and `blacksmith-tool-empty`. Also adopted: `blacksmith-tool-editable` (a name that is text until its pencil is used) and `blacksmith-tool-stack`. Built but not used, because Puppeteer has nothing for it: `blacksmith-tool-chip`. Also adopted: `blacksmith-tool-tabs` with `blacksmith-tool-tab-count`, `blacksmith-tool-btn-group` for the four select-by-type buttons, and `blacksmith-toggle` (now compact inside a tool window) for on/off options. Blacksmith also documented a multi-select form of the segmented control; Puppeteer tried it and went back to switches at the author's request, so it is one style per window. Still to come: `blacksmith-tool-dropzone`, `blacksmith-tool-tabs` (underline), and re-theming `blacksmith-tag`, `blacksmith-panel-card`, `blacksmith-window-section` and `blacksmith-icon-action`. Inside a tool window `blacksmith-window-btn-*` now take the theme and are compact. Puppeteer adopts each once the author confirms it or it is released, then deletes its own matching rules (the drop target in `styles/group-editor.css`). Blacksmith asked that nothing be deleted before then, because it is unverified on a canvas.
+- Blacksmith's shared tool-window controls are complete in its working tree (not committed or released, not yet seen in a window by the author), all `blacksmith-tool-*`. The Group Editor has adopted all of them it has a use for: button and button group, segmented control, toggle, section, card with the title field and notice slot, editable label, underline tabs with count, and the drop zone. Chips have no use here. Once the author has looked at the editor on Light, Dark and Glass, each finding goes to the Blacksmith session as control, theme and what was seen. Blacksmith also re-themed `blacksmith-tag`, `blacksmith-panel-card`, `blacksmith-window-section` and `blacksmith-icon-action` inside tool windows; Puppeteer uses none of them.
 - Regions in `canvas.pickArea`'s types, so Capture Area can pick them (already requested).
 
 **Decisions and waiting on others**

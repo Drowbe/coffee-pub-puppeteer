@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installFakes } from './support/fake-foundry.mjs';
-import { resetTween, easeOf } from '../scripts/tween.js';
+import { resetTween, easeOf, travelMs } from '../scripts/tween.js';
 
 const near = (a, b, eps = 1) => assert.ok(Math.abs(a - b) <= eps, `${a} is not within ${eps} of ${b}`);
 const FLAG = 'coffee-pub-puppeteer';
@@ -50,19 +50,20 @@ const record = (g) => g.scene.getFlag(FLAG, 'groups')[g.group.id];
 // ---- easing ---------------------------------------------------------------------------------------------------
 
 test('a group eases by default, and an easing time is kept within sensible limits', async () => {
-    assert.deepEqual(easeOf({}), { mode: 'ease', ms: 350 });
-    assert.deepEqual(easeOf({ ease: { mode: 'jump', ms: 9 } }), { mode: 'jump', ms: 100 });
-    assert.deepEqual(easeOf({ ease: { mode: 'ease', ms: 99999 } }), { mode: 'ease', ms: 3000 });
-    assert.deepEqual(easeOf({ ease: { mode: 'nonsense' } }), { mode: 'ease', ms: 350 });
+    assert.deepEqual(easeOf({}), { mode: 'ease', ms: 350, speed: 6 });
+    assert.deepEqual(easeOf({ ease: { mode: 'jump', ms: 9 } }), { mode: 'jump', ms: 100, speed: 6 });
+    assert.deepEqual(easeOf({ ease: { mode: 'ease', ms: 99999 } }), { mode: 'ease', ms: 3000, speed: 6 });
+    assert.deepEqual(easeOf({ ease: { mode: 'nonsense' } }), { mode: 'ease', ms: 350, speed: 6 });
+    assert.deepEqual(easeOf({ ease: { mode: 'travel', speed: 1000 } }), { mode: 'travel', ms: 350, speed: 60 });
 });
 
 test('setting the easing is saved, validated and clamped', async (t) => {
     const g = await deck(t);
     await g.groups.setBehaviour(g.scene, g.group.id, { ease: { mode: 'ease', ms: 800 } });
-    assert.deepEqual(record(g).ease, { mode: 'ease', ms: 800 });
+    assert.deepEqual(record(g).ease, { mode: 'ease', ms: 800, speed: 6 });
     await g.groups.setBehaviour(g.scene, g.group.id, { ease: { ms: 50 } });
-    assert.deepEqual(record(g).ease, { mode: 'ease', ms: 100 });
-    await assert.rejects(() => g.groups.setBehaviour(g.scene, g.group.id, { ease: { mode: 'bounce' } }), /"ease" or "jump"/);
+    assert.deepEqual(record(g).ease, { mode: 'ease', ms: 100, speed: 6 });
+    await assert.rejects(() => g.groups.setBehaviour(g.scene, g.group.id, { ease: { mode: 'bounce' } }), /"ease", "travel" or "jump"/);
     await assert.rejects(() => g.groups.setBehaviour(g.scene, g.group.id, { ease: { ms: 'soon' } }), /number of milliseconds/);
 });
 
@@ -192,4 +193,48 @@ test('when riders may move about, as by default, it stays where it was put', asy
     await g.sailor.update({ x: 3100, y: 2050 });
     await g.settle();
     assert.equal(g.sailor._source.x, 3100);
+});
+
+// ---- travelling ------------------------------------------------------------------------------------------------
+
+test('a travel takes as long as the distance needs at the speed set, and a turn at the pace of a token', () => {
+    const at = (x, heading = 0) => ({ x, y: 0, heading });
+    assert.equal(travelMs(at(0), at(600), 6, 100), 1000);        // six squares at six a second
+    assert.equal(travelMs(at(0), at(1200), 6, 100), 2000);       // twice as far, twice as long
+    assert.equal(travelMs(at(0), at(1200), 12, 100), 1000);      // twice as fast, half as long
+    assert.equal(travelMs(at(0), at(0, 180), 6, 100), 1000);     // a half turn takes about a second
+    assert.equal(travelMs(at(0, 350), at(0, 10), 6, 100), 150);  // the short way round, and never under 150 ms
+    assert.equal(travelMs(at(0), at(1e6), 6, 100), 20000);       // and never over 20 seconds
+});
+
+test('setting travel and a speed is saved, validated and clamped', async (t) => {
+    const g = await deck(t);
+    await g.groups.setBehaviour(g.scene, g.group.id, { ease: { mode: 'travel', speed: 4 } });
+    assert.deepEqual(record(g).ease, { mode: 'travel', ms: 350, speed: 4 });
+    await g.groups.setBehaviour(g.scene, g.group.id, { ease: { speed: 9999 } });
+    assert.equal(record(g).ease.speed, 60);
+    await assert.rejects(() => g.groups.setBehaviour(g.scene, g.group.id, { ease: { speed: 'fast' } }), /squares a second/);
+});
+
+test('travelling moves at a steady pace, and a longer move takes longer', async (t) => {
+    const g = await deck(t);
+    await g.groups.setBehaviour(g.scene, g.group.id, { ease: { mode: 'travel', speed: 4 } });
+    await g.pins.update(g.group.anchor.id, { x: 3400, y: 2000 });     // four squares, so a second
+    await g.settle();
+    g.ticker.run();
+    g.advance(500);
+    g.ticker.run();
+    // Half the time is half the way, which a glide would be well past.
+    near(g.tile.object.mesh.position.x, 3400 + 200, 1);
+    g.advance(600);
+    g.ticker.run();
+    near(g.tile.object.mesh.position.x, g.tile._source.x, 1e-6);
+    assert.equal(g.ticker.fns.size, 0);
+});
+
+test('a group that travels follows the pointer during a drag, as one that glides does', async (t) => {
+    const g = await deck(t);
+    await g.groups.setBehaviour(g.scene, g.group.id, { ease: { mode: 'travel' } });
+    g.emitPin('dragMove', { pinId: g.group.anchor.id, pin: { x: 3300, y: 2100, rotation: 0, config: { puppeteer: { groupId: g.group.id } } } });
+    near(g.tile.object.mesh.position.x, 3700, 1e-6);
 });

@@ -12,7 +12,7 @@ import { migrateGroups } from './migrate.js';
 import { registerTween } from './tween.js';
 import { registerBoarding } from './boarding.js';
 import { syncAllGroups } from './follower.js';
-import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup } from './library.js';
+import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
 
 Hooks.once('ready', async () => {
     const blacksmith = await bootstrap();
@@ -90,6 +90,8 @@ Hooks.once('ready', async () => {
         setBehaviour: (groupId, options, scene = canvas.scene) => setBehaviour(scene, groupId, options),
         /** While on, dragging or turning the group's pin moves only the grip; nothing else moves. Off, the pin takes the group. */
         setMovePivot: (groupId, on, scene = canvas.scene) => setMovePivot(scene, groupId, on),
+        /** Copy a group on its scene: new parts and pin two squares to the right, the same heading, behaviour and, if it has one, body. */
+        duplicate: (groupId, options = {}, scene = canvas.scene) => duplicateGroup(scene, groupId, { name: options.name }),
         /** Hide or show a whole group: tiles, drawings, lights, sounds, regions and body. Walls and notes cannot be hidden. */
         setHidden: (groupId, hidden, scene = canvas.scene) => setGroupHidden(scene, groupId, hidden),
         setMemberHidden: (groupId, type, id, hidden, scene = canvas.scene) => setMemberHidden(scene, groupId, type, id, hidden),
