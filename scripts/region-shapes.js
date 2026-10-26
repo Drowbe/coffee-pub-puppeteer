@@ -89,6 +89,49 @@ function applyShape(record, shape, anchor) {
     return APPLY[record.type](record, anchor, shape);
 }
 
+// ---- resizing -----------------------------------------------------------------------------------------------------------
+
+const scaleOffset = (o, f) => ({ ...o, dx: o.dx * f, dy: o.dy * f });
+
+function scaleRecord(record, f) {
+    if (!record) return record;
+    if (record.type === 'polygon') {
+        const scaled = { ...record, pts: record.pts.map((v) => v * f) };
+        if (record.origin) scaled.origin = scaleOffset(record.origin, f);
+        return scaled;
+    }
+    if (record.type === 'emanation') return { ...record, base: scaleRecord(record.base, f) };
+    return scaleOffset(record, f);
+}
+
+// The lengths each shape is made of. Where a shape sits comes from its record, so only these change.
+const LENGTHS = {
+    rectangle: ['width', 'height'],
+    ellipse: ['radiusX', 'radiusY'],
+    circle: ['radius'],
+    ring: ['radius', 'innerWidth', 'outerWidth'],
+    cone: ['radius'],
+    line: ['length', 'width'],
+    emanation: ['radius']
+};
+
+function scaleShape(shape, f) {
+    const scaled = { ...shape };
+    for (const key of LENGTHS[shape.type] ?? []) if (typeof shape[key] === 'number') scaled[key] = shape[key] * f;
+    if (shape.type === 'emanation' && shape.base) scaled.base = scaleShape(shape.base, f);
+    return scaled;
+}
+
+/** A region's record, with every offset multiplied by `factor`. */
+export function scaleShapesRecord(member, factor) {
+    return { ...member, shapes: (member.shapes ?? []).map((record) => scaleRecord(record, factor)) };
+}
+
+/** A region's source data, with the lengths of every shape multiplied by `factor`. Positions come from the record. */
+export function scaleShapesData(data, factor) {
+    return { ...data, shapes: (data.shapes ?? []).map((shape) => scaleShape(shape, factor)) };
+}
+
 /** Record every shape of a region. Throws UnsupportedMemberError for a shape that cannot be carried. */
 export function captureShapes(data, anchor) {
     return { shapes: (data.shapes ?? []).map((shape) => captureShape(shape, anchor)) };

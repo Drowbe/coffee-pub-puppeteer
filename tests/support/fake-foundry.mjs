@@ -176,6 +176,9 @@ export function installFakes({ dropOptions = false } = {}) {
             getSettingSafely: (module, key, fallback) => (settings.has(`${module}.${key}`) ? structuredClone(settings.get(`${module}.${key}`)) : fallback),
             setSettingSafely: async (module, key, value) => { settings.set(`${module}.${key}`, structuredClone(value)); }
         },
+        // Blacksmith's health reading: a fake actor says its own hit points as { hp: { value, max } }.
+        getHealthPercent: (actor) => (actor?.hp?.max ? Math.max(0, Math.min(100, Math.round((actor.hp.value / actor.hp.max) * 100))) : null),
+        getHealthSeverity: (percent) => (percent === null ? null : percent <= 0 ? 'dead' : percent <= 25 ? 'critical' : percent <= 50 ? 'bloodied' : percent <= 75 ? 'injured' : percent < 100 ? 'hurt' : 'healthy'),
         toast: { show() {}, registerChannel() {} },
         chatCards: { post: async (card) => { cards.push(card); return card; } },
         toolEditable: { isEditing: () => false },

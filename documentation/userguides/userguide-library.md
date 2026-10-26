@@ -15,7 +15,7 @@ On the **Scene Groups** tab, choose **Save to Library** on the group. A copy of 
 
 Each copy is independent. Two copies are two groups: move, turn or delete one and the other is untouched.
 
-If the saved group could be attacked (see [Making a group something that can be attacked](userguide-targets.md)), each copy comes with its own body for the same actor, with its own hit points, and the entry shows which actor it represents. If that actor is not in your world, the copy has no body and you are told.
+If the saved group could be attacked (see [Making a group something that can be attacked](userguide-targets.md)), each copy comes with its own token for the same actor, with its own hit points, and the entry shows which actor it represents. If that actor is not in your world, the copy has no token and you are told.
 
 ## Name and describe an entry
 

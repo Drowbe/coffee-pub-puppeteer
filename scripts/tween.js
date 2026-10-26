@@ -266,6 +266,21 @@ function tick() {
     if (!glides.size) stopTicking();
 }
 
+/**
+ * Whether a group is on the move on this client, and how fast. A group moves while it is easing or travelling from one
+ * place to another; its speed is the distance it covers over the time the move takes, in squares a second. A group that
+ * jumps, or is not between two places, is not moving.
+ * @returns {{moving: boolean, speed: number, progress: number}}
+ */
+export function motionOf(scene, group) {
+    const glide = glides.get(`${scene.id}:${group.id}`);
+    const to = glide ? anchorState(scene, group) : null;
+    if (!glide || !to) return { moving: false, speed: 0, progress: 1 };
+    const squares = Math.hypot(to.x - glide.from.x, to.y - glide.from.y) / (scene.grid.sizeX ?? scene.grid.size);
+    const progress = Math.min(1, (performance.now() - glide.start) / glide.ms);
+    return { moving: progress < 1, speed: progress < 1 ? squares / (glide.ms / 1000) : 0, progress };
+}
+
 /** Forget everything in flight. For tests, which share one module between many scenes. */
 export function resetTween() {
     poses.clear();

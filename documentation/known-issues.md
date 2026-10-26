@@ -12,4 +12,6 @@ Limits we know about and have not removed, with a way round where there is one.
 - **Capture Area does not pick Regions yet.** Use Add Selected for them.
 - **Compendium actors cannot be dropped on a body row.** Import them into the world first.
 - **Walls and notes cannot be hidden.** Foundry gives them no hidden state, so hiding a group leaves them visible. Riders are never hidden.
+- **Levels are ignored.** A group moves on the level it was made on and carries its parts' levels as they were. It does not follow its pin to another level.
+- **A pin is never snapped for the group.** Members keep their exact offsets from the pin, so a pin dropped on a grid snap does not pull the parts onto the grid.
 - **No GM, nothing moves.** Only the active GM writes, so a pin moved while no GM is connected moves its group when a GM next connects.

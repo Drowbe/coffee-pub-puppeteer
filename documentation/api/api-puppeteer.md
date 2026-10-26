@@ -19,7 +19,13 @@ await puppeteer.rotateBy(group.id, 90);
 |---|---|
 | `scene()` | The scene in view. |
 | `listGroups(scene)` | The scene's group records. |
+| `scale(groupId, factor, scene)` | Resizes a group about its pin by `factor`, from 0.1 to 10: parts sit that many times as far from the pin and are that many times as big (tiles, drawings, light and sound reach, region shapes), walls and notes move, riders stand that many times as far from the pin at their own size, and the token is refitted. A factor of 1 does nothing. Returns `{ scaled }`, the number of parts. |
+| `getState(groupId, scene)` | What the group is doing now, on this client: `x`, `y` and `heading` of its pin (where it is going while it moves), `moving`, `speed` in squares a second (0 when still), `progress` through the current move (0 to 1), `hidden`, and the counts `members`, `riders` and `hasToken`. Read-only, and null for a group that does not exist. There is no event for a change; read it each frame or on an interval. A group that jumps is never moving. |
 | `createGroup({ scene, point, name })` | Makes a group on a new pin at `point` (default: the centre of the view). Returns the record. |
+| `addEvent(groupId, { on, do, value }, scene)` | Gives a group a rule. `on` is `'board'`, `'leave'`, `'move'`, `'hide'`, `'show'` or `'health'` (which also takes `at`: `'healthy'`, `'injured'`, `'bloodied'`, `'critical'` or `'dead'`); `do` is `'sound'` (value is a sound path, played for everyone), `'macro'` (value is a macro's id or UUID, run on the GM's screen with `scope.group`, `scope.scene` and `scope.event`) or `'image'` (value is a picture path; `target` is the id of one of the group's tiles, whose picture it becomes). At most 20 a group. Returns the stored rule, with its `id`. |
+| `removeEvent(groupId, eventId, scene)` | Removes a rule. Returns whether it was there. |
+| `setEmittersOn(groupId, type, on, scene)` | Switches a group's lights (`'AmbientLight'`) or sounds (`'AmbientSound'`) on or off together. With `on` left out, they flip: if any is on they all go off, otherwise they all come on. Returns `{ on, count }`. |
+| `replacePin(groupId, scene)` | Gives a group whose pin was deleted a new pin where the group last was, facing the way it faced. Nothing moves. Refused if the group still has its pin. Returns the updated record. |
 | `duplicate(groupId, { name }, scene)` | Copies a group on its scene: new parts and pin two squares to the right, the same heading and behaviour, and its own body if it has one. Riders are not copied. Returns the new record. |
 | `deleteGroup(groupId, scene)` | Deletes the group record. Parts stay on the map. |
 | `renameMember(groupId, type, id, label, scene)` | Names a member. The name survives hand edits and travels in templates. |
@@ -89,7 +95,7 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 
 | Call | Does |
 |---|---|
-| `setBehaviour(groupId, options, scene)` | Sets any of: `ease` (`{ mode: 'ease' \| 'travel' \| 'jump', ms, speed }`; `ms` is kept between 100 and 3000 and `speed`, in squares a second, between 0.5 and 60), `rotates` (whether the group turns when its pin turns), `ridersFree` (whether riders may be moved about inside it), `announce` (chat card and sound when a token boards or leaves). Anything left out is unchanged. Turning `rotates` off freezes the heading the group has now; turning it on records every part against the pin's own heading, so nothing swings. Returns the group record. |
+| `setBehaviour(groupId, options, scene)` | Sets any of: `ease` (`{ mode: 'ease' \| 'travel' \| 'jump', ms, speed }`; `ms` is kept between 100 and 3000 and `speed`, in squares a second, between 0.5 and 60), `rotates` (whether the group turns when its pin turns), `facesTravel` (whether it turns to face the way its pin was moved; its front is the bottom of its picture), `ridersFree` (whether riders may be moved about inside it), `announce` (chat card and sound when a token boards or leaves). Anything left out is unchanged. Turning `rotates` off freezes the heading the group has now; turning it on records every part against the pin's own heading, so nothing swings. Returns the group record. |
 
 `setHeading` and `rotateBy` refuse, with a message, on a group whose `rotates` is off.
 

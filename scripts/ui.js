@@ -4,7 +4,9 @@ import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { toggleBounds, boundsShown, BOUNDS_BAR_ITEM } from './overlay.js';
 import { syncAllGroups } from './follower.js';
-import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup } from './groups.js';
+import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup, setGroupHidden, setEmittersOn } from './groups.js';
+import { getGroup } from './store.js';
+import { duplicateGroup } from './library.js';
 
 export const EDITOR_WINDOW = `${MODULE_ID}-group-editor`;
 export const MENUBAR_TOOL = `${MODULE_ID}-menubar`;
@@ -188,12 +190,13 @@ function registerToolbar(blacksmith) {
 function registerPinMenu(blacksmith) {
     const { pins, utils, toast } = blacksmith;
 
-    const item = (id, name, icon, order, action) => pins.registerContextMenuItem(`${MODULE_ID}-${id}`, {
+    const item = (id, name, icon, order, action, visible = true) => pins.registerContextMenuItem(`${MODULE_ID}-${id}`, {
         name,
         icon: `<i class="${icon}"></i>`,
         moduleId: MODULE_ID,
         gmOnly: true,
         order,
+        visible,
         onClick: async (pin) => {
             const groupId = groupIdOf(pin);
             if (!groupId) return;
@@ -247,5 +250,23 @@ function registerPinMenu(blacksmith) {
     item('toggle-bounds', 'Show or Hide Group Bounds', 'fa-solid fa-border-none', 12.7, async () => toggleBounds());
     item('rotate-cw', 'Rotate Group 90° Clockwise', 'fa-solid fa-rotate-right', 13, (groupId) => rotateBy(canvas.scene, groupId, 90));
     item('rotate-ccw', 'Rotate Group 90° Counter-clockwise', 'fa-solid fa-rotate-left', 14, (groupId) => rotateBy(canvas.scene, groupId, -90));
+    // Only offered when the group has any, so a plain platform's menu stays short.
+    const has = (type) => (pin) => !!getGroup(canvas.scene, groupIdOf(pin))?.members.some((member) => member.type === type);
+    item('toggle-hidden', 'Hide or Show Group', 'fa-solid fa-eye-slash', 12.8, async (groupId) => {
+        const hidden = await setGroupHidden(canvas.scene, groupId, !getGroup(canvas.scene, groupId).hidden);
+        toast.show({ title: hidden ? 'Group hidden' : 'Group shown', icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 3 });
+    });
+    item('toggle-lights', 'Switch Group Lights On or Off', 'fa-solid fa-lightbulb', 12.9, async (groupId) => {
+        const { on } = await setEmittersOn(canvas.scene, groupId, 'AmbientLight');
+        toast.show({ title: on ? 'Lights on' : 'Lights off', icon: 'fa-solid fa-lightbulb', channel: TOAST_CHANNEL, duration: 3 });
+    }, has('AmbientLight'));
+    item('toggle-sounds', 'Switch Group Sounds On or Off', 'fa-solid fa-volume-high', 12.95, async (groupId) => {
+        const { on } = await setEmittersOn(canvas.scene, groupId, 'AmbientSound');
+        toast.show({ title: on ? 'Sounds on' : 'Sounds off', icon: 'fa-solid fa-volume-high', channel: TOAST_CHANNEL, duration: 3 });
+    }, has('AmbientSound'));
+    item('duplicate', 'Duplicate Group', 'fa-solid fa-clone', 14.5, async (groupId) => {
+        const copy = await duplicateGroup(canvas.scene, groupId);
+        toast.show({ title: 'Group duplicated', subtitle: `${copy.name} is two squares to the right.`, icon: 'fa-solid fa-clone', channel: TOAST_CHANNEL, duration: 4 });
+    });
     item('open-editor', 'Open Group Editor', 'fa-solid fa-sliders', 15, async () => blacksmith.openWindow(EDITOR_WINDOW));
 }

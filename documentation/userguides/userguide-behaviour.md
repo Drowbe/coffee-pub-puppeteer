@@ -1,6 +1,6 @@
 # Choosing How a Group Behaves
 
-**Audience:** game masters tuning how a group moves.
+**Audience:** game masters tuning how a group moves and what happens when it does.
 
 Everything here is GM only. Each group has a **Behaviour** section in the Group Editor, on its row under **Scene Groups**.
 
@@ -16,6 +16,8 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 
 ## Stop it turning
 
+**Faces its travel** turns a group to face the way you moved it, as a vehicle does: drag its pin east and the group turns to head east, and the pin turns with it. Its front is the bottom of its picture, as a token's is, so draw or set up a cart, boat or wagon with its front pointing down the map. A very short move does not turn it, and if you turn the pin yourself in the same move, your turn is the one that counts. It needs **Turns with its pin**, and is switched off while that is off.
+
 **Turns with its pin** is on by default. Turn it off for a group that should slide about without ever turning, such as a platform on rails. The group keeps the way it faces now, the pin can be turned freely, and the **Heading** field and rotate buttons are disabled. Turning it on again records the group against the pin's own heading first, so nothing swings round.
 
 ## Keep riders in place
@@ -25,6 +27,33 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 ## Announce boarding
 
 **Announce boarding** posts a public card and plays a soft sound for everyone when a token boards or leaves. It is off by default.
+
+## Make things happen
+
+An event is a rule on a group: when this happens, do that. Open **Events** on the group's card, choose what happens, choose what to do, and choose **Add Event**.
+
+| When | Fires |
+|---|---|
+| A token boards | Once for each token that boards, by drop, by moving onto the group, or with Board Selected. |
+| A token leaves | Once for each rider that is let go, dismounted or walked off. |
+| The group moves | Once each time the pin is moved or turned and the group follows it. Not for Move Pivot. |
+| The group is hidden | When it goes from shown to hidden. |
+| The group is shown | When it goes from hidden to shown. |
+| Its token's health becomes | When the group's token (see [Making a group something that can be attacked](userguide-targets.md)) reaches a health level: Healthy, Injured, Bloodied, Critical or Dead. Fires once when the level changes, not on every hit. |
+
+| Do | What it does |
+|---|---|
+| Play a sound | Plays the sound you choose, for everyone. Use the folder button to browse. |
+| Show a picture on a tile | Changes the picture of one of the group's tiles. |
+| Run a macro | Runs a world macro on the GM's screen. The macro is given `scope.group` (its `id` and `name`), `scope.scene` and `scope.event` (its `name`, and for boarding and leaving the `token`, for moving where it `from` and `to`). |
+
+### Damage levels
+
+The health levels are Blacksmith's, so a group is Bloodied at the same line as every other Coffee Pub tool, and you set those lines once in Blacksmith's settings. A scratch that Blacksmith calls Hurt counts as Healthy. A hit that takes the token past a level, from Healthy straight to Critical, runs only the events for Critical.
+
+To make a cart that becomes a wreck: give the cart a token, then add **Its token's health becomes** Bloodied, **Show a picture on a tile**, the cart's tile and the damaged picture. Add a second event for Healthy that shows the original picture again, so healing puts it back. A group without a token has no health and never fires these.
+
+A group can have twenty events. If an event fails, for example because its macro was deleted, the GM is told and the rest still run; the group keeps moving. A duplicate of a group has its events too. Events are not saved to the library.
 
 ## Other controls that live beside it
 

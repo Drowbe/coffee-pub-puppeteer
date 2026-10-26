@@ -15,6 +15,8 @@ const REQUIRED = [
     'utils.getSettingSafely',
     'utils.setSettingSafely',
     'utils.playSound',
+    'getHealthPercent',
+    'getHealthSeverity',
     'gmRequest',
     'dialog',
     'canvas.pickArea',

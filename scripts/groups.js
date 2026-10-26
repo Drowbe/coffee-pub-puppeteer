@@ -3,16 +3,17 @@
 import { MODULE_ID, MODULE_NAME } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import {
-    MEMBER_TYPES, UnsupportedMemberError, captureMember, recaptureMember, memberExtent, memberUpdate, poseOffset, extentCentre, groupBounds, sameAnchor, normAngle
+    MEMBER_TYPES, UnsupportedMemberError, captureMember, recaptureMember, memberExtent, memberUpdate, scaleMember, poseOffset, extentCentre, groupBounds, sameAnchor, normAngle
 } from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
 import { syncGroup, runExclusive, apply, repivot } from './follower.js';
-import { anchorState, headingOf } from './anchor.js';
+import { anchorState, anchorExists, headingOf } from './anchor.js';
 import { EASE_LIMITS, TRAVEL_SPEED_LIMITS, DEFAULT_TRAVEL_SPEED } from './tween.js';
 import { announceBoarding, playCue } from './announce.js';
+import { fireEvent, normaliseEvent, MAX_EVENTS } from './events.js';
 import { buildTemplate } from './template.js';
 import { bodyFootprint, bodyTraits, bodyToken, fitBody, bodyMove } from './body.js';
-import { RIDER_FLAG, STAYED_FLAG, captureRider, insideGroup, tokenCentre } from './riders.js';
+import { RIDER_FLAG, STAYED_FLAG, captureRider, insideGroup, tokenCentre, riderUpdate, riderMove } from './riders.js';
 
 export const PIN_TYPE = 'group';
 const PIN_ICON = 'fa-solid fa-up-down-left-right';
@@ -114,6 +115,28 @@ export function detachToPin(scene, groupId) {
         const token = scene.tokens.get(tokenId);
         if (token?.getFlag(MODULE_ID, 'groupId') === groupId) await token.unsetFlag(MODULE_ID, 'groupId');
         utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" now hangs from a pin`, anchor, true, false);
+        return getGroup(scene, groupId);
+    });
+}
+
+/**
+ * Give a group a new pin when its own has been deleted. The pin goes where the group last was, facing the way it faced, so
+ * nothing in the scene moves and the members' offsets still hold.
+ * @returns {Promise<object>} The updated group record.
+ */
+export async function replacePin(scene, groupId) {
+    const { utils } = getBlacksmith();
+    if (anchorExists(scene, requireGroup(scene, groupId))) {
+        throw new Error(`${MODULE_ID}: that group still has its pin`);
+    }
+    return runExclusive(scene, groupId, async () => {
+        const group = requireGroup(scene, groupId);
+        const { x, y, heading } = group.applied;
+        const pin = await createPin(scene, groupId, group.name, Math.round(x), Math.round(y), normAngle(heading));
+        // Blacksmith keeps two decimals, so record the heading it stored.
+        const applied = { x: Math.round(x), y: Math.round(y), heading: pin.rotation ?? normAngle(heading) };
+        await patchGroup(scene, groupId, { anchor: { type: 'pin', id: pin.id }, applied, heading: applied.heading });
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" has a new pin`, applied, true, false);
         return getGroup(scene, groupId);
     });
 }
@@ -451,7 +474,10 @@ export function mountTokens(scene, groupId, tokens) {
             }
         }
         utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": ${added.length} boarded, ${skipped.length} skipped`, { skipped }, true, false);
-        for (const token of boarded) await announceBoarding(group, token, 'boarded');
+        for (const token of boarded) {
+            await announceBoarding(group, token, 'boarded');
+            await fireEvent(scene, group, 'board', { token: { id: token.id, name: token.name } });
+        }
         return { mounted: added.length, skipped };
     });
 }
@@ -464,7 +490,10 @@ export async function releaseRider(scene, groupId, tokenId) {
     await patchGroup(scene, groupId, { riders });
     const token = scene.tokens.get(tokenId);
     if (token?.getFlag(MODULE_ID, RIDER_FLAG) === groupId) await token.unsetFlag(MODULE_ID, RIDER_FLAG);
-    if (token) await announceBoarding(group, token, 'left');
+    if (token) {
+        await announceBoarding(group, token, 'left');
+        await fireEvent(scene, group, 'leave', { token: { id: token.id, name: token.name } });
+    }
     return true;
 }
 
@@ -506,6 +535,8 @@ export function setMovePivot(scene, groupId, on) {
 
 /**
  * Choose how a group behaves.
+ *  - `facesTravel`: boolean. When the pin is moved the group turns to face the way it went (its front is the bottom of its
+ *    picture, as a token's is). It does nothing for a group that does not turn with its pin.
  *  - `ease`: `{ mode: 'ease' | 'travel' | 'jump', ms, speed }`. How the group moves on screen when its pin moves or turns:
  *    a short glide of `ms`, a steady travel at `speed` squares a second, or no movement between the two places.
  *  - `rotates`: whether the group turns when its pin does. Off, it keeps the way it faces now and only follows the pin
@@ -536,6 +567,10 @@ export function setBehaviour(scene, groupId, options = {}) {
         }
         if ('ridersFree' in options) patch.ridersFree = !!options.ridersFree;
         if ('announce' in options) patch.announce = !!options.announce;
+        if ('facesTravel' in options) {
+            if (options.facesTravel) patch.facesTravel = true;
+            else patch['-=facesTravel'] = null;
+        }
 
         if ('rotates' in options && !!options.rotates !== (group.rotates !== false)) {
             if (!options.rotates) {
@@ -554,6 +589,80 @@ export function setBehaviour(scene, groupId, options = {}) {
         if (Object.keys(patch).length) await patchGroup(scene, groupId, patch);
         return getGroup(scene, groupId);
     });
+}
+
+// ---- resizing ------------------------------------------------------------------------------------------------------
+
+export const SCALE_LIMITS = Object.freeze({ min: 0.1, max: 10 });
+
+/**
+ * Resize a group about its pin. Every part sits `factor` times as far from the pin and is `factor` times as big (a tile's
+ * width and height, a light's reach, a sound's radius, a drawing's size, a region's shapes), riders stand `factor`
+ * times as far from the pin, and the group's token is refitted. Tokens, notes and walls keep their own size. A scale
+ * and its reverse put everything back, except where a size must be a whole number of pixels.
+ * @param {number} factor  Between 0.1 and 10, other than 1.
+ * @returns {Promise<{scaled: number}>} How many parts were resized.
+ */
+export function scaleGroup(scene, groupId, factor) {
+    const { utils } = getBlacksmith();
+    const by = Number(factor);
+    if (!Number.isFinite(by) || by < SCALE_LIMITS.min || by > SCALE_LIMITS.max) {
+        return Promise.reject(new Error(`${MODULE_ID}: resize by a factor between ${SCALE_LIMITS.min} and ${SCALE_LIMITS.max}`));
+    }
+    return runExclusive(scene, groupId, async () => {
+        await apply(scene, groupId);
+        const group = requireGroup(scene, groupId);
+        if (by === 1) return { scaled: 0 };
+        const anchor = { ...group.applied };
+
+        const members = [];
+        const updates = new Map();
+        for (const member of group.members) {
+            const doc = scene.getEmbeddedCollection(member.type).get(member.id);
+            if (!doc) { members.push(member); continue; }
+            const scaled = scaleMember(member, doc._source, by);
+            members.push(scaled.record);
+            if (!updates.has(member.type)) updates.set(member.type, []);
+            updates.get(member.type).push({ _id: member.id, ...scaled.fields, ...memberUpdate(scaled.record, scaled.data, anchor) });
+        }
+        for (const [type, batch] of updates) await scene.updateEmbeddedDocuments(type, batch, { puppeteer: { follower: true } });
+
+        const riders = (group.riders ?? []).map((rider) => ({ ...rider, dx: rider.dx * by, dy: rider.dy * by }));
+        const tokens = riders.filter((rider) => scene.tokens.get(rider.tokenId));
+        if (tokens.length) {
+            await scene.updateEmbeddedDocuments('Token', tokens.map((rider) => riderUpdate(scene, rider, scene.tokens.get(rider.tokenId)._source, anchor)), riderMove());
+        }
+
+        await patchGroup(scene, groupId, group.riders ? { members, riders } : { members });
+        await fitBody(scene, groupId);
+        utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" resized by ${by}`, { parts: members.length, riders: riders.length }, true, false);
+        return { scaled: members.length };
+    });
+}
+
+// ---- events ----------------------------------------------------------------------------------------------------
+
+/**
+ * Give a group a rule: when something happens to it, play a sound or run a macro. See events.js.
+ * @param {{on: string, do: 'sound'|'macro', value: string}} rule  `value` is a sound path, or a macro's id or UUID.
+ * @returns {Promise<object>} The stored rule, with its id.
+ */
+export async function addEvent(scene, groupId, rule) {
+    const group = requireGroup(scene, groupId);
+    const stored = normaliseEvent(rule, group);
+    const events = group.events ?? [];
+    if (events.length >= MAX_EVENTS) throw new Error(`${MODULE_ID}: a group can have ${MAX_EVENTS} events`);
+    await patchGroup(scene, groupId, { events: [...events, stored] });
+    return stored;
+}
+
+/** Take a rule off a group. @returns {Promise<boolean>} Whether it was there. */
+export async function removeEvent(scene, groupId, eventId) {
+    const group = requireGroup(scene, groupId);
+    const events = (group.events ?? []).filter((rule) => rule.id !== eventId);
+    if (events.length === (group.events ?? []).length) return false;
+    await patchGroup(scene, groupId, events.length ? { events } : { '-=events': null });
+    return true;
 }
 
 // ---- hiding -------------------------------------------------------------------------------------------------
@@ -611,6 +720,7 @@ export function setGroupHidden(scene, groupId, hidden) {
             }
             await writeHidden(scene, byType);
             await patchGroup(scene, groupId, { hidden: true, hiddenBefore: before });
+            await fireEvent(scene, group, 'hide');
         } else {
             const keep = new Set(group.hiddenBefore ?? []);
             for (const doc of documents) {
@@ -618,12 +728,34 @@ export function setGroupHidden(scene, groupId, hidden) {
             }
             await writeHidden(scene, byType);
             await patchGroup(scene, groupId, { '-=hidden': null, '-=hiddenBefore': null });
+            await fireEvent(scene, group, 'show');
         }
         return on;
     });
 }
 
 /** Hide or show one part of a group. Only the types in HIDEABLE can be hidden. */
+/**
+ * Switch a group's lights or its sounds on or off together. Left out, `on` flips them: if any is on they all go off, if none
+ * is they all come on. A light or a sound is on when it is not hidden.
+ * @param {'AmbientLight'|'AmbientSound'} type
+ * @param {boolean} [on]
+ * @returns {Promise<{on: boolean, count: number}>}  What they were set to, and how many there are.
+ */
+export async function setEmittersOn(scene, groupId, type, on) {
+    if (type !== 'AmbientLight' && type !== 'AmbientSound') throw new Error(`${MODULE_ID}: lights and sounds can be switched, not "${type}"`);
+    const group = requireGroup(scene, groupId);
+    const documents = group.members
+        .filter((member) => member.type === type)
+        .map((member) => scene.getEmbeddedCollection(type).get(member.id))
+        .filter(Boolean);
+    if (!documents.length) return { on: false, count: 0 };
+    const turnOn = on === undefined ? !documents.some((doc) => !doc._source.hidden) : !!on;
+    const updates = documents.filter((doc) => !!doc._source.hidden === turnOn).map((doc) => ({ _id: doc.id, hidden: !turnOn }));
+    if (updates.length) await scene.updateEmbeddedDocuments(type, updates, FOLLOWER_WRITE());
+    return { on: turnOn, count: documents.length };
+}
+
 export async function setMemberHidden(scene, groupId, type, id, hidden) {
     const group = requireGroup(scene, groupId);
     if (!HIDEABLE.includes(type)) throw new Error(`${MODULE_ID}: a ${type} cannot be hidden`);

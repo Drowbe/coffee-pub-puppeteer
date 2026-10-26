@@ -3,7 +3,8 @@
 // See documentation/plans/plan-puppeteer-groups.md.
 import { MODULE_ID, TOAST_CHANNEL } from './constants.js';
 import { bootstrap } from './bootstrap.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden } from './groups.js';
+import { groupState } from './state.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden, setEmittersOn, replacePin, addEvent, removeEvent, scaleGroup } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -11,6 +12,7 @@ import { registerOverlay, toggleBounds, setBoundsShown } from './overlay.js';
 import { migrateGroups } from './migrate.js';
 import { registerTween } from './tween.js';
 import { registerBoarding } from './boarding.js';
+import { registerHealth } from './health.js';
 import { syncAllGroups } from './follower.js';
 import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
 
@@ -45,6 +47,7 @@ Hooks.once('ready', async () => {
     registerOverlay();
     registerTween();
     registerBoarding();
+    registerHealth();
 
     // The scripting surface, for macros and for the toolbar and Group Editor, which call the same functions.
     // Every function takes the scene first so a macro can address any scene; `scene()` is the one in view.
@@ -84,7 +87,7 @@ Hooks.once('ready', async () => {
         clearBody: (groupId, scene = canvas.scene) => clearBody(scene, groupId),
         setBodyLinked: (groupId, linked, scene = canvas.scene) => setBodyLinked(scene, groupId, linked),
         /**
-         * How a group behaves: `{ ease: { mode: 'ease' | 'jump', ms }, rotates: boolean, ridersFree: boolean }`. Any of
+         * How a group behaves: `{ ease: { mode: 'ease' | 'jump', ms }, rotates: boolean, facesTravel: boolean, ridersFree: boolean }`. Any of
          * them may be left out. See the API document.
          */
         setBehaviour: (groupId, options, scene = canvas.scene) => setBehaviour(scene, groupId, options),
@@ -92,9 +95,15 @@ Hooks.once('ready', async () => {
         setMovePivot: (groupId, on, scene = canvas.scene) => setMovePivot(scene, groupId, on),
         /** Copy a group on its scene: new parts and pin two squares to the right, the same heading, behaviour and, if it has one, body. */
         duplicate: (groupId, options = {}, scene = canvas.scene) => duplicateGroup(scene, groupId, { name: options.name }),
+        /** Give a group whose pin was deleted a new one where it last was, facing as it faced. Nothing moves. */
+        replacePin: (groupId, scene = canvas.scene) => replacePin(scene, groupId),
         /** Hide or show a whole group: tiles, drawings, lights, sounds, regions and body. Walls and notes cannot be hidden. */
         setHidden: (groupId, hidden, scene = canvas.scene) => setGroupHidden(scene, groupId, hidden),
         setMemberHidden: (groupId, type, id, hidden, scene = canvas.scene) => setMemberHidden(scene, groupId, type, id, hidden),
+        /** Resize a group about its pin by a factor between 0.1 and 10: parts, riders' places and the token's fit. */
+        scale: (groupId, factor, scene = canvas.scene) => scaleGroup(scene, groupId, factor),
+        /** Switch a group's lights (`'AmbientLight'`) or sounds (`'AmbientSound'`) on or off together; `on` left out flips them. */
+        setEmittersOn: (groupId, type, on, scene = canvas.scene) => setEmittersOn(scene, groupId, type, on),
         /** Put tokens (documents) aboard a group. They must be on it. Returns how many boarded and why others did not. */
         mount: (groupId, tokens, scene = canvas.scene) => mountTokens(scene, groupId, tokens),
         dismount: (groupId, tokenId, scene = canvas.scene) => dismountToken(scene, groupId, tokenId),
@@ -106,6 +115,18 @@ Hooks.once('ready', async () => {
         setHeading: (groupId, degrees, scene = canvas.scene) => setHeading(scene, groupId, degrees),
         rotateBy: (groupId, degrees, scene = canvas.scene) => rotateBy(scene, groupId, degrees),
         deleteGroup: (groupId, scene = canvas.scene) => deleteGroup(scene, groupId),
-        listGroups: (scene = canvas.scene) => listGroups(scene)
+        listGroups: (scene = canvas.scene) => listGroups(scene),
+        /**
+         * What a group is doing now: `{ x, y, heading, moving, speed, progress, hidden, members, riders, hasToken }`, or null.
+         * `speed` is squares a second while it moves and 0 when still. Read it each frame or on an interval; there is no event.
+         */
+        getState: (groupId, scene = canvas.scene) => groupState(scene, groupId),
+        /**
+         * Do something when something happens to a group: `{ on: 'board' | 'leave' | 'move' | 'hide' | 'show' | 'health', do: 'sound' | 'macro' | 'image', value }`,
+         * where value is a sound path, a macro's id or a picture path. A `health` rule also takes `at` (`'healthy'`, `'injured'`, `'bloodied'`,
+         * `'critical'` or `'dead'`), and an `image` rule takes `target`, the id of one of the group's tiles. Returns the stored rule; see `removeEvent`.
+         */
+        addEvent: (groupId, rule, scene = canvas.scene) => addEvent(scene, groupId, rule),
+        removeEvent: (groupId, eventId, scene = canvas.scene) => removeEvent(scene, groupId, eventId)
     };
 });

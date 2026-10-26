@@ -5,7 +5,7 @@
 // from the anchor's centre in the anchor's own frame, so applying a move is one rotation and one
 // translation computed from the anchor's committed state, never an accumulation of deltas.
 import { normAngle, rotate, toFrame, fromFrame } from './frame.js';
-import { captureShapes, applyShapes, shapesExtent, shapeOutlines, shapesOutOfStep, UnsupportedMemberError } from './region-shapes.js';
+import { captureShapes, applyShapes, shapesExtent, shapeOutlines, shapesOutOfStep, scaleShapesRecord, scaleShapesData, UnsupportedMemberError } from './region-shapes.js';
 
 export { normAngle, rotate, toFrame, fromFrame, UnsupportedMemberError };
 
@@ -234,6 +234,61 @@ export function poseOffset(type, expected, actual) {
     if (type === 'Region') return maxDelta(expected.shapes, actual.shapes);
     return Math.hypot(expected.x - actual.x, expected.y - actual.y);
 }
+
+// ---- resizing -----------------------------------------------------------------------------------------------------------
+
+// A pixel size that Foundry keeps whole.
+const wholeAtLeast1 = (value) => Math.max(1, Math.round(value));
+
+/**
+ * What resizing a member by `factor` about the pivot does: its record with every offset multiplied (so it sits `factor`
+ * times as far from the pivot), and the fields of the document that are lengths, multiplied. The caller writes the
+ * fields together with `memberUpdate` of the new record.
+ * @param {object} member  A record from captureMember.
+ * @param {object} data    The document's source data.
+ * @param {number} factor
+ * @returns {{record: object, data: object, fields: object}}  The scaled record, the document data with its lengths scaled
+ *   (for `memberUpdate`), and the length fields to write.
+ */
+export function scaleMember(member, data, factor) {
+    switch (member.type) {
+        case 'Tile': {
+            const width = (data.width ?? 0) * factor;
+            const height = (data.height ?? 0) * factor;
+            return { record: scaleOffsets(member, factor), data: { ...data, width, height }, fields: { width, height } };
+        }
+        case 'Drawing': {
+            const shape = { ...(data.shape ?? {}) };
+            for (const key of ['width', 'height', 'radius']) if (typeof shape[key] === 'number') shape[key] = Math.round(shape[key] * factor);
+            if (Array.isArray(shape.points)) shape.points = shape.points.map((v) => v * factor);
+            const fields = { shape };
+            if (typeof data.strokeWidth === 'number') fields.strokeWidth = wholeAtLeast1(data.strokeWidth * factor);
+            if (typeof data.fontSize === 'number') fields.fontSize = wholeAtLeast1(data.fontSize * factor);
+            return { record: scaleOffsets(member, factor), data: { ...data, ...fields }, fields };
+        }
+        case 'AmbientLight': {
+            const config = { ...(data.config ?? {}) };
+            for (const key of ['dim', 'bright']) if (typeof config[key] === 'number') config[key] *= factor;
+            return { record: scaleOffsets(member, factor), data: { ...data, config }, fields: { config: { dim: config.dim, bright: config.bright } } };
+        }
+        case 'AmbientSound': {
+            const radius = typeof data.radius === 'number' ? data.radius * factor : data.radius;
+            return { record: scaleOffsets(member, factor), data: { ...data, radius }, fields: typeof radius === 'number' ? { radius } : {} };
+        }
+        case 'Wall':
+            return { record: { ...member, c: member.c.map((v) => v * factor) }, data, fields: {} };
+        case 'Note':
+            return { record: scaleOffsets(member, factor), data, fields: {} };
+        case 'Region': {
+            const scaled = scaleShapesData(data, factor);
+            return { record: scaleShapesRecord(member, factor), data: scaled, fields: {} };
+        }
+        default:
+            throw new Error(`Puppeteer: ${member.type} cannot be a group member`);
+    }
+}
+
+const scaleOffsets = (member, factor) => ({ ...member, dx: member.dx * factor, dy: member.dy * factor });
 
 /** Re-record a member against a new anchor, keeping anything of the member's that is not geometry (its name). */
 export function recaptureMember(member, data, anchor) {

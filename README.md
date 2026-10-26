@@ -8,9 +8,10 @@ Move the pieces of a scene as one. Group the tiles, lights, walls, sounds, drawi
 ## What it does
 
 - **One pin moves everything.** Drag the pin and the whole group follows; hold Shift and scroll over the pin and the whole group turns about it. Put the pin where it belongs: the prow of a ship, a wagon's hitch, a door's hinge.
-- **Smooth movement.** Tiles, drawings, notes and riders glide to their new place instead of jumping, or jump if you prefer.
+- **Smooth movement.** Tiles, drawings, notes and riders glide to their new place, travel at a token's pace, or jump, as you prefer. A cart or boat can turn to face the way it is moved.
 - **Carry tokens.** Tokens that move onto a group ride with it, can walk about on it, and get off by walking away.
 - **Make a group something that can be attacked.** Give a group an actor and the whole thing becomes one target with that actor's hit points.
+- **Make things happen.** A group can play a sound, run a macro, or change a tile's picture when a token boards, when it moves, or when its token is hurt, so a cart can become a wreck.
 - **A library of groups.** Save a group and place as many independent copies as you like, on any scene.
 - **Edit by hand.** Move or turn any part directly and the group remembers it.
 

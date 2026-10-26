@@ -3,6 +3,7 @@
 // that is still being dragged. The token branch below reads groups saved before that was so; migrate.js gives each
 // of them a pin, and nothing creates a token-anchored group any more.
 import { getBlacksmith } from './blacksmith.js';
+import { normAngle } from './frame.js';
 
 /**
  * A token's pivot is the middle of its footprint, and its heading is its rotation. Read from `_source`: in
@@ -23,6 +24,31 @@ export function tokenAnchorState(scene, source) {
  */
 export function headingOf(group, pinRotation) {
     return group.rotates === false ? (group.fixedHeading ?? 0) : (pinRotation ?? 0);
+}
+
+// A move shorter than this many squares does not turn a group that faces its travel: a nudge is not a journey.
+const FACING_MIN_SQUARES = 0.25;
+
+/**
+ * The heading a group that faces its direction of travel takes when its pin has moved from `from` to `to`, or null when
+ * it should keep the heading its pin has: the group does not face its travel, does not turn with its pin, the pin was
+ * turned by hand as well as moved, or the move was too small to be a direction.
+ * Heading is Foundry's rotation, so 0 is facing down the map, and a group faces the way it is going when its front is
+ * the bottom of its picture.
+ * @param {object} group
+ * @param {{x: number, y: number, heading: number}} from  Where the group was (its `applied`).
+ * @param {{x: number, y: number, heading: number}} to    Where its pin is now.
+ * @param {number} grid  The size of a square, in scene pixels.
+ * @returns {number|null}  Degrees, two decimals (which is what a pin keeps).
+ */
+export function travelHeading(group, from, to, grid) {
+    if (!group.facesTravel || group.rotates === false) return null;
+    if (Math.abs(normAngle(from.heading) - normAngle(to.heading)) > 0.01) return null;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (Math.hypot(dx, dy) < FACING_MIN_SQUARES * grid) return null;
+    const degrees = (Math.atan2(-dx, dy) * 180) / Math.PI;
+    return Math.round(normAngle(degrees) * 100) / 100;
 }
 
 /**

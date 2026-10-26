@@ -129,3 +129,11 @@
     justify-content: center;
     color: var(--blacksmith-tool-text-muted);
 }
+
+.puppeteer-group-editor .puppeteer-event-sound,
+.puppeteer-group-editor .puppeteer-event-image,
+.puppeteer-group-editor .puppeteer-event-macro {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}

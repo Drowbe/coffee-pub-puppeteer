@@ -102,3 +102,27 @@ test('one part can be hidden and shown, and only the types that can be', async (
     await assert.rejects(() => g.groups.setMemberHidden(g.scene, g.group.id, 'Wall', 'W1', true), /cannot be hidden/);
     await assert.rejects(() => g.groups.setMemberHidden(g.scene, g.group.id, 'Tile', 'nope', true), /not in group/);
 });
+
+test('lights and sounds switch together: flipped when no direction is given, and only the group\'s own', async () => {
+    const g = await stage();
+    const other = g.scene.add('AmbientLight', 'L2', { x: 100, y: 100 });
+    // The lamp is on: flipping turns every light of the group off.
+    assert.deepEqual(await g.groups.setEmittersOn(g.scene, g.group.id, 'AmbientLight'), { on: false, count: 1 });
+    assert.equal(g.lamp._source.hidden, true);
+    // All off: flipping turns them on.
+    assert.deepEqual(await g.groups.setEmittersOn(g.scene, g.group.id, 'AmbientLight'), { on: true, count: 1 });
+    assert.equal(g.lamp._source.hidden, false);
+    assert.notEqual(other._source.hidden, true);
+    // The hum was hidden by the GM, so it is off; flipping turns it on, and a direction is obeyed.
+    assert.deepEqual(await g.groups.setEmittersOn(g.scene, g.group.id, 'AmbientSound'), { on: true, count: 1 });
+    assert.equal(g.hum._source.hidden, false);
+    assert.deepEqual(await g.groups.setEmittersOn(g.scene, g.group.id, 'AmbientSound', false), { on: false, count: 1 });
+    assert.equal(g.hum._source.hidden, true);
+});
+
+test('switching emitters refuses other types, and a group without any does nothing', async () => {
+    const g = await stage();
+    await assert.rejects(() => g.groups.setEmittersOn(g.scene, g.group.id, 'Tile'), /lights and sounds/);
+    g.scene.collections.AmbientLight.clear();
+    assert.deepEqual(await g.groups.setEmittersOn(g.scene, g.group.id, 'AmbientLight'), { on: false, count: 0 });
+});

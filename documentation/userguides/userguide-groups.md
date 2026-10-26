@@ -11,7 +11,7 @@ Everything here is GM only. A group is a pin on the map plus the tiles, drawings
 3. Or choose **Capture Area** and drag a box. Everything inside it, on every layer, joins the group.
 4. To take parts out, select them and choose **Remove Selected**, or use the cross beside a part under **Parts**.
 
-Right-clicking the pin gives the same actions, and double-clicking the pin opens the Group Editor on that group.
+Right-clicking the pin gives the same actions, and double-clicking the pin opens the Group Editor on that group. The pin menu also has **Hide or Show Group**, **Switch Group Lights On or Off** and **Switch Group Sounds On or Off** (each shown only if the group has any) and **Duplicate Group**. The lights and sounds items flip them together: if any is on they all go off, and if none is they all come on.
 
 ## Name parts and find them again
 
@@ -21,7 +21,7 @@ Under **Parts**, choose the pencil beside a part's name and type a new one, such
 
 ## Hide and show a group
 
-Choose **Hide** on a closed or open card to hide the group's tiles, drawings, regions and body token, and to turn its lights and sounds off. The button becomes **Show**, and the group's name turns italic. Walls and notes have no hidden state in Foundry, so they stay as they are, and so do any riders, because they are somebody's token. Parts that were already hidden or off when you hid the group stay that way when you show it.
+Choose **Hide** on a closed or open card to hide the group's tiles, drawings, regions and token, and to turn its lights and sounds off. The button becomes **Show**, and the group's name turns italic. Walls and notes have no hidden state in Foundry, so they stay as they are, and so do any riders, because they are somebody's token. Parts that were already hidden or off when you hid the group stay that way when you show it.
 
 To hide one part, choose the eye beside it under **Parts**. A light or a sound has a power button instead, lit orange while it is on, because turning it off is what Foundry means by hiding it. Hiding the group does not stop it moving: drag the pin and the hidden parts follow.
 
@@ -37,17 +37,25 @@ Both are under **Pivot and heading** on an open card.
 - **Centre Pivot** moves the pin to the middle of the group without moving anything, so the group turns about its own centre.
 - **Move Pivot** puts the pin anywhere, such as the prow of a ship, a wagon's hitch or a door's hinge. Choose **Move Pivot** on the group (the button turns blue and a notice appears) and drag the pin to where you want it. The pin moves, nothing else does, and Move Pivot switches itself off when you drop the pin. After that the group moves and turns about the new spot. Choose **Move Pivot** again before dragging to cancel.
 
+## Resize a group
+
+Under **Pivot and heading** on an open card, choose **0.5×**, **0.8×**, **1.25×** or **2×**. The group grows or shrinks about its pin: every part sits that many times as far from the pin and is that many times as big, so tiles, drawings, lights, sounds and regions all keep their proportions, and walls and notes move to the new distance. Riders stand that many times as far from the pin but keep their own size, and a group's token is refitted to cover the new size. Resize by 2 and then by 0.5 and everything is back where it was, except that a drawing's size is kept to whole pixels. From a macro, `scale(groupId, factor)` takes any factor from 0.1 to 10.
+
 ## Edit parts by hand
 
 Move, turn or resize any part directly on the map. The group remembers the new position and nothing snaps back on the next move.
 
 ## Duplicate a group
 
-Choose the copy button on a group's card. A new group appears two squares to the right of the original, named with "copy" after it, with its own parts and its own pin, facing the same way. It keeps the original's behaviour settings and, if the original can be attacked, gets its own body for the same actor. Riders are not copied. If the original is hidden, the copy is shown, except for anything that was already hidden before the group was. Nothing is added to the library; for a copy you want to place again and again, use **Save to Library**.
+Choose the copy button on a group's card. A new group appears two squares to the right of the original, named with "copy" after it, with its own parts and its own pin, facing the same way. It keeps the original's behaviour settings and, if the original can be attacked, gets its own token for the same actor. Riders are not copied. If the original is hidden, the copy is shown, except for anything that was already hidden before the group was. Nothing is added to the library; for a copy you want to place again and again, use **Save to Library**.
+
+## If a group loses its pin
+
+If a pin is deleted, the group's card says so and the group cannot be moved. Choose **Make a New Pin** on the card. A new pin appears where the group last was, facing the way it faced, and nothing on the map moves. The group follows the new pin as it did the old one. A group nobody wants any more can be deleted instead.
 
 ## Delete a group
 
-Choose **Delete** on the group. If it has parts you are asked to choose **Delete group only**, which leaves the parts on the map, or **Delete group and its parts**. Either way the pin and any body token (see [Making a group something that can be attacked](userguide-targets.md)) are removed, riders are let go where they stand, and the library is not touched.
+Choose **Delete** on the group. If it has parts you are asked to choose **Delete group only**, which leaves the parts on the map, or **Delete group and its parts**. Either way the pin and its token (see [Making a group something that can be attacked](userguide-targets.md)) are removed, riders are let go where they stand, and the library is not touched.
 
 ## Keep groups up to date
 
