@@ -149,14 +149,23 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         return new GroupEditorWindow().render({ force: true });
     }
 
-    /** Open the editor on the Scene Groups tab with one group's members showing, and bring that group into view. */
+    /** Open the editor on the Scene Groups tab with one group open, and bring that group to the top of the list. */
     static async focusGroup(groupId) {
         tab = 'groups';
         try { localStorage.setItem(TAB_KEY, tab); } catch { /* a remembered tab is a convenience */ }
         expanded.add(groupId);
         const win = await GroupEditorWindow.open();
         await win.render({ force: true });
-        win.element?.querySelector(`.blacksmith-tool-card[data-group-id="${CSS.escape(groupId)}"]`)?.scrollIntoView({ block: 'nearest' });
+        // After the window has put back the scroll position it keeps across a redraw, or that would undo this.
+        const show = () => {
+            const card = win.element?.querySelector(`.blacksmith-tool-card[data-group-id="${CSS.escape(groupId)}"]`);
+            if (!card) return;
+            const toggle = card.querySelector('.blacksmith-tool-card-toggle');
+            if (toggle) toggle.checked = true;
+            card.scrollIntoView({ block: 'start' });
+        };
+        show();
+        requestAnimationFrame(() => requestAnimationFrame(show));
     }
 
     get _hookContext() {
@@ -373,7 +382,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         ].join('');
 
         const warnings = [
-            lost ? '<div class="blacksmith-tool-card-notice is-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. <button type="button" class="blacksmith-tool-btn" data-action="replacePin" data-group-id="${esc(group.id)}" data-tooltip="Put a new pin where the group last was. Nothing moves.">Make a New Pin</button></div>' : '',
+            lost ? `<div class="blacksmith-tool-card-notice is-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. <button type="button" class="blacksmith-tool-btn" data-action="replacePin" data-group-id="${id}" data-tooltip="Put a new pin where the group last was. Nothing moves.">Make a New Pin</button></div>` : '',
             group.movePivot ? '<div class="blacksmith-tool-card-notice is-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Drag the pin to where the grip should be: it moves only the pin, nothing else moves, and this switches itself off when you drop it. Choose Move Pivot again to cancel.</div>' : ''
         ].join('');
 
