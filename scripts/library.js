@@ -8,7 +8,7 @@ import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, normAngle } from './geometry.js';
 import { stampMembers, stampBehaviour, validateTemplate } from './template.js';
-import { createGroup, deleteGroup, exportGroup, setBody, HIDEABLE } from './groups.js';
+import { createGroup, deleteGroup, exportGroup, setBody, uniqueGroupName, HIDEABLE } from './groups.js';
 import { anchorState } from './anchor.js';
 import { getGroup } from './store.js';
 import { playCue } from './announce.js';
@@ -156,7 +156,8 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
 
     // The group and its pin first, empty, so the follower has nothing to move while the members arrive. The members
     // are then placed for the heading Blacksmith stored on the pin, which is what the follower will use.
-    const group = await createGroup(scene, point, { name: name ?? source.name, heading });
+    // A name already on the scene is not used twice: the new group is "Wagon 2", and so is its token.
+    const group = await createGroup(scene, point, { name: uniqueGroupName(scene, name ?? source.name), heading });
     const anchor = { ...group.applied };
     const stamped = stampMembers(source, anchor);
 
@@ -193,7 +194,7 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
     // actor since deleted): say so, and leave the stamp as it is. The GM can give it one from the editor.
     if (source.body) {
         if (game.actors.get(source.body.actorId)) {
-            await setBody(scene, group.id, source.body.actorId, { linked: source.body.linked });
+            await setBody(scene, group.id, source.body.actorId, { linked: source.body.linked, name: group.name });
         } else {
             getBlacksmith().toast.show({
                 title: 'No body for this group',

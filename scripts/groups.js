@@ -64,6 +64,21 @@ function createPin(scene, groupId, name, x, y, rotation = 0) {
  * @param {{name?: string}} [options]
  * @returns {Promise<object>} The group record.
  */
+/**
+ * A name for a new group that no group on the scene has: the name itself, or the name with a number after it ("Wagon 2",
+ * "Wagon 3") when it is taken. A name that already ends in a number counts up from it.
+ */
+export function uniqueGroupName(scene, name) {
+    const taken = new Set(Object.values(getGroups(scene)).map((group) => group.name.trim().toLowerCase()));
+    const wanted = String(name ?? '').trim() || 'Group';
+    if (!taken.has(wanted.toLowerCase())) return wanted;
+    const [, base, number] = wanted.match(/^(.*?)(?:\s+(\d+))?$/);
+    for (let next = (Number(number) || 1) + 1; ; next += 1) {
+        const candidate = `${base} ${next}`;
+        if (!taken.has(candidate.toLowerCase())) return candidate;
+    }
+}
+
 export async function createGroup(scene, point, { name = 'Group', heading = 0 } = {}) {
     const { utils } = getBlacksmith();
     const x = Math.round(point.x);
@@ -380,10 +395,11 @@ export async function removeMember(scene, groupId, type, id) {
 
 /**
  * Make a group targetable: give it a token of `actorId`, transparent, locked, sized to cover the group and moved
- * with it. The token is unlinked unless `linked`, so a prefab stamped twice has two sets of hit points.
+ * with it. The token is unlinked unless `linked`, so a prefab stamped twice has two sets of hit points. `name` is what
+ * the token is called, if not its actor's name.
  * @returns {Promise<TokenDocument>} The body token.
  */
-export function setBody(scene, groupId, actorId, { linked = false } = {}) {
+export function setBody(scene, groupId, actorId, { linked = false, name } = {}) {
     const { utils } = getBlacksmith();
     return runExclusive(scene, groupId, async () => {
         await apply(scene, groupId);
@@ -392,7 +408,7 @@ export function setBody(scene, groupId, actorId, { linked = false } = {}) {
         const actor = game.actors.get(actorId);
         if (!actor) throw new Error(`${MODULE_ID}: there is no actor ${actorId}`);
 
-        const data = { ...bodyFootprint(scene, group), ...bodyTraits(groupId), actorLink: !!linked };
+        const data = { ...bodyFootprint(scene, group), ...bodyTraits(groupId), actorLink: !!linked, ...(name ? { name } : {}) };
         const document = await actor.getTokenDocument(data);
         const [token] = await scene.createEmbeddedDocuments('Token', [document.toObject()]);
         await patchGroup(scene, groupId, { body: { tokenId: token.id, actorId } });

@@ -229,3 +229,28 @@ test('a duplicate points its events at its own tiles too', async () => {
     assert.equal(copy.mountable, true);
     assert.equal(copy.events.find((event) => event.do === 'image').target, copy.members[1].id);
 });
+
+test('a name already on the scene is not used twice: the next stamp is numbered', async () => {
+    const g = await wagonWithBehaviour();
+    const id = await g.library.saveGroupToLibrary(g.scene, g.group.id);
+    const one = await g.library.stampTemplate(g.scene, id, { x: 6000, y: 2200 });
+    const two = await g.library.stampTemplate(g.scene, id, { x: 7000, y: 2200 });
+    const three = await g.library.stampTemplate(g.scene, id, { x: 8000, y: 2200 }, { name: 'Wagon 2' });
+    assert.deepEqual([one.name, two.name, three.name], ['Wagon 2', 'Wagon 3', 'Wagon 4']);
+    assert.equal(g.groups.uniqueGroupName(g.scene, 'Cart'), 'Cart', 'a free name is kept');
+    assert.equal(g.groups.uniqueGroupName(g.scene, 'WAGON'), 'WAGON 5', 'names are compared without regard to case, and count on past the ones taken');
+    assert.equal(g.groups.uniqueGroupName(g.scene, '  '), 'Group');
+});
+
+test('a duplicate is numbered too, and its token is named for it', async () => {
+    const g = await wagonWithBehaviour();
+    game.actors.set('A1', { id: 'A1', name: 'Wagon actor', async getTokenDocument(data) { return { toObject: () => ({ name: 'Wagon actor', actorId: 'A1', ...data }) }; } });
+    await g.groups.setBody(g.scene, g.group.id, 'A1');
+    const first = await g.library.duplicateGroup(g.scene, g.group.id);
+    const second = await g.library.duplicateGroup(g.scene, g.group.id);
+    assert.deepEqual([first.name, second.name], ['Wagon copy', 'Wagon copy 2']);
+    assert.equal(g.scene.tokens.get(first.body.tokenId)._source.name, 'Wagon copy');
+    assert.equal(g.scene.tokens.get(second.body.tokenId)._source.name, 'Wagon copy 2');
+    assert.notEqual(first.body.tokenId, second.body.tokenId);
+    assert.equal(g.scene.tokens.get(first.body.tokenId)._source.actorLink, false, 'unlinked: its own hit points');
+});
