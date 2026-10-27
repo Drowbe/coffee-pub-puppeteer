@@ -30,7 +30,7 @@ A group record holds:
 | `members` | `{ type, id, dx, dy, drot }`, plus `label` for a name, `c` for a Wall's endpoints and `shapes` for a Region. |
 | `body` | `{ tokenId, actorId }`, when the group represents an actor. |
 | `riders` | `[{ tokenId, dx, dy, drot }]`, the tokens the group carries. |
-| `mountable`, `announce`, `ridersFree`, `rotates`, `fixedHeading`, `facesTravel`, `ease` | Behaviour choices (see Behaviour). Absent means the default. |
+| `mountable`, `announce`, `ridersFree`, `rotates`, `fixedHeading`, `facesTravel`, `solidOnly`, `ease` | Behaviour choices (see Behaviour). Absent means the default. |
 | `events` | Rules, `{ id, on, do, value, at?, target? }`, at most 20 (see Events). Absent means none. |
 | `healthLevel` | The health level the group's token was last seen at, when it is not healthy (see Events). |
 | `movePivot` | Present while Move Pivot is armed. |
@@ -142,6 +142,7 @@ A group's record carries a few choices, set in the editor's Behaviour section or
 - **`facesTravel`**: when the pin is moved and not turned, `apply` takes the heading from the direction of the move (`travelHeading` in `anchor.js`: Foundry's rotation, so down the map is 0 and the group's front is the bottom of its picture), applies the group at that heading, then writes the same rotation to the pin so the pin and the group agree and the sync it triggers finds nothing to do. Moves under a quarter of a square, moves that also turned the pin, and groups that do not turn with their pin keep the heading they have.
 - **`rotates`**: whether the group turns when its pin turns (default yes). Off, `headingOf` (in `anchor.js`) returns the heading the group had when this was chosen (`fixedHeading`), so the pin can be turned freely and nothing turns; the editor's heading field and rotate buttons are disabled and `setHeading` refuses. Turning it on again first records every part against the pin's own heading (`repivot`), so nothing swings.
 - **`ridersFree`**: whether a rider may be moved about inside the group (default yes). Off, a rider moved by hand is put back where it rides.
+- **`solidOnly`**: whether "on the group" means the solid part of it (default yes; stored only as `false`). `insideGroup` in `riders.js` first tests the box that holds the sized members, then asks each tile's mesh `containsCanvasPoint(point, threshold)`, which is Foundry's own per-pixel test (threshold 0.25, or the tile's own `texture.alphaThreshold` if higher); drawings and regions count by their own box, walls not at all. It needs the scene to be the one on screen and the tile to be drawn, so where a mesh is missing it falls back to the box rather than refusing anyone. A mesh is where the tween has put it, so a token boarding a group mid-glide is judged against the picture as drawn.
 - **`mountable`**: whether tokens that move onto the group, or are created on it, board it (see Riders).
 - **`announce`**: whether boarding and leaving post a public chat card (`chatCards.post`, in `announce.js`) and a soft sound heard by everyone (`utils.playSound`, broadcast). Off by default.
 

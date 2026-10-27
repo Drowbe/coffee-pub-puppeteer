@@ -46,11 +46,51 @@ export function footprintBox(scene, group, anchor = group.applied) {
     return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
 
-/** Whether a scene point is inside the group. */
+// How opaque a pixel of a tile's picture must be to count as part of the group. Foundry's own hit test uses 0.25 for its
+// outlines; a tile whose own alpha threshold is higher keeps that.
+const SOLID_ALPHA = 0.25;
+
+/**
+ * Whether a scene point is on a solid part of the group: on a pixel of a tile's picture that is not transparent, or inside
+ * a drawing or region. `null` when it cannot be told (the scene is not the one on screen, or no tile has been drawn
+ * yet), so the caller falls back to the box.
+ */
+function onSolid(scene, group, point, anchor) {
+    let judged = 0;
+    for (const member of group.members) {
+        if (member.type === 'Tile') {
+            const doc = scene.getEmbeddedCollection('Tile').get(member.id);
+            if (!doc) continue;
+            const mesh = canvas.scene === scene ? canvas.tiles?.get(member.id)?.mesh : null;
+            if (typeof mesh?.containsCanvasPoint !== 'function') return null;
+            judged++;
+            const threshold = Math.max(SOLID_ALPHA, doc._source.texture?.alphaThreshold ?? 0);
+            if (mesh.containsCanvasPoint(point, threshold)) return true;
+        } else if (member.type === 'Drawing' || member.type === 'Region') {
+            const doc = scene.getEmbeddedCollection(member.type).get(member.id);
+            if (!doc) continue;
+            const framed = memberExtent(member.type, doc._source).map((corner) => toFrame(corner, anchor));
+            if (!framed.length) continue;
+            judged++;
+            const f = toFrame(point, anchor);
+            const xs = framed.map((c) => c.dx);
+            const ys = framed.map((c) => c.dy);
+            if (f.dx >= Math.min(...xs) && f.dx <= Math.max(...xs) && f.dy >= Math.min(...ys) && f.dy <= Math.max(...ys)) return true;
+        }
+    }
+    return judged ? false : null;
+}
+
+/**
+ * Whether a scene point is inside the group: inside the box that holds its sized members and, unless the group has
+ * `solidOnly` turned off, on a solid part of them, so the transparent corners of a picture do not count.
+ */
 export function insideGroup(scene, group, point, anchor = group.applied) {
     const box = footprintBox(scene, group, anchor);
     const f = toFrame(point, anchor);
-    return f.dx >= box.x0 && f.dx <= box.x1 && f.dy >= box.y0 && f.dy <= box.y1;
+    if (!(f.dx >= box.x0 && f.dx <= box.x1 && f.dy >= box.y0 && f.dy <= box.y1)) return false;
+    if (group.solidOnly === false) return true;
+    return onSolid(scene, group, point, anchor) ?? true;
 }
 
 /** Record a token as a rider of a group whose pin is at `anchor`: where its middle sits in the pin's frame. */

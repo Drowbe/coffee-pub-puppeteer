@@ -517,6 +517,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     { field: 'rotates', icon: 'fa-solid fa-rotate', label: 'Turns with its pin', checked: group.rotates !== false, tooltip: 'On, the group turns when its pin turns. Off, it keeps the way it faces and only follows its pin about.' },
                     { field: 'facesTravel', icon: 'fa-solid fa-location-arrow', label: 'Faces its travel', checked: !!group.facesTravel, disabled: group.rotates === false, tooltip: 'On, a group turns to face the way it was moved, as a vehicle does. Its front is the bottom of its picture, as a token\'s is. It needs Turns with its pin.' },
                     { field: 'announce', icon: 'fa-solid fa-bullhorn', label: 'Announce boarding', checked: !!group.announce, tooltip: 'Post a chat card, with a sound, when a token boards or leaves.' },
+                    { field: 'solidOnly', icon: 'fa-solid fa-vector-square', label: 'Solid parts only', checked: group.solidOnly !== false, tooltip: 'On, only the solid part of a picture counts as on the group: a token standing on a transparent corner does not board, and one moved onto it is let go. Off, the whole box around the group counts.' },
                     { field: 'ridersFree', icon: 'fa-solid fa-person-walking', label: 'Riders move freely', checked: group.ridersFree !== false, tooltip: 'On, a rider can be moved about the group by hand. Off, one moved by hand is put back where it rides.' }
                 ])}`;
     }
@@ -689,6 +690,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             if (input.dataset.field === 'easeMs') return setBehaviour(scene, groupId, { ease: { ms: Number(input.value) } });
             if (input.dataset.field === 'easeSpeed') return setBehaviour(scene, groupId, { ease: { speed: Number(input.value) } });
             if (input.dataset.field === 'rotates') { await setBehaviour(scene, groupId, { rotates: input.checked }); return this.render(); }
+            if (input.dataset.field === 'solidOnly') return setBehaviour(scene, groupId, { solidOnly: input.checked });
             if (input.dataset.field === 'facesTravel') return setBehaviour(scene, groupId, { facesTravel: input.checked });
             if (input.dataset.field === 'announce') return setBehaviour(scene, groupId, { announce: input.checked });
             if (input.dataset.field === 'ridersFree') return setBehaviour(scene, groupId, { ridersFree: input.checked });

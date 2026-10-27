@@ -19,7 +19,7 @@ Every token that moves onto the group boards while the option is on, enemies inc
 
 - **They are carried.** When the group moves or turns, its riders go with it, and a turn swings them round the pin. They move through walls and ignore speed while being carried.
 - **They can walk about.** A rider can be moved anywhere on the group, and it rides from wherever it was put. Turn off **Riders move freely** under **Behaviour** to put a rider straight back instead.
-- **They get off by leaving.** Move a rider off the group and it dismounts where it stands. You are told.
+- **They get off by leaving.** Move a rider off the group and it dismounts where it stands. You are told. Only the solid part of a picture counts as the group, so the transparent corners of a ship's image are water, not deck; turn off **Solid parts only** under **Behaviour** to count the whole box instead.
 
 ## Put a rider off on purpose
 

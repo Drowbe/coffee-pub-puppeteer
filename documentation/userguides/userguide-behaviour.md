@@ -24,6 +24,10 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 
 **Riders move freely** is on by default. Turn it off and a rider moved by hand is put straight back where it rides.
 
+## Solid parts only
+
+**Solid parts only** is on by default. Only the solid part of a picture counts as on the group, so a token standing on the transparent corner of a ship's picture does not board, and a rider moved onto one is let go. Turn it off and the whole box around the group counts. It makes no difference to a picture with no transparent edges, and a group with no tile in it uses the box of its drawings and regions.
+
 ## Announce boarding
 
 **Announce boarding** posts a public card and plays a soft sound for everyone when a token boards or leaves. It is off by default.

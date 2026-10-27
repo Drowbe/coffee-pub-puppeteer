@@ -91,7 +91,7 @@ export async function deleteTemplate(id) {
 }
 
 // What a copy keeps of how its original behaves.
-const BEHAVIOUR = ['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce', 'facesTravel', 'events'];
+const BEHAVIOUR = ['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce', 'facesTravel', 'solidOnly', 'events'];
 
 /**
  * Make a copy of a group on the same scene: new parts, a new pin two squares to the right, a new group facing the same

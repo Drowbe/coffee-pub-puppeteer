@@ -542,6 +542,8 @@ export function setMovePivot(scene, groupId, on) {
  *  - `rotates`: whether the group turns when its pin does. Off, it keeps the way it faces now and only follows the pin
  *    about. Turning it back on records the group again against the pin's own heading, so nothing swings.
  *  - `ridersFree`: whether a rider may be moved about inside the group. Off, a rider moved by hand is put back.
+ *  - `solidOnly`: whether only the solid part of the group counts as on it when a token boards or moves about. On (the
+ *    default), the transparent parts of a tile's picture do not; off, the whole box that holds the group does.
  *  - `announce`: whether a token boarding or leaving is announced in chat, with a sound.
  * @returns {Promise<object>} The group record.
  */
@@ -567,6 +569,10 @@ export function setBehaviour(scene, groupId, options = {}) {
         }
         if ('ridersFree' in options) patch.ridersFree = !!options.ridersFree;
         if ('announce' in options) patch.announce = !!options.announce;
+        if ('solidOnly' in options) {
+            if (options.solidOnly) patch['-=solidOnly'] = null;
+            else patch.solidOnly = false;
+        }
         if ('facesTravel' in options) {
             if (options.facesTravel) patch.facesTravel = true;
             else patch['-=facesTravel'] = null;

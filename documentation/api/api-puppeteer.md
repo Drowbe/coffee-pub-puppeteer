@@ -95,7 +95,7 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 
 | Call | Does |
 |---|---|
-| `setBehaviour(groupId, options, scene)` | Sets any of: `ease` (`{ mode: 'ease' \| 'travel' \| 'jump', ms, speed }`; `ms` is kept between 100 and 3000 and `speed`, in squares a second, between 0.5 and 60), `rotates` (whether the group turns when its pin turns), `facesTravel` (whether it turns to face the way its pin was moved; its front is the bottom of its picture), `ridersFree` (whether riders may be moved about inside it), `announce` (chat card and sound when a token boards or leaves). Anything left out is unchanged. Turning `rotates` off freezes the heading the group has now; turning it on records every part against the pin's own heading, so nothing swings. Returns the group record. |
+| `setBehaviour(groupId, options, scene)` | Sets any of: `ease` (`{ mode: 'ease' \| 'travel' \| 'jump', ms, speed }`; `ms` is kept between 100 and 3000 and `speed`, in squares a second, between 0.5 and 60), `rotates` (whether the group turns when its pin turns), `facesTravel` (whether it turns to face the way its pin was moved; its front is the bottom of its picture), `ridersFree` (whether riders may be moved about inside it), `solidOnly` (default true: only the solid part of a tile's picture counts as on the group, so a token on a transparent corner does not board), `announce` (chat card and sound when a token boards or leaves). Anything left out is unchanged. Turning `rotates` off freezes the heading the group has now; turning it on records every part against the pin's own heading, so nothing swings. Returns the group record. |
 
 `setHeading` and `rotateBy` refuse, with a message, on a group whose `rotates` is off.
 
