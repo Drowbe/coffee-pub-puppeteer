@@ -45,9 +45,14 @@ Under **Position** on an open card, choose **0.5×**, **0.8×**, **1.25×** or *
 
 Move, turn or resize any part directly on the map. The group remembers the new position and nothing snaps back on the next move.
 
-## Play and pause animations
+## Play and pause
 
-**Pause** on a card stops every animation in the group, which means its video tiles, on every screen, and the button becomes **Play**. Play starts them again. It uses Foundry's own play and pause for a video tile, and sets each tile to start or not start by itself to match, so a paused group is still paused when the scene is loaded again. The button is greyed out when the group has no video tile. The pin menu has **Play or Pause Group Animations** for groups that have one. Light animations are not touched.
+**Pause** on a card pauses the group, on every screen, and the button becomes **Play**. What that does is set under **Behaviour**, in the two options below the others:
+
+- **Start and Stop animations** (on by default) stops and starts the group's video tiles. It uses Foundry's own play and pause for a video tile, and sets each tile to start or not start by itself to match, so a paused group is still paused when the scene is loaded again.
+- **Swap Sounds** changes the sound the group's ambient sounds play. Turn it on and two fields appear: **Play Sound**, which its sounds are given when the group plays, and **Pause Sound**, which they are given while it is paused. Each has a browse button. A field left empty leaves the sounds as they are for that state. Pick a quiet sound, or a silent file, for Pause if you want the group to go quiet.
+
+The button is greyed out when the group has nothing to do: no video tile, or no ambient sound to swap. The pin menu has **Play or Pause Group** with the same rule. Lights are not touched; Foundry's own lighting animation controls them.
 
 ## Duplicate a group
 

@@ -130,6 +130,20 @@
     color: var(--blacksmith-tool-text-muted);
 }
 
+/* The two sound paths under Swap Sounds: a label, then the path field and its browse button, lined up. */
+.puppeteer-group-editor .puppeteer-playback-sound > span:first-child {
+    min-width: 7em;
+}
+
+.puppeteer-group-editor .puppeteer-playback-sound .puppeteer-event-sound {
+    flex: 1;
+}
+
+.puppeteer-group-editor .puppeteer-playback-sound .puppeteer-event-sound input {
+    flex: 1;
+    min-width: 0;
+}
+
 .puppeteer-group-editor .puppeteer-event-sound,
 .puppeteer-group-editor .puppeteer-event-image,
 .puppeteer-group-editor .puppeteer-event-macro {

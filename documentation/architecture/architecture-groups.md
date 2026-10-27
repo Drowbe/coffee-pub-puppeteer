@@ -30,7 +30,7 @@ A group record holds:
 | `members` | `{ type, id, dx, dy, drot }`, plus `label` for a name, `c` for a Wall's endpoints and `shapes` for a Region. |
 | `body` | `{ tokenId, actorId }`, when the group represents an actor. |
 | `riders` | `[{ tokenId, dx, dy, drot }]`, the tokens the group carries. |
-| `mountable`, `announce`, `ridersFree`, `rotates`, `fixedHeading`, `facesTravel`, `solidOnly`, `ease` | Behaviour choices (see Behaviour). Absent means the default. |
+| `mountable`, `announce`, `ridersFree`, `rotates`, `fixedHeading`, `facesTravel`, `solidOnly`, `animates`, `swapSounds`, `playSound`, `pauseSound`, `ease` | Behaviour choices (see Behaviour). Absent means the default. |
 | `events` | Rules, `{ id, on, do, value, at?, target? }`, at most 20 (see Events). Absent means none. |
 | `healthLevel` | The health level the group's token was last seen at, when it is not healthy (see Events). |
 | `movePivot` | Present while Move Pivot is armed. |

@@ -547,6 +547,9 @@ export function setMovePivot(scene, groupId, on) {
  *  - `solidOnly`: whether only the solid part of the group counts as on it when a token boards or moves about. On (the
  *    default), the transparent parts of a tile's picture do not; off, the whole box that holds the group does.
  *  - `announce`: whether a token boarding or leaving is announced in chat, with a sound.
+ *  - `animates`: whether Play and Pause start and stop the group's video tiles. On by default.
+ *  - `swapSounds`, `playSound`, `pauseSound`: whether Play and Pause swap the sound its ambient sounds play, and the two
+ *    sound paths. An empty path leaves the sounds as they are for that state.
  * @returns {Promise<object>} The group record.
  */
 export function setBehaviour(scene, groupId, options = {}) {
@@ -585,6 +588,20 @@ export function setBehaviour(scene, groupId, options = {}) {
         if ('facesTravel' in options) {
             if (options.facesTravel) patch.facesTravel = true;
             else patch['-=facesTravel'] = null;
+        }
+        if ('animates' in options) {
+            if (options.animates) patch['-=animates'] = null;
+            else patch.animates = false;
+        }
+        if ('swapSounds' in options) {
+            if (options.swapSounds) patch.swapSounds = true;
+            else patch['-=swapSounds'] = null;
+        }
+        for (const key of ['playSound', 'pauseSound']) {
+            if (!(key in options)) continue;
+            const path = String(options[key] ?? '').trim();
+            if (path) patch[key] = path;
+            else patch[`-=${key}`] = null;
         }
 
         if ('rotates' in options && !!options.rotates !== (group.rotates !== false)) {
@@ -781,21 +798,58 @@ export function videoTiles(scene, group) {
         .filter((doc) => doc && VIDEO.test(doc._source.texture?.src ?? ''));
 }
 
+/** The ambient sounds of a group. */
+export function soundParts(scene, group) {
+    return group.members
+        .filter((member) => member.type === 'AmbientSound')
+        .map((member) => scene.getEmbeddedCollection('AmbientSound').get(member.id))
+        .filter(Boolean);
+}
+
 /**
- * Play or pause every animation in a group: its video tiles. Left out, `playing` flips it. Foundry's own play and pause
- * control does the same to one tile, by an update carrying `playVideo`, which reaches every client; the tile's autoplay
- * is set to match, so a paused group stays paused when the scene is loaded again.
+ * What Play and Pause do for a group: `animations` starts and stops its video tiles (on unless turned off), and `swap`
+ * changes the sound its ambient sounds play, to `playSound` while it plays and `pauseSound` while it is paused.
+ */
+export function playbackOf(group) {
+    return {
+        animations: group.animates !== false,
+        swap: !!group.swapSounds,
+        playSound: group.playSound ?? '',
+        pauseSound: group.pauseSound ?? ''
+    };
+}
+
+/** Whether Play and Pause has anything to do for a group: a video tile to stop, or a sound to swap. */
+export function canPlayPause(scene, group) {
+    const how = playbackOf(group);
+    return (how.animations && videoTiles(scene, group).length > 0) || (how.swap && soundParts(scene, group).length > 0);
+}
+
+/**
+ * Play or pause a group. Left out, `playing` flips it. What that does is the group's choice (see `playbackOf`).
+ * Animations: every video tile, as Foundry's own play and pause control does it to one tile, by an update carrying
+ * `playVideo`, which reaches every client; the tile's autoplay is set to match, so a paused group stays paused when the
+ * scene is loaded again. Sounds: each ambient sound of the group is given the sound for the new state, if one is set.
  * @param {boolean} [playing]
- * @returns {Promise<{playing: boolean, count: number}>}  What they were set to, and how many video tiles there are.
+ * @returns {Promise<{playing: boolean, count: number, sounds: number}>}  What they were set to, how many video tiles
+ *   were played or paused, and how many sounds were swapped.
  */
 export async function setPlaying(scene, groupId, playing) {
     const group = requireGroup(scene, groupId);
-    const tiles = videoTiles(scene, group);
-    if (!tiles.length) return { playing: false, count: 0 };
+    const how = playbackOf(group);
+    if (!canPlayPause(scene, group)) return { playing: false, count: 0, sounds: 0 };
     const play = playing === undefined ? !!group.paused : !!playing;
-    await scene.updateEmbeddedDocuments('Tile', tiles.map((doc) => ({ _id: doc.id, video: { autoplay: play } })), { ...FOLLOWER_WRITE(), diff: false, playVideo: play });
+
+    const tiles = how.animations ? videoTiles(scene, group) : [];
+    if (tiles.length) {
+        await scene.updateEmbeddedDocuments('Tile', tiles.map((doc) => ({ _id: doc.id, video: { autoplay: play } })), { ...FOLLOWER_WRITE(), diff: false, playVideo: play });
+    }
+    const path = play ? how.playSound : how.pauseSound;
+    const sounds = how.swap && path ? soundParts(scene, group).filter((doc) => doc._source.path !== path) : [];
+    if (sounds.length) await scene.updateEmbeddedDocuments('AmbientSound', sounds.map((doc) => ({ _id: doc.id, path })), FOLLOWER_WRITE());
+
     await patchGroup(scene, groupId, play ? { '-=paused': null } : { paused: true });
-    return { playing: play, count: tiles.length };
+    return { playing: play, count: tiles.length, sounds: sounds.length };
 }
 
 export async function setMemberHidden(scene, groupId, type, id, hidden) {

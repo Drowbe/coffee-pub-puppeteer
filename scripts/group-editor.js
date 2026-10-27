@@ -7,7 +7,7 @@ import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, selectToken, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
-    setGroupHidden, setMemberHidden, setPlaying, videoTiles, replacePin, addEvent, removeEvent, scaleGroup, HIDEABLE
+    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, playbackOf, replacePin, addEvent, removeEvent, scaleGroup, HIDEABLE
 } from './groups.js';
 import { TRIGGERS, ACTIONS, HEALTH_LEVELS, describeEvent } from './events.js';
 import { easeOf } from './tween.js';
@@ -112,6 +112,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         removeEvent: (event, target, win) => win._removeEvent(target.dataset.groupId, target.dataset.eventId),
         browseSound: (event, target, win) => win._browseFile(target.closest('.puppeteer-event-form'), 'eventSound', 'audio'),
         browseImage: (event, target, win) => win._browseFile(target.closest('.puppeteer-event-form'), 'eventImage', 'image'),
+        browsePlaySound: (event, target, win) => win._browseFile(target.closest('.puppeteer-playback-sound'), 'playSound', 'audio', true),
+        browsePauseSound: (event, target, win) => win._browseFile(target.closest('.puppeteer-playback-sound'), 'pauseSound', 'audio', true),
         stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
         updateTemplate: (event, target, win) => win._updateTemplate(target.dataset.templateId),
         toggleGroupHidden: (event, target, win) => win._toggleGroupHidden(target.dataset.groupId),
@@ -385,9 +387,9 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     </span>
                 </label>
                 <span class="blacksmith-tool-card-actions">
-                    <button type="button" class="blacksmith-tool-btn" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i> Go To Pin</button>
-                    <button type="button" class="blacksmith-tool-btn${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i> ${group.hidden ? 'Show' : 'Hide'}</button>
-                    <button type="button" class="blacksmith-tool-btn${group.paused ? ' is-active' : ''}" data-action="togglePlaying" data-group-id="${id}"${videoTiles(canvas.scene, group).length ? '' : ' disabled'} data-tooltip="${videoTiles(canvas.scene, group).length ? `${group.paused ? 'Play' : 'Pause'} the group's animations: its video tiles, on every screen` : 'This group has no video tiles to play or pause'}"><i class="fa-solid fa-${group.paused ? 'play' : 'pause'}"></i> ${group.paused ? 'Play' : 'Pause'}</button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon${group.paused ? ' is-active' : ''}" data-action="togglePlaying" data-group-id="${id}"${canPlayPause(canvas.scene, group) ? '' : ' disabled'} data-tooltip="${canPlayPause(canvas.scene, group) ? `${group.paused ? 'Play' : 'Pause'} the group: its animations and sounds, as set in Behaviour, on every screen` : 'Nothing to play or pause: the group has no video tile, and swapping its sounds is off or it has no sound'}"><i class="fa-solid fa-${group.paused ? 'play' : 'pause'}"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="duplicateGroup" data-group-id="${id}" data-tooltip="Duplicate the group: a copy of its parts, pin and settings, two squares to the right"><i class="fa-solid fa-clone"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="saveToLibrary" data-group-id="${id}" data-tooltip="Save to the Library: a copy you can fabricate on any scene"><i class="fa-solid fa-boxes-stacked"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="exportGroup" data-group-id="${id}" data-tooltip="Export the group as a JSON file"><i class="fa-solid fa-file-export"></i></button>
@@ -522,7 +524,31 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     { field: 'solidOnly', icon: 'fa-solid fa-vector-square', label: 'Solid parts only', checked: group.solidOnly !== false, tooltip: 'On, only the solid part of a picture counts as on the group: a token standing on a transparent corner does not board, and one moved onto it is let go. Off, the whole box around the group counts.' },
                     { field: 'ridersFree', icon: 'fa-solid fa-person-walking', label: 'Riders move freely', checked: group.ridersFree !== false, tooltip: 'On, a rider can be moved about the group by hand. Off, one moved by hand is put back where it rides.' }
                 ])}
-                ${group.facesTravel && group.rotates !== false ? this._frontHtml(group) : ''}`;
+                ${group.facesTravel && group.rotates !== false ? this._frontHtml(group) : ''}
+                ${this._playbackHtml(group)}`;
+    }
+
+    /** What the Play and Pause button does for the group: stop its animations, and swap the sound its ambient sounds play. */
+    _playbackHtml(group) {
+        const id = esc(group.id);
+        const how = playbackOf(group);
+        const sound = (field, label, value, browse) => `
+                    <div class="puppeteer-inline puppeteer-playback-sound">
+                        <span>${label}</span>
+                        <span class="puppeteer-event-sound">
+                            <input type="text" data-field="${field}" data-group-id="${id}" value="${esc(value)}" placeholder="Path to a sound" data-tooltip="${esc(`The sound the group's ambient sounds play ${label === 'Play Sound' ? 'once it plays' : 'while it is paused'}. Empty leaves them as they are.`)}">
+                            <button type="button" class="blacksmith-tool-btn is-icon" data-action="${browse}" data-tooltip="Browse for a sound"><i class="fa-solid fa-folder-open"></i></button>
+                        </span>
+                    </div>`;
+        return `
+                ${this._optionsHtml(group.id, 'Play and pause', [
+                    { field: 'animates', icon: 'fa-solid fa-film', label: 'Start and Stop animations', checked: how.animations, tooltip: 'On, the Play and Pause button starts and stops the group\'s video tiles. Lights are not touched: Foundry\'s own lighting animation controls them.' },
+                    { field: 'swapSounds', icon: 'fa-solid fa-volume-high', label: 'Swap Sounds', checked: how.swap, tooltip: 'On, the Play and Pause button changes the sound the group\'s ambient sounds play: the Play Sound once it plays, the Pause Sound while it is paused.' }
+                ])}
+                ${how.swap ? `<div class="puppeteer-playback">
+                    ${sound('playSound', 'Play Sound', how.playSound, 'browsePlaySound')}
+                    ${sound('pauseSound', 'Pause Sound', how.pauseSound, 'browsePauseSound')}
+                </div>` : ''}`;
     }
 
     /** Which way the picture's front points, for a group that faces its travel: four quick choices and a number to fine tune. */
@@ -720,6 +746,12 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 await setBehaviour(scene, groupId, { front: Number(input.value) || 0 });
                 return this.render();
             }
+            if (input.dataset.field === 'animates') return setBehaviour(scene, groupId, { animates: input.checked }).then(() => this.render());
+            if (input.dataset.field === 'swapSounds') return setBehaviour(scene, groupId, { swapSounds: input.checked }).then(() => this.render());
+            if (input.dataset.field === 'playSound' || input.dataset.field === 'pauseSound') {
+                await setBehaviour(scene, groupId, { [input.dataset.field]: input.value });
+                return this.render();
+            }
             if (input.dataset.field === 'announce') return setBehaviour(scene, groupId, { announce: input.checked });
             if (input.dataset.field === 'ridersFree') return setBehaviour(scene, groupId, { ridersFree: input.checked });
             if (input.dataset.field === 'bodyLinked') return setBodyLinked(scene, groupId, input.checked);
@@ -804,8 +836,9 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
 
     _togglePlaying(groupId) {
         return run('Play or pause group', async () => {
-            const { playing, count } = await setPlaying(canvas.scene, groupId);
-            say(playing ? 'Animations playing' : 'Animations paused', `${count} video tile${count === 1 ? '' : 's'} ${playing ? 'playing' : 'paused'}.`);
+            const { playing, count, sounds } = await setPlaying(canvas.scene, groupId);
+            const did = [count && `${count} video tile${count === 1 ? '' : 's'} ${playing ? 'playing' : 'paused'}`, sounds && `${sounds} sound${sounds === 1 ? '' : 's'} swapped`].filter(Boolean);
+            say(playing ? 'Group playing' : 'Group paused', did.length ? `${did.join(', ')}.` : 'Nothing needed changing.');
             this.render();
         });
     }
@@ -897,10 +930,18 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     }
 
     /** Blacksmith has no file picker for a module to use, so this is Foundry's own. */
-    _browseFile(form, field, type) {
+    _browseFile(form, field, type, save = false) {
         const input = form.querySelector(`[data-field="${field}"]`);
         const FilePicker = foundry.applications.apps.FilePicker.implementation;
-        new FilePicker({ type, current: input.value, callback: (path) => { input.value = path; } }).render(true);
+        new FilePicker({
+            type,
+            current: input.value,
+            callback: (path) => {
+                input.value = path;
+                // A field that is saved as it changes is told, as if it had been typed in.
+                if (save) input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }).render(true);
     }
 
     _scale(groupId, factor) {
