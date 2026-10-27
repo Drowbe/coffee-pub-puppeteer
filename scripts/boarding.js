@@ -10,6 +10,7 @@ import { getBlacksmith } from './blacksmith.js';
 import { getGroup, getGroups, patchGroup } from './store.js';
 import { runExclusive } from './follower.js';
 import { mountTokens, releaseRider } from './groups.js';
+import { normAngle } from './geometry.js';
 import { RIDER_FLAG, STAYED_FLAG, captureRider, insideGroup, tokenCentre, riderUpdate, riderMove } from './riders.js';
 
 // What counts as a rider being moved: where it is, which way it faces, and how big it is.
@@ -99,6 +100,11 @@ async function riderMoved(scene, groupId, tokenId) {
     if (!group || !token || !rider) return;
 
     const anchor = { ...group.applied };
+    // A rider that is exactly where the group carries it has not been moved by hand: it was carried, and whatever else
+    // wrote to it afterwards is no reason to let it go.
+    const carried = riderUpdate(scene, rider, token._source, anchor);
+    if (Math.abs(carried.x - token._source.x) <= 1 && Math.abs(carried.y - token._source.y) <= 1
+        && Math.abs(normAngle(carried.rotation - (token._source.rotation ?? 0))) < 0.01) return;
     // A group whose riders may not wander puts a rider back where it rides.
     if (group.ridersFree === false) {
         const { _id, ...back } = riderUpdate(scene, rider, token._source, anchor);

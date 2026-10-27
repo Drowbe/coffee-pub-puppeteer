@@ -4,7 +4,7 @@
 //
 // Pure helpers and the one write the follower makes; the operations that change a group are in groups.js and the
 // hooks that notice a rider moving by hand are in boarding.js.
-import { memberExtent, toFrame, fromFrame, normAngle } from './geometry.js';
+import { memberExtent, toFrame, fromFrame, normAngle, rotate } from './geometry.js';
 import { SIZED } from './body.js';
 
 // The flag on a rider's token that says which group carries it.
@@ -51,6 +51,19 @@ export function footprintBox(scene, group, anchor = group.applied) {
 const SOLID_ALPHA = 0.25;
 
 /**
+ * Where to ask a tile's mesh about a point. The mesh is drawn where the tween last put it, which during and just after a
+ * move is not where the tile's document says it is; a point is carried from the document's pose to the mesh's, so the
+ * answer is about the picture and not about where it happens to be drawn.
+ */
+function inMeshFrame(mesh, source, point) {
+    const at = mesh.position;
+    if (!Number.isFinite(at?.x) || !Number.isFinite(at?.y)) return point;
+    const d = rotate(point.x - source.x, point.y - source.y, -(source.rotation ?? 0));
+    const r = rotate(d.x, d.y, Number.isFinite(mesh.angle) ? mesh.angle : (source.rotation ?? 0));
+    return { x: at.x + r.x, y: at.y + r.y };
+}
+
+/**
  * Whether a scene point is on a solid part of the group: on a pixel of a tile's picture that is not transparent, or inside
  * a drawing or region. `null` when it cannot be told (the scene is not the one on screen, or no tile has been drawn
  * yet), so the caller falls back to the box.
@@ -65,7 +78,7 @@ function onSolid(scene, group, point, anchor) {
             if (typeof mesh?.containsCanvasPoint !== 'function') return null;
             judged++;
             const threshold = Math.max(SOLID_ALPHA, doc._source.texture?.alphaThreshold ?? 0);
-            if (mesh.containsCanvasPoint(point, threshold)) return true;
+            if (mesh.containsCanvasPoint(inMeshFrame(mesh, doc._source, point), threshold)) return true;
         } else if (member.type === 'Drawing' || member.type === 'Region') {
             const doc = scene.getEmbeddedCollection(member.type).get(member.id);
             if (!doc) continue;

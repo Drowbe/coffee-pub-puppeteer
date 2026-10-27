@@ -72,3 +72,16 @@ test('a token standing on a transparent corner cannot board; one on the solid pa
     assert.equal(off.mounted, 0);
     assert.match(off.skipped[0], /Wet is not on the group/);
 });
+
+test('a tile still drawn where it was is judged by its picture, not by where it is drawn', async () => {
+    const g = await ship();
+    // The document has moved 600 right; the mesh is still where it was, solid within 400 of its position.
+    g.scene.getEmbeddedCollection('Tile').get('T1')._source.x = 3600;
+    globalThis.canvas.tiles = {
+        get: () => ({ mesh: { position: { x: 3000, y: 2000 }, angle: 0, containsCanvasPoint: (point) => Math.abs(point.x - 3000) < 400 && Math.abs(point.y - 2000) < 200 } })
+    };
+    const grp = { ...live(g), members: live(g).members };
+    const anchor = { x: 3600, y: 2000, heading: 0 };
+    assert.equal(g.riders.insideGroup(g.scene, grp, { x: 3900, y: 2000 }, anchor), true, 'on the picture, 300 right of its centre');
+    assert.equal(g.riders.insideGroup(g.scene, grp, { x: 3100, y: 2000 }, anchor), false, 'where it was drawn, but not on it now');
+});

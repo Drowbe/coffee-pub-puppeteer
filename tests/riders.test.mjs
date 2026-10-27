@@ -261,3 +261,15 @@ test('boarding on purpose ends a stay', async () => {
     assert.equal(g.sailor.getFlag(FLAG, 'stayed'), undefined);
     assert.equal(g.sailor.getFlag(FLAG, 'riderOf'), g.group.id);
 });
+
+test('a rider update that does not carry the follower marker, at the place it is carried to, does not dismount it', async () => {
+    const g = await barge();
+    await g.groups.mountTokens(g.scene, g.group.id, [g.sailor]);
+    await g.pins.update(g.group.anchor.id, { x: 9000, y: 5000 });
+    await g.settle();
+    // Something else writes to the carried token afterwards, with no marker.
+    await g.sailor.update({ x: g.sailor._source.x, y: g.sailor._source.y, rotation: g.sailor._source.rotation ?? 0 });
+    await g.settle();
+    assert.equal(record(g).riders.length, 1);
+    assert.equal(g.sailor.getFlag(FLAG, 'riderOf'), g.group.id);
+});
