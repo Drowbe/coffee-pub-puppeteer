@@ -35,4 +35,3 @@ Requests for Blacksmith, to hand to the hub's own TODO. Each empties once the hu
 
 - Raise the Blacksmith minimum in `module.json` when the release with area pick, pin rotation, tool-themed toggles and badges, and the health readers (`getHealthPercent`, `getHealthSeverity`) ships. Not before.
 - Screenshots for the README and `home.md`, taken in a scratch world so no player or character names appear, saved as WebP under `documentation/assets/`.
-- Delete `documentation/plans/plan-puppeteer-groups.md`. It is absorbed and marked complete.
