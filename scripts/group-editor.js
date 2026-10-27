@@ -109,10 +109,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         scaleUp: (event, target, win) => win._scaleBy(target, false),
         scaleDown: (event, target, win) => win._scaleBy(target, true),
         resetScale: (event, target, win) => win._resetScale(target.dataset.groupId),
-        addEvent: (event, target, win) => win._addEvent(target.dataset.groupId, target.closest('.puppeteer-event-form')),
+        addEvent: (event, target, win) => win._addEvent(target.dataset.groupId),
         removeEvent: (event, target, win) => win._removeEvent(target.dataset.groupId, target.dataset.eventId),
-        browseSound: (event, target, win) => win._browseFile(target.closest('.puppeteer-event-form'), 'eventSound', 'audio'),
-        browseImage: (event, target, win) => win._browseFile(target.closest('.puppeteer-event-form'), 'eventImage', 'image'),
         stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
         updateTemplate: (event, target, win) => win._updateTemplate(target.dataset.templateId),
         toggleGroupHidden: (event, target, win) => win._toggleGroupHidden(target.dataset.groupId),
@@ -182,6 +180,18 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 if (groupsTouched(changes)) this._redraw();
             }
         });
+        // What is selected on the map is shown on the parts and riders, so a change of selection redraws the list.
+        for (const type of ['Tile', 'Drawing', 'AmbientLight', 'AmbientSound', 'Wall', 'Note', 'Region', 'Token']) {
+            getBlacksmith().HookManager.registerHook({
+                name: `control${type}`,
+                description: `Puppeteer: show in the Group Editor which ${type} objects are selected`,
+                context: this._hookContext,
+                priority: 4,
+                key: `${this._hookContext}-selection-${type}`,
+                options: { debounceMs: 60 },
+                callback: () => this._redraw()
+            });
+        }
         getBlacksmith().HookManager.registerHook({
             name: 'canvasReady',
             description: 'Puppeteer: refresh the Group Editor when the scene in view changes',
@@ -397,7 +407,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i></button>
                     ${canPlayPause(group) ? `<button type="button" class="blacksmith-tool-btn is-icon${group.paused ? ' is-active' : ''}" data-action="togglePlaying" data-group-id="${id}" data-tooltip="${group.paused ? 'Play' : 'Pause'} the group: runs its &quot;${group.paused ? 'Play' : 'Pause'} is clicked&quot; events"><i class="fa-solid fa-${group.paused ? 'play' : 'pause'}"></i></button>` : ''}
-                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="groupMenu" data-group-id="${id}" data-tooltip="More: centre or move the pivot, duplicate, save to the Library, export, delete"><i class="fa-solid fa-ellipsis"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="groupMenu" data-group-id="${id}" data-tooltip="More: centre or move the pivot, duplicate, save to the Library, export, delete"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                 </span>
             </div>
             ${warnings}
@@ -425,8 +435,9 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const kind = `${TYPE_LABEL[member.type] ?? member.type} ${member.id.slice(0, 6)}`;
             const canHide = HIDEABLE.includes(member.type) && present;
             const hiddenNow = !!doc?._source.hidden;
+            const picked = !!doc?.object?.controlled;
             return `
-                <div class="blacksmith-list-row${present ? ' puppeteer-clickable' : ' puppeteer-missing'}"${present ? ` data-action="selectMember" data-type="${esc(member.type)}" data-id="${esc(member.id)}" data-tooltip="Select this ${esc((TYPE_LABEL[member.type] ?? member.type).toLowerCase())} on the canvas (Shift to add to the selection)"` : ''}>
+                <div class="blacksmith-list-row${present ? ' puppeteer-clickable' : ' puppeteer-missing'}${picked ? ' is-selected' : ''}"${present ? ` data-action="selectMember" data-type="${esc(member.type)}" data-id="${esc(member.id)}" data-tooltip="Select this ${esc((TYPE_LABEL[member.type] ?? member.type).toLowerCase())} on the canvas (Shift to add to the selection)"` : ''}>
                     <i class="${TYPE_ICON[member.type] ?? 'fa-solid fa-circle'} puppeteer-type-icon"></i>
                     <div class="blacksmith-list-row-main puppeteer-part">
                         ${present ? this._editableHtml('memberLabel', member.label ?? '', kind, { 'group-id': group.id, type: member.type, id: member.id }) : `<span>${esc(kind)} (missing)</span>`}
@@ -447,9 +458,14 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         }).join('');
 
         const counts = {};
-        for (const member of group.members) counts[member.type] = (counts[member.type] ?? 0) + 1;
+        const pickedCounts = {};
+        for (const member of group.members) {
+            counts[member.type] = (counts[member.type] ?? 0) + 1;
+            if (scene.getEmbeddedCollection(member.type).get(member.id)?.object?.controlled) pickedCounts[member.type] = (pickedCounts[member.type] ?? 0) + 1;
+        }
+        const pickedTotal = Object.values(pickedCounts).reduce((sum, n) => sum + n, 0);
         const chips = Object.entries(counts).map(([type, count]) => `
-            <button type="button" class="blacksmith-tool-btn" data-action="selectMembers"
+            <button type="button" class="blacksmith-tool-btn${pickedCounts[type] === count ? ' is-active' : ''}" data-action="selectMembers"
                 data-group-id="${id}" data-type="${esc(type)}" data-tooltip="Select these ${esc(TYPE_PLURAL[type] ?? type)} on the canvas">
                 <i class="${TYPE_ICON[type] ?? 'fa-solid fa-circle'}"></i> ${esc(TYPE_PLURAL[type] ?? type)} ${count}
             </button>`).join('');
@@ -491,12 +507,13 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Events</span></header>
                     ${this._eventsHtml(group)}</section>
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Parts</span></header>
-                    ${chips ? `<div class="puppeteer-inline"><span>Select on the map</span><div class="blacksmith-tool-btn-group">${chips}</div></div>` : ''}
                     <div class="puppeteer-inline">
+                        <span>Add</span>
                         ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
                         ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}
                         ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
                     </div>
+                    ${chips ? `<div class="puppeteer-inline"><span>Select</span><div class="blacksmith-tool-btn-group">${chips}</div>${pickedTotal ? `<span class="blacksmith-tool-hint">${pickedTotal} of ${group.members.length} selected</span>` : ''}</div>` : ''}
                     <div class="blacksmith-list">${members || '<div class="blacksmith-list-empty">No parts yet.</div>'}</div></section>
             </div>`;
     }
@@ -576,30 +593,10 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     </div>
                 </div>`;
         }).join('');
-        const options = (choices) => Object.entries(choices).map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
-        const tiles = group.members.filter((member) => member.type === 'Tile')
-            .map((member) => `<option value="${esc(member.id)}">${esc(member.label || `Tile ${member.id.slice(0, 6)}`)}</option>`).join('');
-        const macros = game.macros.contents.slice().sort((a, b) => a.name.localeCompare(b.name))
-            .map((macro) => `<option value="${esc(macro.id)}">${esc(macro.name)}</option>`).join('');
         return `
                 ${rules ? `<div class="blacksmith-list">${rules}</div>` : '<div class="blacksmith-tool-hint">Nothing happens when this group is boarded, moved, hidden or hurt. Add an event to play a sound, run a macro, change the picture on a tile or start or stop its animations. Events for "Play is clicked" or "Pause is clicked" give the group a Play and Pause button.</div>'}
-                <div class="puppeteer-inline puppeteer-event-form">
-                    <select data-field="eventOn" data-group-id="${id}" data-tooltip="When this happens">${options(TRIGGERS)}</select>
-                    <select data-field="eventAt" data-group-id="${id}" style="display: none" data-tooltip="The group's token has this much health left. The levels are Blacksmith's, set in its settings.">${options(HEALTH_LEVELS)}</select>
-                    <select data-field="eventDo" data-group-id="${id}" data-tooltip="Do this">${options(ACTIONS)}</select>
-                    <span class="puppeteer-event-sound">
-                        <input type="text" data-field="eventSound" data-group-id="${id}" placeholder="Path to a sound" data-tooltip="The sound plays for everyone">
-                        <button type="button" class="blacksmith-tool-btn is-icon" data-action="browseSound" data-tooltip="Browse for a sound"><i class="fa-solid fa-folder-open"></i></button>
-                    </span>
-                    <span class="puppeteer-event-image" style="display: none">
-                        <select data-field="eventTile" data-group-id="${id}" data-tooltip="The tile whose picture changes">${tiles || '<option value="">The group has no tiles</option>'}</select>
-                        <input type="text" data-field="eventImage" data-group-id="${id}" placeholder="Path to a picture" data-tooltip="The picture the tile shows. Add a Healthy event with its first picture to put it back.">
-                        <button type="button" class="blacksmith-tool-btn is-icon" data-action="browseImage" data-tooltip="Browse for a picture"><i class="fa-solid fa-folder-open"></i></button>
-                    </span>
-                    <span class="puppeteer-event-macro" style="display: none">
-                        <select data-field="eventMacro" data-group-id="${id}" data-tooltip="The macro to run. It runs on the GM's screen and is given the group and what happened.">${macros || '<option value="">No macros in this world</option>'}</select>
-                    </span>
-                    <button type="button" class="blacksmith-tool-btn" data-action="addEvent" data-group-id="${id}"><i class="fa-solid fa-plus"></i> Add Event</button>
+                <div class="puppeteer-inline">
+                    <button type="button" class="blacksmith-tool-btn" data-action="addEvent" data-group-id="${id}" data-tooltip="Choose what happens and what the group does about it"><i class="fa-solid fa-plus"></i> Add Event</button>
                 </div>`;
     }
 
@@ -609,7 +606,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const riders = (group.riders ?? []).map((rider) => {
             const token = scene.tokens.get(rider.tokenId);
             return `
-                <div class="blacksmith-list-row${token ? ' puppeteer-clickable' : ''}"${token ? ` data-action="selectToken" data-token-id="${esc(rider.tokenId)}" data-tooltip="Select this token on the canvas (Shift to add to the selection)"` : ''}>
+                <div class="blacksmith-list-row${token ? ' puppeteer-clickable' : ''}${token?.object?.controlled ? ' is-selected' : ''}"${token ? ` data-action="selectToken" data-token-id="${esc(rider.tokenId)}" data-tooltip="Select this token on the canvas (Shift to add to the selection)"` : ''}>
                     <div class="blacksmith-list-row-main">
                         <div class="blacksmith-list-row-title"><i class="fa-solid fa-person-walking"></i> ${esc(token?.name ?? 'Missing token')}</div>
                     </div>
@@ -698,22 +695,12 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             else expanded.delete(groupId);
             return null;
         }
-        // The fields of the form that adds an event only matter when Add Event is chosen; choosing the action shows the
-        // control that goes with it.
-        if (input.dataset.field === 'eventDo' || input.dataset.field === 'eventOn') {
-            const form = input.closest('.puppeteer-event-form');
-            const action = form.querySelector('[data-field="eventDo"]').value;
-            form.querySelector('[data-field="eventAt"]').style.display = form.querySelector('[data-field="eventOn"]').value === 'health' ? '' : 'none';
-            for (const kind of ['sound', 'image', 'macro']) form.querySelector(`.puppeteer-event-${kind}`).style.display = action === kind ? '' : 'none';
-            return null;
-        }
         if (input.dataset.field === 'scaleStep') {
             const step = Number(input.value);
             if (Number.isFinite(step) && step > 1) scaleStep = Math.min(10, step);
             input.value = scaleStep;
             return null;
         }
-        if (['eventAt', 'eventSound', 'eventImage', 'eventTile', 'eventMacro'].includes(input.dataset.field)) return null;
         return run('Update group', async () => {
             if (input.dataset.field === 'templateName') {
                 try { await renameTemplate(input.dataset.templateId, input.value); } catch (error) { this.render(); throw error; }
@@ -897,20 +884,85 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         });
     }
 
-    _addEvent(groupId, form) {
+    /**
+     * Add Event: a Blacksmith dialog with what happens, what to do about it, and what the action needs. A rule the group
+     * cannot take (no sound chosen, no tile) is refused with its reason and the dialog opens again with what was typed.
+     */
+    _addEvent(groupId) {
         return run('Add event', async () => {
-            const field = (name) => form.querySelector(`[data-field="${name}"]`).value;
-            const action = field('eventDo');
-            const on = field('eventOn');
-            // Start and Stop have nothing more to ask for.
-            const source = { sound: 'eventSound', image: 'eventImage', macro: 'eventMacro' }[action];
-            await addEvent(canvas.scene, groupId, {
-                on,
-                do: action,
-                value: source ? field(source) : '',
-                ...(on === 'health' ? { at: field('eventAt') } : {}),
-                ...(action === 'image' ? { target: field('eventTile') } : {})
+            const scene = canvas.scene;
+            const group = getGroup(scene, groupId);
+            if (!group) return;
+            const { dialog } = getBlacksmith();
+            // Nothing is chosen for the GM: every list starts at "Choose one", and the rows that depend on a choice appear with it.
+            const choose = (chosen) => `<option value=""${chosen ? '' : ' selected'} disabled>Choose one</option>`;
+            const choices = (list, chosen) => choose(chosen) + Object.entries(list)
+                .map(([key, label]) => `<option value="${esc(key)}"${key === chosen ? ' selected' : ''}>${esc(label)}</option>`).join('');
+            const tiles = group.members.filter((member) => member.type === 'Tile');
+            const macros = game.macros.contents.slice().sort((a, b) => a.name.localeCompare(b.name));
+            const row = (name, label, control, hidden = false) => `
+                <div class="blacksmith-field puppeteer-event-row" data-row="${name}"${hidden ? ' style="display: none"' : ''}>
+                    <span class="blacksmith-field-label">${label}</span>${control}
+                </div>`;
+            const path = (name, placeholder, value, type) => `
+                <span class="puppeteer-event-path">
+                    <input type="text" name="${name}" data-field="${name}" class="blacksmith-input" placeholder="${placeholder}" value="${esc(value ?? '')}">
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-browse="${name}" data-type="${type}" data-tooltip="Browse"><i class="fa-solid fa-folder-open"></i></button>
+                </span>`;
+
+            const content = ({ value }) => {
+                const had = value ?? {};
+                return `<div class="puppeteer-event-dialog">
+                    ${row('on', 'When', `<select name="on" class="blacksmith-input">${choices(TRIGGERS, had.on)}</select>`)}
+                    ${row('at', 'Its health becomes', `<select name="at" class="blacksmith-input">${choices(HEALTH_LEVELS, had.at)}</select>`, true)}
+                    ${row('do', 'Do this', `<select name="do" class="blacksmith-input">${choices(ACTIONS, had.do)}</select>`, true)}
+                    ${row('sound', 'Sound', path('sound', 'Path to a sound, played for everyone', had.sound, 'audio'), true)}
+                    ${row('tile', 'Tile', `<select name="tile" class="blacksmith-input">${choose(had.tile)}${tiles.map((member) => `<option value="${esc(member.id)}"${member.id === had.tile ? ' selected' : ''}>${esc(member.label || `Tile ${member.id.slice(0, 6)}`)}</option>`).join('') || '<option value="">The group has no tiles</option>'}</select>`, true)}
+                    ${row('image', 'Picture', path('image', 'Path to the picture the tile shows', had.image, 'image'), true)}
+                    ${row('macro', 'Macro', `<select name="macro" class="blacksmith-input">${choose(had.macro)}${macros.map((macro) => `<option value="${esc(macro.id)}"${macro.id === had.macro ? ' selected' : ''}>${esc(macro.name)}</option>`).join('') || '<option value="">No macros in this world</option>'}</select>`, true)}
+                </div>`;
+            };
+            // Show the rows that go with the choices made, now and whenever a choice changes.
+            const onRender = (element) => {
+                const show = () => {
+                    const on = element.querySelector('[name="on"]').value;
+                    const action = on ? element.querySelector('[name="do"]').value : '';
+                    const visible = { at: on === 'health', do: !!on, sound: action === 'sound', tile: action === 'image', image: action === 'image', macro: action === 'macro' };
+                    for (const [name, shown] of Object.entries(visible)) element.querySelector(`[data-row="${name}"]`).style.display = shown ? '' : 'none';
+                };
+                for (const name of ['on', 'do']) element.querySelector(`[name="${name}"]`).addEventListener('change', show);
+                for (const button of element.querySelectorAll('[data-browse]')) {
+                    button.addEventListener('click', () => this._browseFile(element, button.dataset.browse, button.dataset.type));
+                }
+                show();
+            };
+
+            const outcome = await dialog.prompt({
+                title: `Add Event to ${group.name}`,
+                content,
+                submitLabel: 'Add Event',
+                submitIcon: 'fa-solid fa-plus',
+                onRender,
+                validate: (rule) => {
+                    if (!rule.on) return 'Choose what happens.';
+                    if (rule.on === 'health' && !rule.at) return 'Choose the health level.';
+                    if (!rule.do) return 'Choose what the group does.';
+                    if (rule.do === 'image' && !rule.tile) return 'Choose the tile whose picture changes.';
+                    if (rule.do === 'macro' && !rule.macro) return 'Choose the macro to run.';
+                    return null;
+                },
+                getValue: (form) => Object.fromEntries(['on', 'at', 'do', 'sound', 'tile', 'image', 'macro'].map((name) => [name, form.elements[name]?.value ?? ''])),
+                onSubmit: (rule) => addEvent(scene, groupId, {
+                    on: rule.on,
+                    do: rule.do,
+                    value: { sound: rule.sound, image: rule.image, macro: rule.macro }[rule.do] ?? '',
+                    ...(rule.on === 'health' ? { at: rule.at } : {}),
+                    ...(rule.do === 'image' ? { target: rule.tile } : {})
+                }),
+                cancelValue: null,
+                closeValue: null
             });
+            if (outcome.action !== dialog.ACTIONS.SUBMIT) return;
             expanded.add(groupId);
             this.render();
         });

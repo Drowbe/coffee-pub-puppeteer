@@ -15,6 +15,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 - [x] The body's drop target is a dashed zone that turns solid orange while an actor is dragged over it, and a calm solid border once it holds an actor.
 - [x] Each group is a Blacksmith card: the caret turns when it opens, clicking the title line or the caret opens and closes it, pressing Go To Pin, Hide or Delete never opens or closes it, and an open card stays open when the editor redraws. The group's name is text with a pencil in the card's title: the pencil turns it into a field with the text selected, Enter, Tab or clicking away saves it, Escape puts it back and returns focus to the pencil, an empty group or entry name is refused, and neither opens or closes the card. The same pencil works on a part's name and on a library entry's name and description, and a scene change while typing does not take the field away.
 - [x] Clicking anywhere on a part's row selects it on the map (a wall or a light is easy to pick out), Shift adds, the map pans to an off-screen part, and the pencil, eye and remove buttons still do their own job. The same for a rider's row. There is clear space between the controls in each section.
+- [ ] Under Parts the rows read Add then Select. Selecting parts on the map marks their rows in the list, and riders' rows, clearing the selection unmarks them, a Select button lights when every part of that kind is selected, and "N of M selected" shows the count. Clicking a row marks it.
 - [x] Sections inside an open card have a rule above each one and a small caption, and hints and empty states read on the Light theme.
 - [x] The on/off options (Turns with its pin, Announce boarding, Riders move freely; Tokens board; Linked) are compact switches, one to a line, the switch first and its label after it, in normal case. Clicking the switch or the label flips only that option, and the off and on states are readable on the Light theme.
 - [x] Moves by is a segmented control: Gliding, Travelling or Jumping, the chosen one filled orange, arrow keys move it, and choosing one saves it and enables or disables the milliseconds field.
@@ -28,18 +29,18 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 ## Card menu and Resize
 
-- [ ] The ... in a card's bar opens Blacksmith's menu with Centre Pivot, Move Pivot (reads Move Pivot: On while it is), Duplicate, Save to Library, Export and Delete, and each does what its button did. The menu closes on a click outside it and on Escape.
-- [ ] Resize is one line that fits at the default window width and a narrow one: Smaller, Bigger, the step with its x inside the field, the width with its icon and sq inside, Reset greyed until the group has been resized. Typing a width resizes the group to it. With Group Bounds on, one side of each group is heavier and labelled Width, and it is the side the width field measures (it can read a little differently from the box when the group has lights or walls beyond its tiles).
+- [x] The ... in a card's bar opens Blacksmith's menu with Centre Pivot, Move Pivot (reads Move Pivot: On while it is), Duplicate, Save to Library, Export and Delete, and each does what its button did. The menu closes on a click outside it and on Escape.
+- [x] Resize is one line that fits at the default window width and a narrow one: Smaller, Bigger, the step with its x inside the field, the width with its icon and sq inside, Reset greyed until the group has been resized. Typing a width resizes the group to it. With Group Bounds on, one side of each group is heavier and labelled Width, and it is the side the width field measures (it can read a little differently from the box when the group has lights or walls beyond its tiles).
 
 ## Duplicate
 
-- [ ] The copy button on a card makes a second group two squares to the right with its own pin and parts, and the new card opens. The two move independently. A group with a body gets a second body; riders stay on the original.
+- [x] The copy button on a card makes a second group two squares to the right with its own pin and parts, and the new card opens. The two move independently. A group with a body gets a second body; riders stay on the original.
 
 ## Move Pivot
 
-- [ ] Choose Move Pivot on a group with a rider and a body. Drag the pin to the prow. Nothing else moves, and the button and notice switch off by themselves when the pin is dropped.
-- [ ] Drag the pin again and the whole group follows. Turn it with Shift and the wheel and the group turns about the new grip.
-- [ ] Choose Move Pivot, then choose it again before dragging: it cancels.
+- [x] Choose Move Pivot on a group with a rider and a body. Drag the pin to the prow. Nothing else moves, and the button and notice switch off by themselves when the pin is dropped.
+- [x] Drag the pin again and the whole group follows. Turn it with Shift and the wheel and the group turns about the new grip.
+- [x] Choose Move Pivot, then choose it again before dragging: it cancels.
 
 ## Behaviour
 
@@ -48,29 +49,29 @@ Everything below has shipped and has not been proven in a running world. The aut
 - [x] Moves by Jumping: no movement between the two places and nothing follows a drag.
 - [x] Riders glide along with the group, and a turn swings them on an arc.
 - [x] Turns when its pin turns, switched off: turning the pin turns nothing, the heading field and rotate buttons are disabled, moving the pin still carries the group. Switch it back on and nothing swings.
-- [ ] Riders can move about, switched off: a rider moved by hand goes straight back.
-- [ ] Announce boarding in chat: a public card and a soft sound for everyone when a token boards, and when it leaves.
+- [x] Riders can move about, switched off: a rider moved by hand goes straight back.
+- [x] Announce boarding in chat: a public card and a soft sound for everyone when a token boards, and when it leaves.
 
 ## Riders
 
-- [ ] With Tokens board when they move onto it turned on, a player drags their own token onto the group and it boards. A player drags it off and it dismounts, with a toast.
-- [ ] A rider walked about inside the group stays where it was put through the next move.
-- [ ] Dismount stays off while the token is still on the group, and boards again after it has left and come back.
-- [ ] Deleting the group lets its riders go where they are.
+- [x] With Tokens board when they move onto it turned on, a player drags their own token onto the group and it boards. A player drags it off and it dismounts, with a toast.
+- [x] A rider walked about inside the group stays where it was put through the next move.
+- [x] Dismount stays off while the token is still on the group, and boards again after it has left and come back.
+- [x] Deleting the group lets its riders go where they are.
 
 ## Body token
 
-- [ ] Drag an actor onto a group's body row, use Use Selected Token, turn Linked on and off, and use the cross to remove it.
-- [ ] The body follows a drag, a turn, and added or removed parts.
-- [ ] A truly transparent token draws no shadow or border.
-- [ ] A tile or light under the footprint can still be clicked.
+- [x] Drag an actor onto a group's body row, use Use Selected Token, turn Linked on and off, and use the cross to remove it.
+- [x] The body follows a drag, a turn, and added or removed parts.
+- [x] A truly transparent token draws no shadow or border.
+- [x] A tile or light under the footprint can still be clicked.
 - [ ] A teleport move of the body does not count against combat movement.
 
 ## Library
 
 - [ ] Save a group to the library and the entry shows a picture of it: the tiles' images where they sit, walls as dark lines, lights and sounds as dots, centred in a square with nothing of the map under it. Replace from Group redraws it. A tile that is a video or a missing image shows as a plain box.
 
-- [ ] A group with Tokens board when they move onto it, Travelling, Faces its travel and an event, saved to the Library and fabricated again: the copy has the same switches and settings, a token dragged onto it boards, and its event runs. An entry saved before this fix has none of it and is saved again first.
+- [x] A group with Tokens board when they move onto it, Travelling, Faces its travel and an event, saved to the Library and fabricated again: the copy has the same switches and settings, a token dragged onto it boards, and its event runs. An entry saved before this fix has none of it and is saved again first.
 - [ ] Fabricate the same entry three times: the groups are "Name", "Name 2" and "Name 3" in the editor and on their pins. If the entry has a token, each token carries its group's name when targeted, and damaging one does not hurt the others (unlinked).
 - [ ] Save, Stamp, Import and Export. A stamp of a group that has a body, once turned, has its own body for that stamp.
 - [ ] A stamp in a world without that actor has no body and a toast says so.

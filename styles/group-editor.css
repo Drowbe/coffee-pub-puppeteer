@@ -189,10 +189,34 @@
     color: var(--blacksmith-tool-text-muted);
 }
 
-.puppeteer-group-editor .puppeteer-event-sound,
-.puppeteer-group-editor .puppeteer-event-image,
-.puppeteer-group-editor .puppeteer-event-macro {
+/* The Add Event dialog is outside the editor, in Blacksmith's own dialog frame. */
+.puppeteer-event-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 22em;
+}
+
+.puppeteer-event-dialog .puppeteer-event-row {
+    display: grid;
+    grid-template-columns: 9em 1fr;
+    align-items: center;
+    gap: 8px;
+}
+
+.puppeteer-event-dialog .puppeteer-event-path {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+}
+
+.puppeteer-event-dialog .puppeteer-event-path input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* A part or a rider that is selected on the map is marked in the list. */
+.puppeteer-group-editor .blacksmith-list-row.is-selected {
+    background: var(--blacksmith-tool-surface-selected, rgba(255, 154, 31, 0.18));
+    box-shadow: inset 3px 0 0 var(--blacksmith-tool-accent, #ff9a1f);
 }

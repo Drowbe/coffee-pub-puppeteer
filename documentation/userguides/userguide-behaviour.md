@@ -34,7 +34,7 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 
 ## Make things happen
 
-An event is a rule on a group: when this happens, do that. Open **Events** on the group's card, choose what happens, choose what to do, and choose **Add Event**.
+An event is a rule on a group: when this happens, do that. Open **Events** on the group's card and choose **Add Event**. A dialog asks what happens and what to do, and nothing is chosen for you: each list starts at Choose one, and the next choices appear as you make them (the choices that go with the action (a sound, a tile and a picture, a macro) appear as you pick it). If something is missing, such as no sound chosen, the dialog says so and opens again with what you typed.
 
 | When | Fires |
 |---|---|
