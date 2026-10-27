@@ -16,6 +16,7 @@ import { boundsShown, toggleBounds } from './overlay.js';
 import { syncAllGroups } from './follower.js';
 import { anchorState, anchorExists } from './anchor.js';
 import { getGroup, groupsTouched } from './store.js';
+import { pickPlacement } from './placement.js';
 import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
@@ -1029,10 +1030,20 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         });
     }
 
+    /** Fabricate: the group follows the pointer with its pin under the crosshair, and a click puts it there. */
     _stamp(templateId) {
         return run('Fabricate from library', async () => {
-            const group = await stampTemplate(canvas.scene, templateId, { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y });
-            say('Fabricated', `${group.name} was placed at the centre of your view.`);
+            const template = getTemplate(templateId);
+            if (!template) return;
+            say('Place the group', 'Click the map where the pin goes. Right-click or Escape cancels.');
+            const point = await pickPlacement(template);
+            if (!point) {
+                say('Cancelled', 'Nothing was placed.');
+                return;
+            }
+            const group = await stampTemplate(canvas.scene, templateId, point);
+            expanded.add(group.id);
+            say('Fabricated', `${group.name} is on the map.`);
         });
     }
 

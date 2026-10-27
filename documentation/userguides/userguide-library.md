@@ -11,7 +11,7 @@ On the **Scene Groups** tab, choose the Library icon (the boxes, as on the Libra
 ## Place a copy
 
 1. Open the **Library** tab.
-2. Choose **Fabricate** on the entry. A new group appears at the centre of your view, with its own pin, its own tiles, lights, walls and sounds, and the names you gave the parts.
+2. Choose **Fabricate** on the entry. The group follows your pointer with its pin under the crosshair, shown at its true size; click the map where the pin goes (right-click or Escape cancels). It becomes a new group with its own pin, its own tiles, lights, walls and sounds, and the names you gave the parts.
 
 Each copy is independent. Two copies are two groups: move, turn or delete one and the other is untouched.
 

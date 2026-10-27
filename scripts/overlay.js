@@ -108,10 +108,8 @@ function draw() {
         g.lineTo(right.x, right.y);
         const middle = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
         const out = Math.hypot(middle.x - bounds.centre.x, middle.y - bounds.centre.y) || 1;
-        const label = new PIXI.Text({
-            text: 'Width',
-            style: { fontSize: 22, fontWeight: 'bold', fill: 0xffffff, stroke: { color: 0x000000, width: 5 } }
-        });
+        // The text and its style are two arguments, as Foundry's PIXI takes them; one object would be drawn as "[object Object]".
+        const label = new PIXI.Text('Width', { fontSize: 22, fontWeight: 'bold', fill: 0xffffff, stroke: 0x000000, strokeThickness: 5 });
         label.anchor.set(0.5);
         label.eventMode = 'none';
         label.position.set(middle.x + (((middle.x - bounds.centre.x) / out) * 24), middle.y + (((middle.y - bounds.centre.y) / out) * 24));

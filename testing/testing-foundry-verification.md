@@ -72,6 +72,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 - [ ] Save a group to the library and the entry shows a picture of it: the tiles' images where they sit, walls as dark lines, lights and sounds as dots, centred in a square with nothing of the map under it. Replace from Group redraws it. A tile that is a video or a missing image shows as a plain box.
 
 - [x] A group with Tokens board when they move onto it, Travelling, Faces its travel and an event, saved to the Library and fabricated again: the copy has the same switches and settings, a token dragged onto it boards, and its event runs. An entry saved before this fix has none of it and is saved again first.
+- [ ] Fabricate shows the group under the pointer with the pin at the crosshair, at its true size and in the right place, tiles as their pictures; a left click places it there, right-click and Escape cancel with nothing placed, the cursor goes back, and Group Bounds shows a "Width" label (not "[object Object]") on one side of each group.
 - [ ] Fabricate the same entry three times: the groups are "Name", "Name 2" and "Name 3" in the editor and on their pins. If the entry has a token, each token carries its group's name when targeted, and damaging one does not hurt the others (unlinked).
 - [ ] Save, Stamp, Import and Export. A stamp of a group that has a body, once turned, has its own body for that stamp.
 - [ ] A stamp in a world without that actor has no body and a toast says so.
