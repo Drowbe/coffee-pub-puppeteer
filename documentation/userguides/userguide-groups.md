@@ -32,16 +32,16 @@ To hide one part, choose the eye beside it under **Parts**. A light or a sound h
 
 ## Choose where the group turns about
 
-Both are under **Position** on an open card.
+Both are in the **...** menu in the group card's bar.
 
 - **Centre Pivot** moves the pin to the middle of the group without moving anything, so the group turns about its own centre.
-- **Move Pivot** puts the pin anywhere, such as the prow of a ship, a wagon's hitch or a door's hinge. Choose **Move Pivot** on the group (the button turns blue and a notice appears) and drag the pin to where you want it. The pin moves, nothing else does, and Move Pivot switches itself off when you drop the pin. After that the group moves and turns about the new spot. Choose **Move Pivot** again before dragging to cancel.
+- **Move Pivot** puts the pin anywhere, such as the prow of a ship, a wagon's hitch or a door's hinge. Choose **Move Pivot** from the **...** menu (the card shows a notice) and drag the pin to where you want it. The pin moves, nothing else does, and Move Pivot switches itself off when you drop the pin. After that the group moves and turns about the new spot. Choose **Move Pivot** again before dragging to cancel.
 
 ## Resize a group
 
-Under **Position** on an open card, **Resize** has two opposite buttons, **Smaller** and **Bigger**, and a step between them (1.25 to begin with). **Bigger** multiplies the group's size by the step and **Smaller** divides by it, so one undoes the other. The group grows or shrinks about its pin: every part sits that many times as far from the pin and is that many times as big, so tiles, drawings, lights, sounds and regions all keep their proportions, and walls and notes move to the new distance. Riders stand that many times as far from the pin but keep their own size, and a group's token is refitted to cover the new size.
+Under **Position** on an open card, **Resize** is one line: two opposite buttons, **Smaller** (shrink) and **Bigger** (grow), the step they use (1.25 to begin with, with its × inside the field), the group's **width** in grid squares, and **Reset**. **Bigger** multiplies the group's size by the step and **Smaller** divides by it, so one undoes the other. The group grows or shrinks about its pin: every part sits that many times as far from the pin and is that many times as big, so tiles, drawings, lights, sounds and regions all keep their proportions, and walls and notes move to the new distance. Riders stand that many times as far from the pin but keep their own size, and a group's token is refitted to cover the new size.
 
-**Reset** puts the group back to the size it had before it was resized, however many times it has been. It is greyed out for a group that has not been resized. **Width** shows how wide the group is in grid squares; type a number to resize the group to exactly that width. Sizes are kept to whole pixels where Foundry needs it, so a long run of resizes can leave a part a pixel out. From a macro: `scale(groupId, factor)` (0.1 to 10), `resetScale(groupId)` and `setWidth(groupId, squares)`.
+**Reset** puts the group back to the size it had before it was resized, however many times it has been. It is greyed out for a group that has not been resized. The width field shows how wide the group is in grid squares, along its own side to side; with **Group Bounds** on, that side is drawn heavier on the map and labelled Width. Type a number to resize the group to exactly that width. Sizes are kept to whole pixels where Foundry needs it, so a long run of resizes can leave a part a pixel out. From a macro: `scale(groupId, factor)` (0.1 to 10), `resetScale(groupId)` and `setWidth(groupId, squares)`.
 
 ## Edit parts by hand
 
@@ -59,7 +59,7 @@ A group can have as many events on each side as you like. To pause a wagon's ani
 
 ## Duplicate a group
 
-Choose the copy button on a group's card. A new group appears two squares to the right of the original, named with "copy" after it, with its own parts and its own pin, facing the same way. It keeps the original's behaviour settings and, if the original can be attacked, gets its own token for the same actor. Riders are not copied. If the original is hidden, the copy is shown, except for anything that was already hidden before the group was. Nothing is added to the library; for a copy you want to place again and again, use **Save to Library**.
+Choose **Duplicate** from the **...** menu in a group's card. A new group appears two squares to the right of the original, named with "copy" after it, with its own parts and its own pin, facing the same way. It keeps the original's behaviour settings and, if the original can be attacked, gets its own token for the same actor. Riders are not copied. If the original is hidden, the copy is shown, except for anything that was already hidden before the group was. Nothing is added to the library; for a copy you want to place again and again, use **Save to Library**.
 
 ## If a group loses its pin
 

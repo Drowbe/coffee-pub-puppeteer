@@ -48,6 +48,49 @@
     min-width: 0;
 }
 
+/* A number with its unit inside the field, so the unit reads as part of the value and not as something to multiply by. */
+.puppeteer-group-editor .puppeteer-affix {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.puppeteer-group-editor .puppeteer-affix input {
+    width: 100%;
+    padding-right: 1.9em;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.puppeteer-group-editor .puppeteer-affix input::-webkit-outer-spin-button,
+.puppeteer-group-editor .puppeteer-affix input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.puppeteer-group-editor .puppeteer-affix-step { width: 5.5em; }
+.puppeteer-group-editor .puppeteer-affix-width { width: 8em; }
+.puppeteer-group-editor .puppeteer-affix-width input { padding-left: 1.9em; }
+
+.puppeteer-group-editor .puppeteer-affix-start,
+.puppeteer-group-editor .puppeteer-affix-end {
+    position: absolute;
+    pointer-events: none;
+    color: var(--blacksmith-tool-text-muted);
+}
+
+.puppeteer-group-editor .puppeteer-affix-start { left: 8px; }
+.puppeteer-group-editor .puppeteer-affix-end { right: 8px; }
+
+/* A thin rule between the parts of one line of controls. */
+.puppeteer-group-editor .puppeteer-divider {
+    align-self: stretch;
+    width: 1px;
+    margin: 2px 4px;
+    background: var(--blacksmith-tool-text-muted);
+    opacity: 0.4;
+}
+
 .puppeteer-group-editor .puppeteer-grow {
     flex: 1 1 8em;
     min-width: 0;

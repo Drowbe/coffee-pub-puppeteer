@@ -14,6 +14,7 @@ const MEMBER_COLOUR = 0x39d2ff;
 
 let enabled = readPreference();
 let graphics = null;
+let labels = [];
 let frame = null;
 
 function readPreference() {
@@ -43,8 +44,8 @@ export function registerOverlay() {
         callback
     });
 
-    hook('canvasReady', () => { graphics = null; schedule(); });
-    hook('canvasTearDown', () => { graphics = null; });
+    hook('canvasReady', () => { graphics = null; labels = []; schedule(); });
+    hook('canvasTearDown', () => { graphics = null; labels = []; });
     hook('updateScene', (scene, changes) => {
         if (scene.id !== canvas.scene?.id) return;
         if (groupsTouched(changes)) schedule();
@@ -77,6 +78,8 @@ function draw() {
     if (!scene || !layer) return;
     const g = ensureGraphics(layer);
     g.clear();
+    for (const label of labels) label.destroy();
+    labels = [];
     if (!enabled) return;
 
     for (const group of Object.values(getGroups(scene))) {
@@ -97,6 +100,23 @@ function draw() {
         g.beginFill(COLOUR, 0.06);
         g.drawPolygon(bounds.corners.flatMap((c) => [c.x, c.y]));
         g.endFill();
+
+        // The side the Width field in the editor measures: the group's own side to side, drawn heavier and named.
+        const [left, right] = bounds.corners;
+        g.lineStyle(7, COLOUR, 1);
+        g.moveTo(left.x, left.y);
+        g.lineTo(right.x, right.y);
+        const middle = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
+        const out = Math.hypot(middle.x - bounds.centre.x, middle.y - bounds.centre.y) || 1;
+        const label = new PIXI.Text({
+            text: 'Width',
+            style: { fontSize: 22, fontWeight: 'bold', fill: 0xffffff, stroke: { color: 0x000000, width: 5 } }
+        });
+        label.anchor.set(0.5);
+        label.eventMode = 'none';
+        label.position.set(middle.x + (((middle.x - bounds.centre.x) / out) * 24), middle.y + (((middle.y - bounds.centre.y) / out) * 24));
+        layer.addChild(label);
+        labels.push(label);
 
         // Each member where the group believes it is, so a member drawn away from its object is plain to see.
         g.lineStyle(2, MEMBER_COLOUR, 0.9);

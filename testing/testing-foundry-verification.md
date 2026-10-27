@@ -26,6 +26,11 @@ Everything below has shipped and has not been proven in a running world. The aut
 - [x] A hidden group still follows its pin, and a player cannot see its hidden parts.
 - [x] Rename and describe a library entry, then Replace from Group (the list shows this scene's groups; choosing one replaces the entry; Cancel changes nothing), and check copies already placed are unchanged. Fabricate works.
 
+## Card menu and Resize
+
+- [ ] The ... in a card's bar opens Blacksmith's menu with Centre Pivot, Move Pivot (reads Move Pivot: On while it is), Duplicate, Save to Library, Export and Delete, and each does what its button did. The menu closes on a click outside it and on Escape.
+- [ ] Resize is one line that fits at the default window width and a narrow one: Smaller, Bigger, the step with its x inside the field, the width with its icon and sq inside, Reset greyed until the group has been resized. Typing a width resizes the group to it. With Group Bounds on, one side of each group is heavier and labelled Width, and it is the side the width field measures (it can read a little differently from the box when the group has lights or walls beyond its tiles).
+
 ## Duplicate
 
 - [ ] The copy button on a card makes a second group two squares to the right with its own pin and parts, and the new card opens. The two move independently. A group with a body gets a second body; riders stay on the original.

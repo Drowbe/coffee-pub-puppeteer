@@ -15,7 +15,7 @@ import { bodyToken } from './body.js';
 import { boundsShown, toggleBounds } from './overlay.js';
 import { syncAllGroups } from './follower.js';
 import { anchorState, anchorExists } from './anchor.js';
-import { groupsTouched } from './store.js';
+import { getGroup, groupsTouched } from './store.js';
 import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
@@ -104,11 +104,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         newGroup: (event, target, win) => win._newGroup(),
         rotate: (event, target, win) => win._rotate(target.dataset.groupId, Number(target.dataset.degrees)),
         captureArea: (event, target, win) => win._captureArea(target.dataset.groupId),
-        recenterPivot: (event, target, win) => win._recenterPivot(target.dataset.groupId),
-        movePivot: (event, target, win) => win._movePivot(target.dataset.groupId),
-        exportGroup: (event, target, win) => win._exportGroup(target.dataset.groupId),
-        saveToLibrary: (event, target, win) => win._saveToLibrary(target.dataset.groupId),
-        duplicateGroup: (event, target, win) => win._duplicate(target.dataset.groupId),
+        groupMenu: (event, target, win) => win._groupMenu(event, target.dataset.groupId),
         replacePin: (event, target, win) => win._replacePin(target.dataset.groupId),
         scaleUp: (event, target, win) => win._scaleBy(target, false),
         scaleDown: (event, target, win) => win._scaleBy(target, true),
@@ -129,7 +125,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         removeSelected: (event, target, win) => win._removeSelected(target.dataset.groupId),
         selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId, target.dataset.type || null),
         panTo: (event, target, win) => win._panTo(target.dataset.groupId),
-        deleteGroup: (event, target, win) => win._deleteGroup(target.dataset.groupId),
         removeMember: (event, target, win) => win._removeMember(target.dataset.groupId, target.dataset.type, target.dataset.id),
         boardSelected: (event, target, win) => win._boardSelected(target.dataset.groupId),
         dismount: (event, target, win) => win._dismount(target.dataset.groupId, target.dataset.tokenId),
@@ -402,10 +397,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i></button>
                     ${canPlayPause(group) ? `<button type="button" class="blacksmith-tool-btn is-icon${group.paused ? ' is-active' : ''}" data-action="togglePlaying" data-group-id="${id}" data-tooltip="${group.paused ? 'Play' : 'Pause'} the group: runs its &quot;${group.paused ? 'Play' : 'Pause'} is clicked&quot; events"><i class="fa-solid fa-${group.paused ? 'play' : 'pause'}"></i></button>` : ''}
-                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="duplicateGroup" data-group-id="${id}" data-tooltip="Duplicate the group: a copy of its parts, pin and settings, two squares to the right"><i class="fa-solid fa-clone"></i></button>
-                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="saveToLibrary" data-group-id="${id}" data-tooltip="Save to the Library: a copy you can fabricate on any scene"><i class="fa-solid fa-boxes-stacked"></i></button>
-                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="exportGroup" data-group-id="${id}" data-tooltip="Export the group as a JSON file"><i class="fa-solid fa-file-export"></i></button>
-                    <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="deleteGroup" data-group-id="${id}" data-tooltip="Delete the group"><i class="fa-solid fa-trash"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="groupMenu" data-group-id="${id}" data-tooltip="More: centre or move the pivot, duplicate, save to the Library, export, delete"><i class="fa-solid fa-ellipsis"></i></button>
                 </span>
             </div>
             ${warnings}
@@ -477,25 +469,24 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                         </label>
                         ${step(-90, 'fa-solid fa-rotate-left')}${step(-15, 'fa-solid fa-rotate-left')}${step(15, 'fa-solid fa-rotate-right')}${step(90, 'fa-solid fa-rotate-right')}
                     </div>
-                    <div class="puppeteer-inline">
-                        ${button('recenterPivot', 'fa-solid fa-bullseye', 'Centre Pivot', 'Move the pin to the middle of the group without moving anything')}
-                        <button type="button" class="blacksmith-tool-btn${group.movePivot ? ' is-active' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: drag the pin once and only the pin moves. This switches itself off when you drop the pin."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
-                    </div>
-                    <div class="puppeteer-inline">
+                    <div class="puppeteer-inline puppeteer-resize">
                         <span>Resize</span>
                         <div class="blacksmith-tool-btn-group">
-                            <button type="button" class="blacksmith-tool-btn" data-action="scaleDown" data-group-id="${id}" data-tooltip="Make the group smaller by the step: parts, lights, sounds, regions and where riders stand. Tokens keep their size. Bigger is its opposite."><i class="fa-solid fa-down-left-and-up-right-to-center"></i> Smaller</button>
-                            <button type="button" class="blacksmith-tool-btn" data-action="scaleUp" data-group-id="${id}" data-tooltip="Make the group bigger by the step."><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Bigger</button>
+                            <button type="button" class="blacksmith-tool-btn is-icon" data-action="scaleDown" data-group-id="${id}" data-tooltip="Smaller: divide the group's size by the step. Parts, lights, sounds, regions and where riders stand all scale; tokens keep their size. Bigger is its opposite."><i class="fa-solid fa-down-left-and-up-right-to-center"></i></button>
+                            <button type="button" class="blacksmith-tool-btn is-icon" data-action="scaleUp" data-group-id="${id}" data-tooltip="Bigger: multiply the group's size by the step."><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
                         </div>
-                        <label class="puppeteer-field" data-tooltip="How much Smaller and Bigger resize by: Bigger multiplies the group's size by this, Smaller divides by it (1.01 to 10).">
-                            by <input type="number" data-field="scaleStep" data-group-id="${id}" value="${scaleStep}" min="1.01" max="10" step="0.05">&times;
+                        <label class="puppeteer-affix puppeteer-affix-step" data-tooltip="The step: Bigger multiplies the group's size by this and Smaller divides by it (1.01 to 10).">
+                            <input type="number" data-field="scaleStep" data-group-id="${id}" value="${scaleStep}" min="1.01" max="10" step="0.05">
+                            <span class="puppeteer-affix-end">&times;</span>
                         </label>
-                        <button type="button" class="blacksmith-tool-btn" data-action="resetScale" data-group-id="${id}"${group.scale ? '' : ' disabled'} data-tooltip="${group.scale ? `Put the group back to the size it was before it was resized (it is ${Math.round(group.scale * 100) / 100} times that now)` : 'The group has not been resized'}"><i class="fa-solid fa-rotate-left"></i> Reset</button>
-                    </div>
-                    <div class="puppeteer-inline">
-                        <label class="puppeteer-field" data-tooltip="How wide the group is, in grid squares. Change it to resize the group to that width, about the pin.">
-                            Width <input type="number" data-field="groupWidth" data-group-id="${id}" value="${groupWidth(scene, group)}" min="0.1" step="0.5"> squares
+                        <span class="puppeteer-divider"></span>
+                        <label class="puppeteer-affix puppeteer-affix-width" data-tooltip="The group's width in grid squares, along its own side to side (shown as Width when Group Bounds is on). Change it to resize the group to that width, about the pin.">
+                            <i class="fa-solid fa-arrows-left-right puppeteer-affix-start"></i>
+                            <input type="number" data-field="groupWidth" data-group-id="${id}" value="${groupWidth(scene, group)}" min="0.1" step="0.5">
+                            <span class="puppeteer-affix-end">sq</span>
                         </label>
+                        <span class="puppeteer-divider"></span>
+                        <button type="button" class="blacksmith-tool-btn is-icon" data-action="resetScale" data-group-id="${id}"${group.scale ? '' : ' disabled'} data-tooltip="${group.scale ? `Reset: put the group back to the size it was before it was resized (it is ${Math.round(group.scale * 100) / 100} times that now)` : 'Reset: the group has not been resized'}"><i class="fa-solid fa-rotate-left"></i></button>
                     </div></section>
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Events</span></header>
                     ${this._eventsHtml(group)}</section>
@@ -1023,6 +1014,28 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const on = await setMovePivot(canvas.scene, groupId, !group?.movePivot);
             say(on ? 'Move Pivot is on' : 'Move Pivot is off', on ? 'Drag the pin to where the grip should be. Nothing else will move, and this switches off when you drop it.' : 'Dragging the pin moves the group again.');
             this.render();
+        });
+    }
+
+    /** The card's More menu: what is done to a group now and then, out of the way of what is done to it often. */
+    _groupMenu(event, groupId) {
+        const group = getGroup(canvas.scene, groupId);
+        if (!group) return;
+        const at = event.target?.closest?.('button')?.getBoundingClientRect?.();
+        getBlacksmith().uiContextMenu.show({
+            id: `${MODULE_ID}-group-menu`,
+            x: at ? at.right : event.clientX,
+            y: at ? at.bottom : event.clientY,
+            zones: [
+                { name: 'Centre Pivot', icon: 'fa-solid fa-bullseye', description: 'Move the pin to the middle of the group without moving anything', callback: () => this._recenterPivot(groupId) },
+                { name: group.movePivot ? 'Move Pivot: On' : 'Move Pivot', icon: 'fa-solid fa-crosshairs', description: 'Drag the pin once and only the pin moves, so the grip can go anywhere', callback: () => this._movePivot(groupId) },
+                { separator: true },
+                { name: 'Duplicate', icon: 'fa-solid fa-clone', description: 'A copy two squares to the right, with its own pin and parts', callback: () => this._duplicate(groupId) },
+                { name: 'Save to Library', icon: 'fa-solid fa-boxes-stacked', description: 'A copy you can fabricate on any scene', callback: () => this._saveToLibrary(groupId) },
+                { name: 'Export', icon: 'fa-solid fa-file-export', description: 'The group as a JSON file', callback: () => this._exportGroup(groupId) },
+                { separator: true },
+                { name: 'Delete', icon: 'fa-solid fa-trash', callback: () => this._deleteGroup(groupId) }
+            ]
         });
     }
 
