@@ -93,6 +93,11 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 | `library.describe(templateId, text)` | Sets an entry's description. A blank one removes it. |
 | `library.updateFromGroup(templateId, groupId, scene)` | Replaces an entry's parts with those of a group. The entry keeps its id, name and description; copies already placed are not changed. |
 | `library.import(jsonText)` | Adds a template from exported JSON. Version 1 templates are refused with a message. |
+| `library.categories()` | The library's categories by name, each `{ id, name, count }`. |
+| `library.createCategory(name)` | Makes a category and returns its id. A blank name, or one already used (compared without regard to case), is refused. |
+| `library.renameCategory(categoryId, name)` | Renames a category, with the same checks. |
+| `library.removeCategory(categoryId)` | Deletes a category. Its entries are kept, uncategorised. |
+| `library.setCategory(templateId, categoryId)` | Files an entry in a category, or in none with `null`. `library.list()` gives each entry's `category`. |
 
 ## Behaviour
 

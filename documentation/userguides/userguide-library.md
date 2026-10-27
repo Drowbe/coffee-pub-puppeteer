@@ -17,6 +17,12 @@ Each copy is independent. Two copies are two groups: move, turn or delete one an
 
 If the saved group could be attacked (see [Making a group something that can be attacked](userguide-targets.md)), each copy comes with its own token for the same actor, with its own hit points, and the entry shows which actor it represents. If that actor is not in your world, the copy has no token and you are told.
 
+## Sort the library into categories
+
+Choose **New Category** at the bottom of the **Library** tab and name it, such as Vehicles or Buildings. Each category is a card that opens and closes and holds its entries. Drag an entry onto a category to file it there, and onto **Uncategorised** to take it out again. Click a category's name to rename it. The trash button on a category deletes it; its entries are kept and go to Uncategorised. Two categories cannot have the same name, however it is written.
+
+A category travels with an entry that is exported: the file names it, and importing the entry files it under the category of that name, making one if there is none.
+
 ## Name and describe an entry
 
 Each entry shows a picture of the group, its name and a description. The picture is drawn when you save the entry, or update it, from the group's own parts: the tiles' images where they sit, with the walls, lights, sounds, drawings and regions as simple marks. It shows the group alone, with no map under it. If it cannot be drawn, the entry has a placeholder instead. Choose the pencil beside either to change it, then press Enter or click away to keep it, or Escape to put it back.

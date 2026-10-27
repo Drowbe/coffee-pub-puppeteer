@@ -220,3 +220,13 @@
     background: var(--blacksmith-tool-surface-selected, rgba(255, 154, 31, 0.18));
     box-shadow: inset 3px 0 0 var(--blacksmith-tool-accent, #ff9a1f);
 }
+
+/* A library category takes entries dragged onto it. */
+.puppeteer-group-editor .puppeteer-category.is-over {
+    outline: 2px dashed var(--blacksmith-tool-accent, #ff9a1f);
+    outline-offset: 2px;
+}
+
+.puppeteer-group-editor .puppeteer-template[draggable="true"] {
+    cursor: grab;
+}

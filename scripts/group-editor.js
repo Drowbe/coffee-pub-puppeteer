@@ -17,7 +17,7 @@ import { syncAllGroups } from './follower.js';
 import { anchorState, anchorExists } from './anchor.js';
 import { getGroup, groupsTouched } from './store.js';
 import { pickPlacement } from './placement.js';
-import { listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
+import { listCategories, createCategory, renameCategory, deleteCategory, setTemplateCategory, exportTemplateData, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
 
@@ -33,6 +33,9 @@ const TYPE_ICON = {
 
 // Which group cards are open. Module level so it survives a redraw and a close and reopen.
 const expanded = new Set();
+
+// The library categories that are closed (an open one is not remembered; every category starts open).
+const closedCategories = new Set();
 
 // How much the Bigger and Smaller buttons resize by. One setting for the window, kept across redraws.
 let scaleStep = 1.25;
@@ -113,6 +116,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         addEvent: (event, target, win) => win._addEvent(target.dataset.groupId),
         removeEvent: (event, target, win) => win._removeEvent(target.dataset.groupId, target.dataset.eventId),
         stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
+        newCategory: (event, target, win) => win._newCategory(),
+        deleteCategory: (event, target, win) => win._deleteCategory(target.dataset.categoryId),
         updateTemplate: (event, target, win) => win._updateTemplate(target.dataset.templateId),
         toggleGroupHidden: (event, target, win) => win._toggleGroupHidden(target.dataset.groupId),
         togglePlaying: (event, target, win) => win._togglePlaying(target.dataset.groupId),
@@ -213,6 +218,18 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         for (const input of this.element.querySelectorAll('input[data-field], select[data-field], textarea[data-field]')) {
             input.addEventListener('change', () => this._commitField(input));
         }
+        // A library entry dragged onto a category is filed there.
+        for (const row of this.element.querySelectorAll('.puppeteer-template[draggable]')) {
+            row.addEventListener('dragstart', (event) => {
+                event.dataTransfer.setData('text/plain', `puppeteer-template:${row.dataset.templateId}`);
+                event.dataTransfer.effectAllowed = 'move';
+            });
+        }
+        for (const card of this.element.querySelectorAll('[data-drop-category]')) {
+            card.addEventListener('dragover', (event) => { event.preventDefault(); card.classList.add('is-over'); });
+            card.addEventListener('dragleave', (event) => { if (!card.contains(event.relatedTarget)) card.classList.remove('is-over'); });
+            card.addEventListener('drop', (event) => { event.preventDefault(); card.classList.remove('is-over'); this._dropTemplate(event, card.dataset.dropCategory); });
+        }
         // An actor dragged from the sidebar onto an empty token target gives the group a token.
         for (const zone of this.element.querySelectorAll('[data-drop-group]')) {
             zone.addEventListener('dragover', (event) => { event.preventDefault(); zone.classList.add('is-over'); });
@@ -243,7 +260,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const library = listTemplates();
         const footer = {
             groups: `<button type="button" class="blacksmith-window-btn-primary" data-action="newGroup"><i class="fa-solid fa-plus"></i> New Group</button>`,
-            library: `<button type="button" class="blacksmith-window-btn-secondary" data-action="importTemplate"><i class="fa-solid fa-file-import"></i> Import</button>
+            library: `<button type="button" class="blacksmith-window-btn-secondary" data-action="newCategory"><i class="fa-solid fa-folder-plus"></i> New Category</button>
+                <button type="button" class="blacksmith-window-btn-secondary" data-action="importTemplate"><i class="fa-solid fa-file-import"></i> Import</button>
                 <input type="file" accept="application/json,.json" data-field="importFile" hidden>`,
             tools: ''
         }[tab];
@@ -280,12 +298,12 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     }
 
     _libraryHtml(scene, templates, groups) {
-        const rows = templates.map((template) => {
+        const row = (template) => {
             const id = esc(template.id);
             return `
-            <div class="blacksmith-list-row puppeteer-template" data-template-id="${id}">
+            <div class="blacksmith-list-row puppeteer-template" data-template-id="${id}" draggable="true" data-tooltip="Drag onto a category to file it there">
                 ${template.thumbnail
-        ? `<img class="blacksmith-list-row-img blacksmith-list-row-img-lg" src="${esc(template.thumbnail)}" alt="">`
+        ? `<img class="blacksmith-list-row-img blacksmith-list-row-img-lg" src="${esc(template.thumbnail)}" alt="" draggable="false">`
         : '<span class="blacksmith-list-row-img blacksmith-list-row-img-lg puppeteer-thumb-none"><i class="fa-solid fa-cubes"></i></span>'}
                 <div class="blacksmith-list-row-main">
                     <div class="blacksmith-list-row-title">${this._editableHtml('templateName', template.name, 'Entry', { 'template-id': template.id }, { required: true })}</div>
@@ -296,15 +314,43 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     </div>
                 </div>
                 <div class="blacksmith-list-row-action">
-                    <button type="button" class="blacksmith-tool-btn" data-action="stampTemplate" data-template-id="${id}" data-tooltip="Fabricate a new copy at the centre of your view"><i class="fa-solid fa-hammer"></i> Fabricate</button>
+                    <button type="button" class="blacksmith-tool-btn" data-action="stampTemplate" data-template-id="${id}" data-tooltip="Fabricate a new copy: it follows your pointer, and a click on the map places it"><i class="fa-solid fa-hammer"></i> Fabricate</button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="exportTemplate" data-template-id="${id}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="deleteTemplate" data-template-id="${id}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>`;
-        }).join('');
+        };
+
+        // A category is a card like a group's: it opens and closes, holds its entries, and takes entries dragged onto it.
+        const card = ({ id, name, count, entries }) => {
+            const key = esc(id ?? 'none');
+            return `
+        <div class="blacksmith-tool-card puppeteer-category" data-drop-category="${key}">
+            <div class="blacksmith-tool-card-head">
+                <label class="blacksmith-tool-card-summary">
+                    <input type="checkbox" class="blacksmith-tool-card-toggle" data-field="categoryOpen" data-category-id="${key}"${closedCategories.has(id ?? 'none') ? '' : ' checked'}>
+                    <i class="blacksmith-tool-card-caret fa-solid fa-chevron-right"></i>
+                    <span class="blacksmith-tool-card-title">${id ? this._editableHtml('categoryName', name, 'Category', { 'category-id': id }, { required: true }) : esc(name)}</span>
+                    <span class="blacksmith-tool-card-badges"><span class="blacksmith-badge">${count}</span></span>
+                </label>
+                ${id ? `<span class="blacksmith-tool-card-actions"><button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="deleteCategory" data-category-id="${key}" data-tooltip="Delete the category. Its entries are kept, uncategorised."><i class="fa-solid fa-trash"></i></button></span>` : ''}
+            </div>
+            <div class="blacksmith-tool-card-body">
+                ${entries.length ? `<div class="blacksmith-list">${entries.map(row).join('')}</div>` : '<div class="blacksmith-tool-hint">Nothing here. Drag an entry onto this category.</div>'}
+            </div>
+        </div>`;
+        };
+
+        const categories = listCategories();
+        const loose = templates.filter((template) => !template.category);
+        const cards = [
+            ...categories.map((category) => card({ ...category, entries: templates.filter((template) => template.category === category.id) })),
+            // What is in no category: always there, so an entry can be dragged back out of one.
+            ...(categories.length || loose.length ? [card({ id: null, name: 'Uncategorised', count: loose.length, entries: loose })] : [])
+        ];
         return `
-        <p class="blacksmith-tool-hint">Saved copies of groups. An entry is not tied to any scene: <strong>Fabricate</strong> builds a fresh, independent copy on this scene, as many times as you like. Make one with <strong>Save to Library</strong> on a group.</p>
-        <div class="blacksmith-list">${rows || '<div class="blacksmith-list-empty">Nothing saved yet.</div>'}</div>`;
+        <p class="blacksmith-tool-hint">Saved copies of groups. An entry is not tied to any scene: <strong>Fabricate</strong> builds a fresh, independent copy on this scene, as many times as you like. Make one with <strong>Save to Library</strong> on a group. Sort entries with <strong>New Category</strong>, and drag an entry onto a category to file it.</p>
+        ${cards.join('') || '<div class="blacksmith-list"><div class="blacksmith-list-empty">Nothing saved yet.</div></div>'}`;
     }
 
     _toolsHtml(scene, groups) {
@@ -696,6 +742,11 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             else expanded.delete(groupId);
             return null;
         }
+        if (input.dataset.field === 'categoryOpen') {
+            if (input.checked) closedCategories.delete(input.dataset.categoryId);
+            else closedCategories.add(input.dataset.categoryId);
+            return null;
+        }
         if (input.dataset.field === 'scaleStep') {
             const step = Number(input.value);
             if (Number.isFinite(step) && step > 1) scaleStep = Math.min(10, step);
@@ -703,6 +754,10 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             return null;
         }
         return run('Update group', async () => {
+            if (input.dataset.field === 'categoryName') {
+                try { await renameCategory(input.dataset.categoryId, input.value); } catch (error) { this.render(); throw error; }
+                return this.render();
+            }
             if (input.dataset.field === 'templateName') {
                 try { await renameTemplate(input.dataset.templateId, input.value); } catch (error) { this.render(); throw error; }
                 return this.render();
@@ -1047,9 +1102,63 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         });
     }
 
+    /** New Category: a name, asked for in a dialog; a name that is taken is refused and asked for again. */
+    _newCategory() {
+        return run('New category', async () => {
+            const { dialog } = getBlacksmith();
+            const outcome = await dialog.prompt({
+                title: 'New Category',
+                content: ({ value }) => `<div class="blacksmith-field"><span class="blacksmith-field-label">Name</span><input type="text" name="name" class="blacksmith-input" placeholder="Vehicles, Buildings..." value="${esc(value ?? '')}"></div>`,
+                submitLabel: 'Create',
+                submitIcon: 'fa-solid fa-folder-plus',
+                focusSelector: '[name="name"]',
+                getValue: (form) => form.elements.name.value.trim(),
+                validate: (name) => (name ? null : 'Enter a name for the category.'),
+                onSubmit: (name) => createCategory(name),
+                cancelValue: null,
+                closeValue: null
+            });
+            if (outcome.action !== dialog.ACTIONS.SUBMIT) return;
+            this.render();
+        });
+    }
+
+    _deleteCategory(categoryId) {
+        return run('Delete category', async () => {
+            const category = listCategories().find((candidate) => candidate.id === categoryId);
+            if (!category) return;
+            const confirmed = await getBlacksmith().dialog.confirm({
+                title: 'Delete Category',
+                content: `<p>Delete the category <strong>${esc(category.name)}</strong>? Its ${category.count} entr${category.count === 1 ? 'y is' : 'ies are'} kept, uncategorised.</p>`,
+                confirmLabel: 'Delete Category',
+                confirmIcon: 'fa-solid fa-trash',
+                destructive: true
+            });
+            if (!confirmed) return;
+            await deleteCategory(categoryId);
+            closedCategories.delete(categoryId);
+            this.render();
+        });
+    }
+
+    /** An entry was dropped on a category (or on Uncategorised, which is "none"). */
+    _dropTemplate(event, categoryId) {
+        return run('File library entry', async () => {
+            const text = event.dataTransfer?.getData('text/plain') ?? '';
+            if (!text.startsWith('puppeteer-template:')) return;
+            const templateId = text.slice('puppeteer-template:'.length);
+            const entry = listTemplates().find((candidate) => candidate.id === templateId);
+            if (!entry) return;
+            const target = categoryId === 'none' ? null : categoryId;
+            if ((entry.category ?? null) === target) return;
+            await setTemplateCategory(templateId, target);
+            this.render();
+        });
+    }
+
     _exportTemplate(templateId) {
         return run('Export template', async () => {
-            const template = getTemplate(templateId);
+            const template = exportTemplateData(templateId);
             const slug = template.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'group';
             // Core's file save: Blacksmith has no download helper.
             foundry.utils.saveDataToFile(JSON.stringify(template, null, 2), 'application/json', `puppeteer-${slug}.json`);

@@ -16,11 +16,18 @@ import { makeThumbnail } from './thumbnail.js';
 import { patchGroup } from './store.js';
 
 const KEY = 'library';
+// The categories the library is sorted into, as a list of `{ id, name }`. An entry names its category by id; one with no
+// category (or whose category is gone) is uncategorised.
+const CATEGORIES_KEY = 'libraryCategories';
 
-/** Register the world setting that holds the library. Call once, in ready, after bootstrap has passed. */
+/** Register the world settings that hold the library. Call once, in ready, after bootstrap has passed. */
 export function registerLibrarySetting() {
     game.settings.register(MODULE_ID, KEY, { scope: 'world', config: false, type: Object, default: {} });
+    game.settings.register(MODULE_ID, CATEGORIES_KEY, { scope: 'world', config: false, type: Array, default: [] });
 }
+
+const readCategories = () => getBlacksmith().utils.getSettingSafely(MODULE_ID, CATEGORIES_KEY, []) ?? [];
+const writeCategories = (categories) => getBlacksmith().utils.setSettingSafely(MODULE_ID, CATEGORIES_KEY, categories);
 
 function read() {
     return getBlacksmith().utils.getSettingSafely(MODULE_ID, KEY, {}) ?? {};
@@ -30,11 +37,80 @@ function write(library) {
     return getBlacksmith().utils.setSettingSafely(MODULE_ID, KEY, library);
 }
 
-/** What the library holds, by name. */
+/** What the library holds, by name. `category` is the id of its category, or null. */
 export function listTemplates() {
+    const known = new Set(readCategories().map((category) => category.id));
     return Object.entries(read())
-        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, actor: template.body?.actorName ?? null, description: template.description ?? '', thumbnail: template.thumbnail ?? null, savedAt: template.savedAt ?? 0 }))
+        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, actor: template.body?.actorName ?? null, description: template.description ?? '', thumbnail: template.thumbnail ?? null, savedAt: template.savedAt ?? 0, category: known.has(template.category) ? template.category : null }))
         .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The library's categories by name, each with how many entries it holds. */
+export function listCategories() {
+    const entries = listTemplates();
+    return readCategories()
+        .map((category) => ({ ...category, count: entries.filter((entry) => entry.category === category.id).length }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+function categoryName(name, categories, exceptId = null) {
+    const text = String(name ?? '').trim();
+    if (!text) throw new Error('Puppeteer: a category needs a name');
+    if (categories.some((category) => category.id !== exceptId && sameName(category.name, text))) throw new Error(`Puppeteer: there is already a category called "${text}"`);
+    return text;
+}
+
+/** Make a category. @returns {Promise<string>} Its id. */
+export async function createCategory(name) {
+    const categories = readCategories();
+    const id = foundry.utils.randomID();
+    await writeCategories([...categories, { id, name: categoryName(name, categories) }]);
+    return id;
+}
+
+export async function renameCategory(id, name) {
+    const categories = readCategories();
+    if (!categories.some((category) => category.id === id)) throw new Error(`Puppeteer: no category ${id} in the library`);
+    const text = categoryName(name, categories, id);
+    await writeCategories(categories.map((category) => (category.id === id ? { ...category, name: text } : category)));
+}
+
+/** Remove a category. Its entries are kept, uncategorised. @returns {Promise<boolean>} Whether there was one. */
+export async function deleteCategory(id) {
+    const categories = readCategories();
+    if (!categories.some((category) => category.id === id)) return false;
+    const library = read();
+    const kept = Object.fromEntries(Object.entries(library).map(([key, template]) => {
+        if (template.category !== id) return [key, template];
+        const { category, ...rest } = template;
+        return [key, rest];
+    }));
+    await write(kept);
+    await writeCategories(categories.filter((category) => category.id !== id));
+    return true;
+}
+
+/** Put an entry in a category, or in none with `null`. */
+export async function setTemplateCategory(templateId, categoryId) {
+    const library = read();
+    if (!library[templateId]) throw new Error(`Puppeteer: no template ${templateId} in the library`);
+    if (categoryId && !readCategories().some((category) => category.id === categoryId)) throw new Error(`Puppeteer: no category ${categoryId} in the library`);
+    const { category, ...rest } = library[templateId];
+    await write({ ...library, [templateId]: categoryId ? { ...rest, category: categoryId } : rest });
+}
+
+/**
+ * An entry as a file holds it: the category is named, not numbered, because the ids mean nothing in another world.
+ * @returns {object|null}
+ */
+export function exportTemplateData(id) {
+    const template = read()[id];
+    if (!template) return null;
+    const { category, ...rest } = structuredClone(template);
+    const named = readCategories().find((candidate) => candidate.id === category)?.name;
+    return named ? { ...rest, category: named } : rest;
 }
 
 export function getTemplate(id) {
@@ -80,6 +156,7 @@ export async function updateTemplateFromGroup(scene, groupId, id) {
     validateTemplate(fresh);
     const entry = { ...structuredClone(fresh), name: old.name, savedAt: Date.now() };
     if (old.description) entry.description = old.description;
+    if (old.category) entry.category = old.category;
     await write({ ...library, [id]: entry });
 }
 
@@ -136,7 +213,15 @@ export async function importTemplate(text) {
     } catch (error) {
         throw new Error(`Puppeteer: that file is not JSON (${error.message})`);
     }
-    return saveTemplate(validateTemplate(parsed));
+    validateTemplate(parsed);
+    // A category named in the file is the one of that name here, made if there is none.
+    const { category: named, ...template } = parsed;
+    const id = await saveTemplate(template);
+    if (typeof named === 'string' && named.trim()) {
+        const found = readCategories().find((candidate) => sameName(candidate.name, named));
+        await setTemplateCategory(id, found?.id ?? await createCategory(named));
+    }
+    return id;
 }
 
 /**

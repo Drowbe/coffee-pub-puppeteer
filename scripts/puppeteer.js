@@ -13,7 +13,7 @@ import { registerTween } from './tween.js';
 import { registerBoarding } from './boarding.js';
 import { registerHealth } from './health.js';
 import { syncAllGroups } from './follower.js';
-import { registerLibrarySetting, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
+import { registerLibrarySetting, listCategories, createCategory, renameCategory, deleteCategory, setTemplateCategory, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
 
 Hooks.once('ready', async () => {
     const blacksmith = await bootstrap();
@@ -76,7 +76,15 @@ Hooks.once('ready', async () => {
             rename: (templateId, name) => renameTemplate(templateId, name),
             describe: (templateId, text) => setTemplateDescription(templateId, text),
             updateFromGroup: (templateId, groupId, scene = canvas.scene) => updateTemplateFromGroup(scene, groupId, templateId),
-            import: (jsonText) => importTemplate(jsonText)
+            import: (jsonText) => importTemplate(jsonText),
+            /** The categories entries are sorted into, by name, each with how many entries it holds. */
+            categories: () => listCategories(),
+            createCategory: (name) => createCategory(name),
+            renameCategory: (categoryId, name) => renameCategory(categoryId, name),
+            /** Delete a category. Its entries are kept, uncategorised. */
+            removeCategory: (categoryId) => deleteCategory(categoryId),
+            /** Put an entry in a category, or in none with `null`. */
+            setCategory: (templateId, categoryId) => setTemplateCategory(templateId, categoryId)
         },
         showBounds: (value) => (value === undefined ? toggleBounds() : setBoundsShown(value)),
         /** Make the group targetable: a transparent, locked token of this actor that covers it and moves with it. */
