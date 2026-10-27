@@ -24,7 +24,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 - [ ] The editor's scroll position does not jump when a group moves while you are scrolled down.
 - [ ] A light and a sound have a power button, lit orange while on, that turns them off and on (the same as double-clicking them); a tile, a drawing and a region have an eye. Hide hides a tile and a region and turns a light and a sound off, leaves a wall and a note, and Show restores them. A part hidden before the group was hidden stays hidden. The eye on a part works.
 - [ ] A hidden group still follows its pin, and a player cannot see its hidden parts.
-- [ ] Rename and describe a library entry, then Update from group, and check copies already placed are unchanged. Fabricate works.
+- [ ] Rename and describe a library entry, then Replace from Group (the list shows this scene's groups; choosing one replaces the entry; Cancel changes nothing), and check copies already placed are unchanged. Fabricate works.
 
 ## Duplicate
 
@@ -63,7 +63,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 ## Library
 
-- [ ] Save a group to the library and the entry shows a picture of it: the tiles' images where they sit, walls as dark lines, lights and sounds as dots, centred in a square with nothing of the map under it. Update from group redraws it. A tile that is a video or a missing image shows as a plain box.
+- [ ] Save a group to the library and the entry shows a picture of it: the tiles' images where they sit, walls as dark lines, lights and sounds as dots, centred in a square with nothing of the map under it. Replace from Group redraws it. A tile that is a video or a missing image shows as a plain box.
 
 - [ ] Save, Stamp, Import and Export. A stamp of a group that has a body, once turned, has its own body for that stamp.
 - [ ] A stamp in a world without that actor has no body and a toast says so.

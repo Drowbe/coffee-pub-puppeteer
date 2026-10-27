@@ -6,7 +6,7 @@ Everything here is GM only. The library is where you keep saved copies of groups
 
 ## Save a group to the library
 
-On the **Scene Groups** tab, choose **Save to Library** on the group. A copy of the group is stored under its name. Later changes to the group on the scene do not change the saved copy, and the saved copy does not change the group.
+On the **Scene Groups** tab, choose the Library icon (the boxes, as on the Library tab) in the group's bar. A copy of the group is stored under its name. Later changes to the group on the scene do not change the saved copy, and the saved copy does not change the group.
 
 ## Place a copy
 
@@ -23,7 +23,7 @@ Each entry shows a picture of the group, its name and a description. The picture
 
 ## Change an entry
 
-On the entry, choose a group from this scene in the list and choose **Update from group**, then confirm. The entry keeps its name and description and takes the parts of that group. Copies you have already fabricated are not changed.
+On the entry, choose **Replace from Group**. A list of the groups on this scene appears; choose the one the entry should become. The entry keeps its name and description and takes the parts, token and picture of that group. Copies you have already fabricated are not changed. Choose Cancel to back out; the button is greyed out when the scene has no groups.
 
 ## Share an entry
 

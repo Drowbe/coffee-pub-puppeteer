@@ -6,7 +6,7 @@ Everything here is GM only. A group is a pin on the map plus the tiles, drawings
 
 ## Add and remove parts
 
-1. Open the Group Editor with **Puppeteer Groups** in the toolbar. Each group on the **Scene Groups** tab is a card. A closed card is one line: its name, how many parts it has and which way it faces, with **Go To Pin**, **Hide**, duplicate and delete beside them. Choose the arrow at its left to open it. Open cards stay open until you close them.
+1. Open the Group Editor with **Puppeteer Groups** in the toolbar. Each group on the **Scene Groups** tab is a card. A closed card is one line: its name, how many parts it has and which way it faces, with **Go To Pin**, **Hide** and icons beside them to duplicate the group, save it to the Library (the same icon as the Library tab), export it as a file, and delete it. An open card shows Token, Riders, Behaviour, Position, Events and Parts, in that order. Choose the arrow at its left to open it. Open cards stay open until you close them.
 2. Select objects on the map and choose **Add Selected**. Foundry shows one layer at a time, so add one layer's objects, then switch layers and add the next. Regions are added this way too.
 3. Or choose **Capture Area** and drag a box. Everything inside it, on every layer, joins the group.
 4. To take parts out, select them and choose **Remove Selected**, or use the cross beside a part under **Parts**.
@@ -28,18 +28,18 @@ To hide one part, choose the eye beside it under **Parts**. A light or a sound h
 ## Move and turn a group
 
 - **Move:** drag the pin.
-- **Turn:** select the pin, hold Shift and scroll the mouse wheel over the board. Each notch is 5 degrees. The **Heading** field and the rotate buttons under **Pivot and heading** do the same.
+- **Turn:** select the pin, hold Shift and scroll the mouse wheel over the board. Each notch is 5 degrees. The **Heading** field and the rotate buttons under **Position** do the same.
 
 ## Choose where the group turns about
 
-Both are under **Pivot and heading** on an open card.
+Both are under **Position** on an open card.
 
 - **Centre Pivot** moves the pin to the middle of the group without moving anything, so the group turns about its own centre.
 - **Move Pivot** puts the pin anywhere, such as the prow of a ship, a wagon's hitch or a door's hinge. Choose **Move Pivot** on the group (the button turns blue and a notice appears) and drag the pin to where you want it. The pin moves, nothing else does, and Move Pivot switches itself off when you drop the pin. After that the group moves and turns about the new spot. Choose **Move Pivot** again before dragging to cancel.
 
 ## Resize a group
 
-Under **Pivot and heading** on an open card, choose **0.5×**, **0.8×**, **1.25×** or **2×**. The group grows or shrinks about its pin: every part sits that many times as far from the pin and is that many times as big, so tiles, drawings, lights, sounds and regions all keep their proportions, and walls and notes move to the new distance. Riders stand that many times as far from the pin but keep their own size, and a group's token is refitted to cover the new size. Resize by 2 and then by 0.5 and everything is back where it was, except that a drawing's size is kept to whole pixels. From a macro, `scale(groupId, factor)` takes any factor from 0.1 to 10.
+Under **Position** on an open card, choose **0.5×**, **0.8×**, **1.25×** or **2×**. The group grows or shrinks about its pin: every part sits that many times as far from the pin and is that many times as big, so tiles, drawings, lights, sounds and regions all keep their proportions, and walls and notes move to the new distance. Riders stand that many times as far from the pin but keep their own size, and a group's token is refitted to cover the new size. Resize by 2 and then by 0.5 and everything is back where it was, except that a drawing's size is kept to whole pixels. From a macro, `scale(groupId, factor)` takes any factor from 0.1 to 10.
 
 ## Edit parts by hand
 

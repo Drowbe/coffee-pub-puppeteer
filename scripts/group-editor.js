@@ -259,7 +259,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     }
 
     _libraryHtml(scene, templates, groups) {
-        const options = groups.map((group) => `<option value="${esc(group.id)}">${esc(group.name)}</option>`).join('');
         const rows = templates.map((template) => {
             const id = esc(template.id);
             return `
@@ -272,10 +271,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <div class="blacksmith-list-row-meta">${template.members} part${template.members === 1 ? '' : 's'}${template.actor ? `, represents ${esc(template.actor)}` : ''}</div>
                     ${this._editableHtml('templateDescription', template.description, 'No description', { 'template-id': template.id }, { multiline: true, tooltip: 'Describe' })}
                     <div class="puppeteer-inline">
-                        <select data-field="updateSource" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="The group on this scene to copy the entry's parts from">
-                            ${options || '<option value="">No groups on this scene</option>'}
-                        </select>
-                        <button type="button" class="blacksmith-tool-btn" data-action="updateTemplate" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="Replace this entry's parts with the chosen group. Copies already placed are not changed."><i class="fa-solid fa-arrows-rotate"></i> Update from group</button>
+                        <button type="button" class="blacksmith-tool-btn" data-action="updateTemplate" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="${groups.length ? 'Choose a group on this scene to replace this entry with. Copies already placed are not changed.' : 'There are no groups on this scene to replace the entry with'}"><i class="fa-solid fa-arrows-rotate"></i> Replace from Group</button>
                     </div>
                 </div>
                 <div class="blacksmith-list-row-action">
@@ -391,6 +387,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <button type="button" class="blacksmith-tool-btn" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i> Go To Pin</button>
                     <button type="button" class="blacksmith-tool-btn${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i> ${group.hidden ? 'Show' : 'Hide'}</button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="duplicateGroup" data-group-id="${id}" data-tooltip="Duplicate the group: a copy of its parts, pin and settings, two squares to the right"><i class="fa-solid fa-clone"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="saveToLibrary" data-group-id="${id}" data-tooltip="Save to the Library: a copy you can fabricate on any scene"><i class="fa-solid fa-boxes-stacked"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="exportGroup" data-group-id="${id}" data-tooltip="Export the group as a JSON file"><i class="fa-solid fa-file-export"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="deleteGroup" data-group-id="${id}" data-tooltip="Delete the group"><i class="fa-solid fa-trash"></i></button>
                 </span>
             </div>
@@ -450,15 +448,13 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
 
         return `
             <div class="puppeteer-card-body">
-                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Parts</span></header>
-                    ${chips ? `<div class="puppeteer-inline"><span>Select on the map</span><div class="blacksmith-tool-btn-group">${chips}</div></div>` : ''}
-                    <div class="puppeteer-inline">
-                        ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
-                        ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}
-                        ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
-                    </div>
-                    <div class="blacksmith-list">${members || '<div class="blacksmith-list-empty">No parts yet.</div>'}</div></section>
-                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Pivot and heading</span></header>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Token</span></header>
+                    ${this._bodyHtml(scene, group)}</section>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Riders</span></header>
+                    ${this._ridersHtml(scene, group)}</section>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Behaviour</span></header>
+                    ${this._behaviourHtml(group)}</section>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Position</span></header>
                     <div class="puppeteer-inline">
                         <label class="puppeteer-heading">Heading
                             <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1"${group.rotates === false ? ' disabled' : ''}>&deg;
@@ -476,18 +472,16 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                             <button type="button" class="blacksmith-tool-btn" data-action="scaleGroup" data-group-id="${id}" data-factor="${factor}" data-tooltip="Make the group ${words} its size: parts, lights, sounds, regions and where riders stand. Tokens keep their size. The opposite button puts it back.">${factor}&times;</button>`).join('')}
                         </div>
                     </div></section>
-                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Token</span></header>
-                    ${this._bodyHtml(scene, group)}</section>
-                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Riders</span></header>
-                    ${this._ridersHtml(scene, group)}</section>
-                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Behaviour</span></header>
-                    ${this._behaviourHtml(group)}</section>
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Events</span></header>
                     ${this._eventsHtml(group)}</section>
-                <div class="puppeteer-inline">
-                    ${button('saveToLibrary', 'fa-solid fa-box-archive', 'Save to Library')}
-                    ${button('exportGroup', 'fa-solid fa-file-export', 'Export')}
-                </div>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Parts</span></header>
+                    ${chips ? `<div class="puppeteer-inline"><span>Select on the map</span><div class="blacksmith-tool-btn-group">${chips}</div></div>` : ''}
+                    <div class="puppeteer-inline">
+                        ${button('captureArea', 'fa-solid fa-vector-square', 'Capture Area')}
+                        ${button('addSelected', 'fa-solid fa-plus', 'Add Selected')}
+                        ${button('removeSelected', 'fa-solid fa-minus', 'Remove Selected')}
+                    </div>
+                    <div class="blacksmith-list">${members || '<div class="blacksmith-list-empty">No parts yet.</div>'}</div></section>
             </div>`;
     }
 
@@ -665,7 +659,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             else expanded.delete(groupId);
             return null;
         }
-        if (input.dataset.field === 'updateSource') return null;
         // The fields of the form that adds an event only matter when Add Event is chosen; choosing the action shows the
         // control that goes with it.
         if (input.dataset.field === 'eventDo' || input.dataset.field === 'eventOn') {
@@ -789,20 +782,22 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
 
     _updateTemplate(templateId) {
         return run('Update library entry', async () => {
-            const select = this.element.querySelector(`select[data-field="updateSource"][data-template-id="${CSS.escape(templateId)}"]`);
-            const group = listGroups(canvas.scene).find((g) => g.id === select?.value);
-            if (!group) {
-                say('Choose a group', 'Pick the group on this scene to copy the entry from.');
+            const groups = listGroups(canvas.scene);
+            if (!groups.length) {
+                say('No groups here', 'There are no groups on this scene to replace the entry with.');
                 return;
             }
             const template = getTemplate(templateId);
-            const confirmed = await getBlacksmith().dialog.confirm({
-                title: 'Update Library Entry',
-                content: `<p>Replace the parts of <strong>${esc(template?.name)}</strong> with those of <strong>${esc(group.name)}</strong>? Copies already placed on scenes are not changed.</p>`,
-                confirmLabel: 'Update',
-                confirmIcon: 'fa-solid fa-arrows-rotate'
+            // Choosing a group is the confirmation: the dialog says what choosing does, and Cancel backs out.
+            const outcome = await getBlacksmith().dialog.choose({
+                title: 'Replace Library Entry',
+                content: `<p>Choose the group on this scene that <strong>${esc(template?.name)}</strong> should become. Its parts, token and picture are replaced with the group's. Its name and description stay, and copies already placed on scenes are not changed.</p>`,
+                choices: groups.map((g) => ({ id: g.id, label: g.name, icon: 'fa-solid fa-up-down-left-right', description: `${g.members.length} part${g.members.length === 1 ? '' : 's'}` })),
+                closeValue: null
             });
-            if (!confirmed) return;
+            if (outcome.action !== getBlacksmith().dialog.ACTIONS.SUBMIT) return;
+            const group = groups.find((g) => g.id === outcome.value);
+            if (!group) return;
             await updateTemplateFromGroup(canvas.scene, group.id, templateId);
             say('Library entry updated', `${template?.name} now matches ${group.name}.`);
             this.render();
