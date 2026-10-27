@@ -70,3 +70,21 @@ test('starting another placement gives up the first', async () => {
     for (const down of g.listeners.pointerdown) down({ button: 0, global: { x: 5, y: 6 } });
     assert.deepEqual(await second, { x: 5, y: 6 });
 });
+
+test('a new group is made where the click is, and none when it is given up', async () => {
+    const g = await stage();
+    const { placeNewGroup } = await import('../scripts/placement.js');
+    const groups = await import('../scripts/groups.js');
+    let placing = placeNewGroup();
+    await new Promise((r) => setImmediate(r));
+    for (const down of g.listeners.pointerdown) down({ button: 0, global: { x: 1200, y: 800 } });
+    const made = await placing;
+    assert.deepEqual([made.applied.x, made.applied.y], [1200, 800]);
+    assert.equal(groups.listGroups(g.scene).length, 1);
+
+    placing = placeNewGroup();
+    await new Promise((r) => setImmediate(r));
+    for (const key of g.keys) key({ key: 'Escape' });
+    assert.equal(await placing, null);
+    assert.equal(groups.listGroups(g.scene).length, 1, 'nothing was made');
+});

@@ -239,3 +239,30 @@ test('a template whose body names no actor is refused', async () => {
     const { validateTemplate } = await import('../scripts/template.js');
     assert.throws(() => validateTemplate({ version: 2, members: [], body: {} }), /names no actor/);
 });
+
+test('a group\'s token cannot be unlocked by hand, but its group can still move it', async () => {
+    const env = installFakes();
+    const bodyModule = await import('../scripts/body.js');
+    bodyModule.registerBodyLock();
+    const hook = env.hooks.find((h) => h.name === 'preUpdateToken');
+    assert.equal(hook.canCancel, true, 'the hook declares that it may cancel');
+    const body = { name: 'Wagon', getFlag: (scope, key) => (key === 'body' ? true : undefined) };
+    const plain = { name: 'Goblin', getFlag: () => undefined };
+    assert.equal(hook.callback(body, { locked: false }, {}), false, 'unlocking is refused');
+    assert.equal(hook.callback(body, { locked: true }, {}), undefined, 'locking is fine');
+    assert.equal(hook.callback(body, { x: 10 }, {}), undefined, 'other changes are left to Foundry');
+    assert.equal(hook.callback(body, { locked: false }, { puppeteer: { follower: true } }), undefined, 'the group\'s own writes are not touched');
+    assert.equal(hook.callback(plain, { locked: false }, {}), undefined, 'an ordinary token can be unlocked');
+});
+
+test('a group\'s token is called what the group is called, and follows when the group is renamed', async () => {
+    const g = await stage();
+    const token = await g.groups.setBody(g.scene, g.group.id, 'A1');
+    assert.equal(token._source.name, 'Wagon', 'named for the group, not the actor');
+    await g.groups.renameGroup(g.scene, g.group.id, 'Grand Wagon');
+    await g.settle();
+    assert.equal(g.scene.tokens.get(token.id)._source.name, 'Grand Wagon');
+    // A group with no token renames as it always did.
+    const other = await g.groups.createGroup(g.scene, { x: 100, y: 100 }, { name: 'Crate' });
+    await g.groups.renameGroup(g.scene, other.id, 'Barrel');
+});

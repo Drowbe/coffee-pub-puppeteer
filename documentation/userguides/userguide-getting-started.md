@@ -22,7 +22,7 @@ Nothing else on the map changes until you make a group.
 ## Make your first group
 
 1. Open the scene that has the pieces of something you want to move, such as a cart drawn from a tile, a light and a sound.
-2. Choose **New Puppeteer Group** in the toolbar. A pin appears at the centre of your view.
+2. Choose **New Puppeteer Group** in the toolbar. The pin follows your pointer; click the map where it goes (right-click or Escape cancels).
 3. Select the tile, the light and the sound, one layer at a time or with Shift. Open the Group Editor with **Puppeteer Groups**. Your new group is on the **Scene Groups** tab as a card that opens when it is new; under **Parts**, choose **Add Selected**. Or choose **Capture Area** and drag a box around everything.
 4. Drag the pin. Everything you added moves with it.
 5. Select the pin, hold Shift and scroll the mouse wheel over the board. The whole group turns about the pin.

@@ -4,7 +4,7 @@
 // untouched), is locked so nobody drags it, and is sized and placed to cover the group. The follower moves it with
 // `teleport: true`, because a plain update is refused for a locked token. See
 // documentation/architecture/architecture-groups.md.
-import { MODULE_ID } from './constants.js';
+import { MODULE_ID, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { memberExtent } from './geometry.js';
 import { getGroup } from './store.js';
@@ -91,4 +91,34 @@ export function bodyTraits(groupId) {
         sight: { enabled: false },
         flags: { [MODULE_ID]: { groupId, body: true } }
     };
+}
+
+/**
+ * Keep a group's token locked. Foundry's own Lock control (the token HUD, and an update from a macro) would unlock it,
+ * and then it could be dragged away from its group; the unlock is refused here, on the client making it, with a word on
+ * why. The group's own writes carry `puppeteer` in their options and are left alone, so the token still follows its group.
+ * To unlock it, take it off the group with Remove Token.
+ */
+export function registerBodyLock() {
+    const { HookManager, toast } = getBlacksmith();
+    HookManager.registerHook({
+        name: 'preUpdateToken',
+        description: 'Puppeteer: a group\'s token stays locked',
+        context: MODULE_ID,
+        priority: 3,
+        key: `${MODULE_ID}-body-stays-locked`,
+        canCancel: true,
+        callback: (token, changes, options) => {
+            if (options?.puppeteer) return;
+            if (changes?.locked !== false || !token.getFlag(MODULE_ID, 'body')) return;
+            toast.show({
+                title: 'Token locked by its group',
+                subtitle: `${token.name} is the token of a group, and stays locked so it cannot be dragged away from it. Use Remove Token on the group to free it.`,
+                icon: 'fa-solid fa-lock',
+                channel: TOAST_CHANNEL,
+                duration: 6
+            });
+            return false;
+        }
+    });
 }

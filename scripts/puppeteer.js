@@ -11,6 +11,7 @@ import { registerOverlay, toggleBounds, setBoundsShown } from './overlay.js';
 import { migrateGroups } from './migrate.js';
 import { registerTween } from './tween.js';
 import { registerBoarding } from './boarding.js';
+import { registerBodyLock } from './body.js';
 import { registerHealth } from './health.js';
 import { syncAllGroups } from './follower.js';
 import { registerLibrarySetting, listCategories, createCategory, renameCategory, deleteCategory, setTemplateCategory, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
@@ -46,6 +47,7 @@ Hooks.once('ready', async () => {
     registerOverlay();
     registerTween();
     registerBoarding();
+    registerBodyLock();
     registerHealth();
 
     // The scripting surface, for macros and for the toolbar and Group Editor, which call the same functions.

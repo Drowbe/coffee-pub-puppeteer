@@ -322,6 +322,9 @@ export async function renameGroup(scene, groupId, name) {
     const trimmed = String(name).trim() || group.name;
     await patchGroup(scene, groupId, { name: trimmed });
     if (group.anchor.type === 'pin') await pins.update(group.anchor.id, { text: trimmed }, { sceneId: scene.id });
+    // The group's token is called what the group is called.
+    const token = bodyToken(scene, group);
+    if (token && token._source.name !== trimmed) await token.update({ name: trimmed }, { puppeteer: { follower: true } });
 }
 
 /** Name a member, so the member list can say what it is ("Left lantern") and not only what kind it is. */
@@ -396,7 +399,7 @@ export async function removeMember(scene, groupId, type, id) {
 /**
  * Make a group targetable: give it a token of `actorId`, transparent, locked, sized to cover the group and moved
  * with it. The token is unlinked unless `linked`, so a prefab stamped twice has two sets of hit points. `name` is what
- * the token is called, if not its actor's name.
+ * the token is called, which is otherwise the group's name.
  * @returns {Promise<TokenDocument>} The body token.
  */
 export function setBody(scene, groupId, actorId, { linked = false, name } = {}) {
@@ -408,7 +411,7 @@ export function setBody(scene, groupId, actorId, { linked = false, name } = {}) 
         const actor = game.actors.get(actorId);
         if (!actor) throw new Error(`${MODULE_ID}: there is no actor ${actorId}`);
 
-        const data = { ...bodyFootprint(scene, group), ...bodyTraits(groupId), actorLink: !!linked, ...(name ? { name } : {}) };
+        const data = { ...bodyFootprint(scene, group), ...bodyTraits(groupId), actorLink: !!linked, name: name ?? group.name };
         const document = await actor.getTokenDocument(data);
         const [token] = await scene.createEmbeddedDocuments('Token', [document.toObject()]);
         await patchGroup(scene, groupId, { body: { tokenId: token.id, actorId } });

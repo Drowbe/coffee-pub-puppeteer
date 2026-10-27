@@ -16,7 +16,7 @@ import { boundsShown, toggleBounds } from './overlay.js';
 import { syncAllGroups } from './follower.js';
 import { anchorState, anchorExists } from './anchor.js';
 import { getGroup, groupsTouched } from './store.js';
-import { pickPlacement } from './placement.js';
+import { pickPlacement, placeNewGroup } from './placement.js';
 import { listCategories, createCategory, renameCategory, deleteCategory, setTemplateCategory, exportTemplateData, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
@@ -912,9 +912,10 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
 
     _newGroup() {
         return run('Create group', async () => {
-            const group = await createGroup(canvas.scene, { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y }, { name: 'Group' });
+            const group = await placeNewGroup();
+            if (!group) return;
             expanded.add(group.id);
-            say('Group created', `${group.name} is at the centre of your view.`);
+            say('Group created', `${group.name} is where you clicked.`);
         });
     }
 

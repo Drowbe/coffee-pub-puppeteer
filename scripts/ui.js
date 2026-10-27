@@ -7,6 +7,7 @@ import { syncAllGroups } from './follower.js';
 import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup, setGroupHidden, setEmittersOn, setPlaying, canPlayPause } from './groups.js';
 import { getGroup } from './store.js';
 import { duplicateGroup } from './library.js';
+import { placeNewGroup } from './placement.js';
 
 export const EDITOR_WINDOW = `${MODULE_ID}-group-editor`;
 export const MENUBAR_TOOL = `${MODULE_ID}-menubar`;
@@ -69,10 +70,10 @@ async function registerMenubar(blacksmith) {
     item('new-group', {
         icon: 'fa-solid fa-plus',
         label: 'New Group',
-        tooltip: 'Make a new group with its pin at the centre of your view',
+        tooltip: 'Make a new group: click the map where its pin goes',
         group: 'groups',
         order: 20,
-        onClick: () => newGroupAtCentre(blacksmith)
+        onClick: () => newGroupByClick(blacksmith)
     });
     item('update-all', {
         icon: 'fa-solid fa-rotate',
@@ -114,13 +115,14 @@ async function registerMenubar(blacksmith) {
     blacksmith.registerSecondaryBarTool(MENUBAR_BAR, MENUBAR_TOOL);
 }
 
-/** A group with its pin at the centre of the view, opened in the editor. */
-async function newGroupAtCentre(blacksmith) {
+/** A new group, with its pin where the GM clicks. */
+async function newGroupByClick(blacksmith) {
     try {
-        const group = await createGroup(canvas.scene, { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y }, { name: 'Group' });
+        const group = await placeNewGroup();
+        if (!group) return;
         blacksmith.toast.show({
             title: 'Group created',
-            subtitle: `${group.name} is at the centre of your view. Open the Group Editor to add parts.`,
+            subtitle: `${group.name} is where you clicked. Open the Group Editor to add parts.`,
             icon: 'fa-solid fa-up-down-left-right',
             channel: TOAST_CHANNEL,
             duration: 6
@@ -168,21 +170,7 @@ function registerToolbar(blacksmith) {
         gmOnly: true,
         onCoffeePub: true,
         onFoundry: false,
-        onClick: async () => {
-            try {
-                const group = await createGroup(canvas.scene, { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y }, { name: 'Group' });
-                blacksmith.toast.show({
-                    title: 'Group created',
-                    subtitle: `${group.name} is at the centre of your view. Select items, then right-click its pin and choose Add Selected.`,
-                    icon: 'fa-solid fa-up-down-left-right',
-                    channel: TOAST_CHANNEL,
-                    duration: 6
-                });
-            } catch (error) {
-                console.error(`${MODULE_ID}: creating a group failed`, error);
-                blacksmith.utils.postConsoleAndNotification(MODULE_NAME, `Creating a group failed: ${error.message}`, null, false, true);
-            }
-        }
+        onClick: () => newGroupByClick(blacksmith)
     });
 }
 

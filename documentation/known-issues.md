@@ -6,7 +6,7 @@ Limits we know about and have not removed, with a way round where there is one.
 
 - **Lights, walls, sounds and regions jump.** They take part in perception, and Foundry recalculates sight and walls from their saved positions, so they cannot be drawn in between. Tiles, drawings, notes and riders glide. A group with lights on a cart shows them snap to the new place at the end of each move.
 - **The body token jumps, and its outline is a box that does not turn.** A token's footprint is axis-aligned, so at a diagonal heading the body covers more than the group does.
-- **Moving a locked body by hand is refused.** That is the point of locking it, and it also means the GM cannot nudge it. Move the group by its pin.
+- **Moving a locked body by hand is refused.** That is the point of locking it, and it also means the GM cannot nudge it. Move the group by its pin. The token cannot be unlocked either (the unlock is refused); use Remove Token on the group to free it.
 - **With Tokens board when they move onto it on, every token boards, enemies included.** Switch the option off, or dismount the token, if that is not wanted.
 - **Regions with token or grid shapes cannot be carried.** They are refused with a reason.
 - **Compendium actors cannot be dropped on a body row.** Import them into the world first.

@@ -4,6 +4,7 @@
 import { getBlacksmith } from './blacksmith.js';
 import { stampMembers } from './template.js';
 import { memberOutlines } from './geometry.js';
+import { createGroup } from './groups.js';
 
 const COLOUR = 0xff9a1f;
 const VIDEO = /\.(mp4|webm|m4v|ogv|mov)(\?.*)?$/i;
@@ -110,4 +111,16 @@ export function pickPlacement(template) {
         cancelCurrent = cancel;
         getBlacksmith().utils.postConsoleAndNotification('Puppeteer', 'Placing a group: click the map', null, true, false);
     });
+}
+
+/**
+ * A new, empty group, placed by click: its pin follows the pointer, and a click puts the group there.
+ * @returns {Promise<object|null>} The group, or null if the placement was given up.
+ */
+export async function placeNewGroup() {
+    const { toast } = getBlacksmith();
+    toast.show({ title: 'Place the group', subtitle: 'Click the map where the pin goes. Right-click or Escape cancels.', icon: 'fa-solid fa-up-down-left-right', channel: 'puppeteer', duration: 4 });
+    const point = await pickPlacement({ version: 2, name: 'Group', members: [] });
+    if (!point) return null;
+    return createGroup(canvas.scene, point, { name: 'Group' });
 }
