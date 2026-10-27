@@ -7,7 +7,7 @@ import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, selectToken, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
-    setGroupHidden, setMemberHidden, replacePin, addEvent, removeEvent, scaleGroup, HIDEABLE
+    setGroupHidden, setMemberHidden, setPlaying, videoTiles, replacePin, addEvent, removeEvent, scaleGroup, HIDEABLE
 } from './groups.js';
 import { TRIGGERS, ACTIONS, HEALTH_LEVELS, describeEvent } from './events.js';
 import { easeOf } from './tween.js';
@@ -115,6 +115,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
         updateTemplate: (event, target, win) => win._updateTemplate(target.dataset.templateId),
         toggleGroupHidden: (event, target, win) => win._toggleGroupHidden(target.dataset.groupId),
+        togglePlaying: (event, target, win) => win._togglePlaying(target.dataset.groupId),
         toggleMemberHidden: (event, target, win) => win._toggleMemberHidden(target.dataset.groupId, target.dataset.type, target.dataset.id),
         exportTemplate: (event, target, win) => win._exportTemplate(target.dataset.templateId),
         deleteTemplate: (event, target, win) => win._deleteTemplate(target.dataset.templateId),
@@ -386,6 +387,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <span class="blacksmith-tool-card-actions">
                     <button type="button" class="blacksmith-tool-btn" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i> Go To Pin</button>
                     <button type="button" class="blacksmith-tool-btn${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i> ${group.hidden ? 'Show' : 'Hide'}</button>
+                    <button type="button" class="blacksmith-tool-btn${group.paused ? ' is-active' : ''}" data-action="togglePlaying" data-group-id="${id}"${videoTiles(canvas.scene, group).length ? '' : ' disabled'} data-tooltip="${videoTiles(canvas.scene, group).length ? `${group.paused ? 'Play' : 'Pause'} the group's animations: its video tiles, on every screen` : 'This group has no video tiles to play or pause'}"><i class="fa-solid fa-${group.paused ? 'play' : 'pause'}"></i> ${group.paused ? 'Play' : 'Pause'}</button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="duplicateGroup" data-group-id="${id}" data-tooltip="Duplicate the group: a copy of its parts, pin and settings, two squares to the right"><i class="fa-solid fa-clone"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="saveToLibrary" data-group-id="${id}" data-tooltip="Save to the Library: a copy you can fabricate on any scene"><i class="fa-solid fa-boxes-stacked"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="exportGroup" data-group-id="${id}" data-tooltip="Export the group as a JSON file"><i class="fa-solid fa-file-export"></i></button>
@@ -519,7 +521,29 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     { field: 'announce', icon: 'fa-solid fa-bullhorn', label: 'Announce boarding', checked: !!group.announce, tooltip: 'Post a chat card, with a sound, when a token boards or leaves.' },
                     { field: 'solidOnly', icon: 'fa-solid fa-vector-square', label: 'Solid parts only', checked: group.solidOnly !== false, tooltip: 'On, only the solid part of a picture counts as on the group: a token standing on a transparent corner does not board, and one moved onto it is let go. Off, the whole box around the group counts.' },
                     { field: 'ridersFree', icon: 'fa-solid fa-person-walking', label: 'Riders move freely', checked: group.ridersFree !== false, tooltip: 'On, a rider can be moved about the group by hand. Off, one moved by hand is put back where it rides.' }
-                ])}`;
+                ])}
+                ${group.facesTravel && group.rotates !== false ? this._frontHtml(group) : ''}`;
+    }
+
+    /** Which way the picture's front points, for a group that faces its travel: four quick choices and a number to fine tune. */
+    _frontHtml(group) {
+        const id = esc(group.id);
+        const front = Number(group.front) || 0;
+        const choices = [[0, 'fa-arrow-down', 'Down'], [90, 'fa-arrow-left', 'Left'], [180, 'fa-arrow-up', 'Up'], [270, 'fa-arrow-right', 'Right']];
+        return `
+                <div class="puppeteer-inline">
+                    <span>Front of the picture</span>
+                    <div class="blacksmith-tool-segmented" role="radiogroup" aria-label="Front of the picture" data-tooltip="Which way the group's picture points as it sits now, so it can lead with its front when it travels. A token's front is its bottom; a cart or a ship is often drawn pointing up.">
+                        ${choices.map(([degrees, icon, name]) => `
+                        <label class="blacksmith-tool-segment">
+                            <input type="radio" name="front-${id}" value="${degrees}" data-field="front" data-group-id="${id}"${front === degrees ? ' checked' : ''}>
+                            <i class="fa-solid ${icon}"></i><span>${name}</span>
+                        </label>`).join('')}
+                    </div>
+                    <label class="puppeteer-field" data-tooltip="Fine tune: degrees clockwise from down, 0 to 359.">
+                        or <input type="number" data-field="frontDegrees" data-group-id="${id}" value="${front}" min="0" max="359" step="1">&deg;
+                    </label>
+                </div>`;
     }
 
     /** What the group does when something happens to it: a list of rules, and a small form to add one. */
@@ -691,7 +715,11 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             if (input.dataset.field === 'easeSpeed') return setBehaviour(scene, groupId, { ease: { speed: Number(input.value) } });
             if (input.dataset.field === 'rotates') { await setBehaviour(scene, groupId, { rotates: input.checked }); return this.render(); }
             if (input.dataset.field === 'solidOnly') return setBehaviour(scene, groupId, { solidOnly: input.checked });
-            if (input.dataset.field === 'facesTravel') return setBehaviour(scene, groupId, { facesTravel: input.checked });
+            if (input.dataset.field === 'facesTravel') { await setBehaviour(scene, groupId, { facesTravel: input.checked }); return this.render(); }
+            if (input.dataset.field === 'front' || input.dataset.field === 'frontDegrees') {
+                await setBehaviour(scene, groupId, { front: Number(input.value) || 0 });
+                return this.render();
+            }
             if (input.dataset.field === 'announce') return setBehaviour(scene, groupId, { announce: input.checked });
             if (input.dataset.field === 'ridersFree') return setBehaviour(scene, groupId, { ridersFree: input.checked });
             if (input.dataset.field === 'bodyLinked') return setBodyLinked(scene, groupId, input.checked);
@@ -770,6 +798,14 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const group = listGroups(canvas.scene).find((g) => g.id === groupId);
             const now = await setGroupHidden(canvas.scene, groupId, !group?.hidden);
             say(now ? 'Group hidden' : 'Group shown', now ? 'Its tiles, drawings, regions and token are hidden, and its lights and sounds are off. Walls and notes cannot be hidden.' : 'Everything it hid is shown again.');
+            this.render();
+        });
+    }
+
+    _togglePlaying(groupId) {
+        return run('Play or pause group', async () => {
+            const { playing, count } = await setPlaying(canvas.scene, groupId);
+            say(playing ? 'Animations playing' : 'Animations paused', `${count} video tile${count === 1 ? '' : 's'} ${playing ? 'playing' : 'paused'}.`);
             this.render();
         });
     }

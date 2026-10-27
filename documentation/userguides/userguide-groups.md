@@ -45,6 +45,10 @@ Under **Position** on an open card, choose **0.5×**, **0.8×**, **1.25×** or *
 
 Move, turn or resize any part directly on the map. The group remembers the new position and nothing snaps back on the next move.
 
+## Play and pause animations
+
+**Pause** on a card stops every animation in the group, which means its video tiles, on every screen, and the button becomes **Play**. Play starts them again. It uses Foundry's own play and pause for a video tile, and sets each tile to start or not start by itself to match, so a paused group is still paused when the scene is loaded again. The button is greyed out when the group has no video tile. The pin menu has **Play or Pause Group Animations** for groups that have one. Light animations are not touched.
+
 ## Duplicate a group
 
 Choose the copy button on a group's card. A new group appears two squares to the right of the original, named with "copy" after it, with its own parts and its own pin, facing the same way. It keeps the original's behaviour settings and, if the original can be attacked, gets its own token for the same actor. Riders are not copied. If the original is hidden, the copy is shown, except for anything that was already hidden before the group was. Nothing is added to the library; for a copy you want to place again and again, use **Save to Library**.

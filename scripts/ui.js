@@ -4,7 +4,7 @@ import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { toggleBounds, boundsShown, BOUNDS_BAR_ITEM } from './overlay.js';
 import { syncAllGroups } from './follower.js';
-import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup, setGroupHidden, setEmittersOn } from './groups.js';
+import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup, setGroupHidden, setEmittersOn, setPlaying, videoTiles } from './groups.js';
 import { getGroup } from './store.js';
 import { duplicateGroup } from './library.js';
 
@@ -264,6 +264,13 @@ function registerPinMenu(blacksmith) {
         const { on } = await setEmittersOn(canvas.scene, groupId, 'AmbientSound');
         toast.show({ title: on ? 'Sounds on' : 'Sounds off', icon: 'fa-solid fa-volume-high', channel: TOAST_CHANNEL, duration: 3 });
     }, has('AmbientSound'));
+    item('toggle-playing', 'Play or Pause Group Animations', 'fa-solid fa-play-pause', 12.97, async (groupId) => {
+        const { playing } = await setPlaying(canvas.scene, groupId);
+        toast.show({ title: playing ? 'Animations playing' : 'Animations paused', icon: 'fa-solid fa-play-pause', channel: TOAST_CHANNEL, duration: 3 });
+    }, (pin) => {
+        const group = getGroup(canvas.scene, groupIdOf(pin));
+        return !!group && videoTiles(canvas.scene, group).length > 0;
+    });
     item('duplicate', 'Duplicate Group', 'fa-solid fa-clone', 14.5, async (groupId) => {
         const copy = await duplicateGroup(canvas.scene, groupId);
         toast.show({ title: 'Group duplicated', subtitle: `${copy.name} is two squares to the right.`, icon: 'fa-solid fa-clone', channel: TOAST_CHANNEL, duration: 4 });

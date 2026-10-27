@@ -541,6 +541,8 @@ export function setMovePivot(scene, groupId, on) {
  *    a short glide of `ms`, a steady travel at `speed` squares a second, or no movement between the two places.
  *  - `rotates`: whether the group turns when its pin does. Off, it keeps the way it faces now and only follows the pin
  *    about. Turning it back on records the group again against the pin's own heading, so nothing swings.
+ *  - `front`: degrees, which way the picture's front points as a clockwise turn from down (0 down, 90 left, 180 up, 270
+ *    right). A group that faces its travel puts this end first.
  *  - `ridersFree`: whether a rider may be moved about inside the group. Off, a rider moved by hand is put back.
  *  - `solidOnly`: whether only the solid part of the group counts as on it when a token boards or moves about. On (the
  *    default), the transparent parts of a tile's picture do not; off, the whole box that holds the group does.
@@ -569,6 +571,13 @@ export function setBehaviour(scene, groupId, options = {}) {
         }
         if ('ridersFree' in options) patch.ridersFree = !!options.ridersFree;
         if ('announce' in options) patch.announce = !!options.announce;
+        if ('front' in options) {
+            const front = Number(options.front);
+            if (!Number.isFinite(front)) throw new Error(`${MODULE_ID}: the front of a picture is a number of degrees`);
+            const turn = Math.round(normAngle(front) * 100) / 100;
+            if (turn) patch.front = turn;
+            else patch['-=front'] = null;
+        }
         if ('solidOnly' in options) {
             if (options.solidOnly) patch['-=solidOnly'] = null;
             else patch.solidOnly = false;
@@ -760,6 +769,33 @@ export async function setEmittersOn(scene, groupId, type, on) {
     const updates = documents.filter((doc) => !!doc._source.hidden === turnOn).map((doc) => ({ _id: doc.id, hidden: !turnOn }));
     if (updates.length) await scene.updateEmbeddedDocuments(type, updates, FOLLOWER_WRITE());
     return { on: turnOn, count: documents.length };
+}
+
+const VIDEO = /\.(mp4|webm|m4v|ogv|mov)(\?.*)?$/i;
+
+/** The video tiles of a group: the parts that animate. */
+export function videoTiles(scene, group) {
+    return group.members
+        .filter((member) => member.type === 'Tile')
+        .map((member) => scene.getEmbeddedCollection('Tile').get(member.id))
+        .filter((doc) => doc && VIDEO.test(doc._source.texture?.src ?? ''));
+}
+
+/**
+ * Play or pause every animation in a group: its video tiles. Left out, `playing` flips it. Foundry's own play and pause
+ * control does the same to one tile, by an update carrying `playVideo`, which reaches every client; the tile's autoplay
+ * is set to match, so a paused group stays paused when the scene is loaded again.
+ * @param {boolean} [playing]
+ * @returns {Promise<{playing: boolean, count: number}>}  What they were set to, and how many video tiles there are.
+ */
+export async function setPlaying(scene, groupId, playing) {
+    const group = requireGroup(scene, groupId);
+    const tiles = videoTiles(scene, group);
+    if (!tiles.length) return { playing: false, count: 0 };
+    const play = playing === undefined ? !!group.paused : !!playing;
+    await scene.updateEmbeddedDocuments('Tile', tiles.map((doc) => ({ _id: doc.id, video: { autoplay: play } })), { ...FOLLOWER_WRITE(), diff: false, playVideo: play });
+    await patchGroup(scene, groupId, play ? { '-=paused': null } : { paused: true });
+    return { playing: play, count: tiles.length };
 }
 
 export async function setMemberHidden(scene, groupId, type, id, hidden) {

@@ -33,8 +33,9 @@ const FACING_MIN_SQUARES = 0.25;
  * The heading a group that faces its direction of travel takes when its pin has moved from `from` to `to`, or null when
  * it should keep the heading its pin has: the group does not face its travel, does not turn with its pin, the pin was
  * turned by hand as well as moved, or the move was too small to be a direction.
- * Heading is Foundry's rotation, so 0 is facing down the map, and a group faces the way it is going when its front is
- * the bottom of its picture.
+ * Heading is Foundry's rotation, so 0 is facing down the map. A group's `front` is which way its picture's front points,
+ * as the clockwise turn from down: 0 for a picture whose front is its bottom (a token's is), 90 where it is its left
+ * side, 180 its top, 270 its right. The group faces the way it is going when its front leads.
  * @param {object} group
  * @param {{x: number, y: number, heading: number}} from  Where the group was (its `applied`).
  * @param {{x: number, y: number, heading: number}} to    Where its pin is now.
@@ -49,7 +50,8 @@ export function travelHeading(group, from, to, grid) {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     if (Math.hypot(dx, dy) < FACING_MIN_SQUARES * grid) return null;
-    const degrees = (Math.atan2(-dx, dy) * 180) / Math.PI;
+    // The way of travel for a picture whose front is the bottom, less the turn that brings its real front to the bottom.
+    const degrees = ((Math.atan2(-dx, dy) * 180) / Math.PI) - (Number(group.front) || 0);
     return Math.round(normAngle(degrees) * 100) / 100;
 }
 
