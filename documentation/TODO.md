@@ -30,11 +30,9 @@ Each entry says what and why, the files it touches, and how it will be verified.
 Requests for Blacksmith, to hand to the hub's own TODO. Each empties once the hub has taken it.
 
 - Blacksmith's shared tool-window controls are complete in its working tree (not committed or released, not yet seen in a window by the author), all `blacksmith-tool-*`. The Group Editor has adopted all of them it has a use for: button and button group, segmented control, toggle, section, card with the title field and notice slot, editable label, underline tabs with count, and the drop zone. Chips have no use here. Once the author has looked at the editor on Light, Dark and Glass, each finding goes to the Blacksmith session as control, theme and what was seen. Blacksmith also re-themed `blacksmith-tag`, `blacksmith-panel-card`, `blacksmith-window-section` and `blacksmith-icon-action` inside tool windows; Puppeteer uses none of them.
-- Regions in `canvas.pickArea`'s types, so Capture Area can pick them (already requested).
 
 **Decisions and waiting on others**
 
 - Raise the Blacksmith minimum in `module.json` when the release with area pick, pin rotation, tool-themed toggles and badges, and the health readers (`getHealthPercent`, `getHealthSeverity`) ships. Not before.
-- Regions in Capture Area once Blacksmith's area pick lists them (requested). Touches `scripts/groups.js`.
 - Screenshots for the README and `home.md`, taken in a scratch world so no player or character names appear, saved as WebP under `documentation/assets/`.
 - Delete `documentation/plans/plan-puppeteer-groups.md`. It is absorbed and marked complete.

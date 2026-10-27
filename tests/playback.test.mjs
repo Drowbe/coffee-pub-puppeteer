@@ -24,9 +24,26 @@ async function wagon() {
     return { ...env, groups, group, horse, still, writes };
 }
 
-test('pausing a group pauses its video tiles on every screen, and playing starts them again', async () => {
+const rule = (g, on, action, value = '') => g.groups.addEvent(g.scene, g.group.id, { on, do: action, value });
+
+test('a group with no play or pause event has nothing to play or pause', async () => {
     const g = await wagon();
-    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id, false), { playing: false, count: 1, sounds: 0 });
+    assert.equal(g.groups.canPlayPause(live(g)), false);
+    g.writes.length = 0;
+    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id), { playing: true, ran: false });
+    assert.equal(g.writes.length, 0);
+    assert.equal('paused' in live(g), false);
+    await rule(g, 'move', 'sound', 'a.ogg');
+    assert.equal(g.groups.canPlayPause(live(g)), false, 'an event for something else does not count');
+});
+
+test('Pause runs the events for Pause is clicked: stop the video tiles on every screen, and Play starts them again', async () => {
+    const g = await wagon();
+    await rule(g, 'pause', 'stop');
+    await rule(g, 'play', 'start');
+    assert.equal(g.groups.canPlayPause(live(g)), true);
+
+    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id, false), { playing: false, ran: true });
     const write = g.writes.find((w) => w.type === 'Tile');
     assert.deepEqual(write.updates, [{ _id: 'T1', video: { autoplay: false } }]);
     assert.equal(write.options.playVideo, false);
@@ -35,79 +52,52 @@ test('pausing a group pauses its video tiles on every screen, and playing starts
     assert.equal(live(g).paused, true);
     assert.equal(g.horse._source.video.autoplay, false);
 
-    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id, true), { playing: true, count: 1, sounds: 0 });
+    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id, true), { playing: true, ran: true });
     assert.equal(g.writes.at(-1).options.playVideo, true);
     assert.equal('paused' in live(g), false);
     assert.equal(g.horse._source.video.autoplay, true);
 });
 
-test('with no choice given, playing flips what the group was doing', async () => {
+test('with no choice given, playing flips what the group was doing, and runs only the events for that side', async () => {
     const g = await wagon();
+    await rule(g, 'pause', 'sound', 'sounds/quiet.ogg');
+    await rule(g, 'play', 'sound', 'sounds/creak.ogg');
     assert.equal((await g.groups.setPlaying(g.scene, g.group.id)).playing, false);
     assert.equal((await g.groups.setPlaying(g.scene, g.group.id)).playing, true);
+    assert.deepEqual(g.sounds.map((s) => [s.sound, s.broadcast]), [['sounds/quiet.ogg', true], ['sounds/creak.ogg', true]]);
 });
 
-test('a group with no video tile has nothing to play or pause', async () => {
+test('an event can start the animations on Pause too: the action is the group choice, not the button', async () => {
     const g = await wagon();
-    await g.groups.removeMember(g.scene, g.group.id, 'Tile', 'T1');
-    g.writes.length = 0;
-    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id), { playing: false, count: 0, sounds: 0 });
-    assert.equal(g.writes.length, 0);
-});
-
-test('with Start and Stop animations off, pausing leaves the video tiles alone', async () => {
-    const g = await wagon();
-    await g.groups.setBehaviour(g.scene, g.group.id, { animates: false });
-    assert.equal(live(g).animates, false);
-    assert.equal(g.groups.canPlayPause(g.scene, live(g)), false, 'nothing else to play or pause');
-    g.writes.length = 0;
-    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id, false), { playing: false, count: 0, sounds: 0 });
-    assert.equal(g.writes.length, 0);
-    await g.groups.setBehaviour(g.scene, g.group.id, { animates: true });
-    assert.equal('animates' in live(g), false);
-});
-
-async function withSound(g) {
-    g.scene.add('AmbientSound', 'S1', { x: 3000, y: 2000, radius: 20, path: 'sounds/engine.ogg', hidden: false });
-    await g.groups.addMembers(g.scene, g.group.id, [g.scene.getEmbeddedCollection('AmbientSound').get('S1')]);
-    g.writes.length = 0;
-}
-
-test('with Swap Sounds on, play and pause give the group\'s sounds the sound for that state', async () => {
-    const g = await wagon();
-    await withSound(g);
-    await g.groups.setBehaviour(g.scene, g.group.id, { swapSounds: true, playSound: ' sounds/creak.ogg ', pauseSound: 'sounds/quiet.ogg' });
-    assert.equal(live(g).swapSounds, true);
-    assert.equal(live(g).playSound, 'sounds/creak.ogg');
-
-    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id, false), { playing: false, count: 1, sounds: 1 });
-    assert.equal(g.scene.getEmbeddedCollection('AmbientSound').get('S1')._source.path, 'sounds/quiet.ogg');
-    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id, true), { playing: true, count: 1, sounds: 1 });
-    assert.equal(g.scene.getEmbeddedCollection('AmbientSound').get('S1')._source.path, 'sounds/creak.ogg');
-    // Already on that sound: nothing to write.
-    assert.equal((await g.groups.setPlaying(g.scene, g.group.id, true)).sounds, 0);
-});
-
-test('Swap Sounds works on its own, and an empty path leaves the sounds as they are', async () => {
-    const g = await wagon();
-    await withSound(g);
-    await g.groups.removeMember(g.scene, g.group.id, 'Tile', 'T1');
-    await g.groups.setBehaviour(g.scene, g.group.id, { swapSounds: true, pauseSound: 'sounds/quiet.ogg' });
-    assert.equal(g.groups.canPlayPause(g.scene, live(g)), true);
+    await rule(g, 'pause', 'start');
     await g.groups.setPlaying(g.scene, g.group.id, false);
-    assert.equal(g.scene.getEmbeddedCollection('AmbientSound').get('S1')._source.path, 'sounds/quiet.ogg');
-    assert.equal((await g.groups.setPlaying(g.scene, g.group.id, true)).sounds, 0, 'no Play Sound set');
-    assert.equal(g.scene.getEmbeddedCollection('AmbientSound').get('S1')._source.path, 'sounds/quiet.ogg');
-    await g.groups.setBehaviour(g.scene, g.group.id, { swapSounds: false, pauseSound: '' });
-    for (const key of ['swapSounds', 'pauseSound']) assert.equal(key in live(g), false);
+    assert.equal(g.writes.find((w) => w.type === 'Tile').options.playVideo, true);
 });
 
-test('the play and pause settings are carried by a duplicate', async () => {
+test('start and stop need nothing else, are described, and a sound still needs its path', async () => {
     const g = await wagon();
-    await g.groups.setBehaviour(g.scene, g.group.id, { animates: false, swapSounds: true, playSound: 'a.ogg', pauseSound: 'b.ogg' });
+    const stored = await rule(g, 'play', 'start');
+    assert.deepEqual({ ...stored, id: 0 }, { id: 0, on: 'play', do: 'start', value: '' });
+    const { describeEvent } = await import('../scripts/events.js');
+    assert.deepEqual(describeEvent(stored, live(g)), { when: 'Play is clicked', what: 'Start the animations' });
+    await assert.rejects(() => rule(g, 'pause', 'sound', ' '), /choose a sound/);
+});
+
+test('a group with no video tile runs its events without a write to a tile', async () => {
+    const g = await wagon();
+    await g.groups.removeMember(g.scene, g.group.id, 'Tile', 'T1');
+    await rule(g, 'pause', 'stop');
+    g.writes.length = 0;
+    assert.deepEqual(await g.groups.setPlaying(g.scene, g.group.id, false), { playing: false, ran: true });
+    assert.equal(g.writes.some((w) => w.type === 'Tile'), false);
+});
+
+test('play and pause events are carried by a duplicate', async () => {
+    const g = await wagon();
+    await rule(g, 'pause', 'stop');
     const library = await import('../scripts/library.js');
     const copy = await library.duplicateGroup(g.scene, g.group.id);
-    assert.deepEqual([copy.animates, copy.swapSounds, copy.playSound, copy.pauseSound], [false, true, 'a.ogg', 'b.ogg']);
+    assert.equal(g.groups.canPlayPause(copy), true);
 });
 
 test('the front of the picture decides which end leads', async () => {

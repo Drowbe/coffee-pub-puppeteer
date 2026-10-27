@@ -30,8 +30,9 @@ A group record holds:
 | `members` | `{ type, id, dx, dy, drot }`, plus `label` for a name, `c` for a Wall's endpoints and `shapes` for a Region. |
 | `body` | `{ tokenId, actorId }`, when the group represents an actor. |
 | `riders` | `[{ tokenId, dx, dy, drot }]`, the tokens the group carries. |
-| `mountable`, `announce`, `ridersFree`, `rotates`, `fixedHeading`, `facesTravel`, `solidOnly`, `animates`, `swapSounds`, `playSound`, `pauseSound`, `ease` | Behaviour choices (see Behaviour). Absent means the default. |
-| `events` | Rules, `{ id, on, do, value, at?, target? }`, at most 20 (see Events). Absent means none. |
+| `mountable`, `announce`, `ridersFree`, `rotates`, `fixedHeading`, `facesTravel`, `solidOnly`, `ease` | Behaviour choices (see Behaviour). Absent means the default. |
+| `events` | Rules, `{ id, on, do, value, at?, target? }`, at most 20 (see Events). Absent means none. A rule on `play` or `pause` is what gives a group its Play and Pause button, and `paused: true` records that it is paused. |
+| `scale` | How far the group has been resized in all, as a factor. Resetting resizes by its reciprocal. Absent means it is at its own size. |
 | `healthLevel` | The health level the group's token was last seen at, when it is not healthy (see Events). |
 | `movePivot` | Present while Move Pivot is armed. |
 | `hidden`, `hiddenBefore` | Present while the group is hidden; `hiddenBefore` lists the documents (`Type:id`) that were already hidden when it was. |
@@ -120,7 +121,7 @@ Fields Puppeteer does not own (`hole`, `gridBased`, sizes, behaviours, colour) a
 
 ## Capture and removal
 
-Capture Area uses Blacksmith's `pickArea`: every supported placeable whose centre is inside the dragged box becomes a member, across all layers, with offsets computed from the pin's applied pose and un-rotated into the pin's frame. Add Selected and Remove Selected cover single elements. Members deleted from the scene are pruned through the delete hooks (`scripts/prune.js`). Capturing first lets the follower finish, so offsets are measured against where the pin really is.
+Capture Area uses Blacksmith's `pickArea`: every supported placeable whose centre is inside the dragged box becomes a member, across all layers, with offsets computed from the pin's applied pose and un-rotated into the pin's frame. Add Selected and Remove Selected cover single elements. Members deleted from the scene are pruned through the delete hooks (`scripts/prune.js`), and a pin deleted through Blacksmith (`blacksmith.pins.deleted`, or the bulk hooks, which name only the scene) deletes its group, parts included, with `deleteGroup`. Capturing first lets the follower finish, so offsets are measured against where the pin really is.
 
 ## Deleting
 

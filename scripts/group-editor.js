@@ -7,7 +7,7 @@ import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, selectToken, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
-    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, playbackOf, replacePin, addEvent, removeEvent, scaleGroup, HIDEABLE
+    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, setGroupWidth, groupWidth, HIDEABLE
 } from './groups.js';
 import { TRIGGERS, ACTIONS, HEALTH_LEVELS, describeEvent } from './events.js';
 import { easeOf } from './tween.js';
@@ -32,6 +32,9 @@ const TYPE_ICON = {
 
 // Which group cards are open. Module level so it survives a redraw and a close and reopen.
 const expanded = new Set();
+
+// How much the Bigger and Smaller buttons resize by. One setting for the window, kept across redraws.
+let scaleStep = 1.25;
 
 // Lights and sounds have no picture to hide: Foundry's own switch for them is the same field, and it turns them off.
 const EMITTERS = ['AmbientLight', 'AmbientSound'];
@@ -107,13 +110,13 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         saveToLibrary: (event, target, win) => win._saveToLibrary(target.dataset.groupId),
         duplicateGroup: (event, target, win) => win._duplicate(target.dataset.groupId),
         replacePin: (event, target, win) => win._replacePin(target.dataset.groupId),
-        scaleGroup: (event, target, win) => win._scale(target.dataset.groupId, Number(target.dataset.factor)),
+        scaleUp: (event, target, win) => win._scaleBy(target, false),
+        scaleDown: (event, target, win) => win._scaleBy(target, true),
+        resetScale: (event, target, win) => win._resetScale(target.dataset.groupId),
         addEvent: (event, target, win) => win._addEvent(target.dataset.groupId, target.closest('.puppeteer-event-form')),
         removeEvent: (event, target, win) => win._removeEvent(target.dataset.groupId, target.dataset.eventId),
         browseSound: (event, target, win) => win._browseFile(target.closest('.puppeteer-event-form'), 'eventSound', 'audio'),
         browseImage: (event, target, win) => win._browseFile(target.closest('.puppeteer-event-form'), 'eventImage', 'image'),
-        browsePlaySound: (event, target, win) => win._browseFile(target.closest('.puppeteer-playback-sound'), 'playSound', 'audio', true),
-        browsePauseSound: (event, target, win) => win._browseFile(target.closest('.puppeteer-playback-sound'), 'pauseSound', 'audio', true),
         stampTemplate: (event, target, win) => win._stamp(target.dataset.templateId),
         updateTemplate: (event, target, win) => win._updateTemplate(target.dataset.templateId),
         toggleGroupHidden: (event, target, win) => win._toggleGroupHidden(target.dataset.groupId),
@@ -347,7 +350,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <label class="blacksmith-toggle-label" for="${esc(id)}">${esc(item.label)}</label>
                 </div>`;
         }).join('');
-        return `<div role="group" aria-label="${esc(label)}">${rows}</div>`;
+        return `<div class="puppeteer-options" role="group" aria-label="${esc(label)}">${rows}</div>`;
     }
 
     /**
@@ -389,7 +392,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <span class="blacksmith-tool-card-actions">
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i></button>
-                    <button type="button" class="blacksmith-tool-btn is-icon${group.paused ? ' is-active' : ''}" data-action="togglePlaying" data-group-id="${id}"${canPlayPause(canvas.scene, group) ? '' : ' disabled'} data-tooltip="${canPlayPause(canvas.scene, group) ? `${group.paused ? 'Play' : 'Pause'} the group: its animations and sounds, as set in Behaviour, on every screen` : 'Nothing to play or pause: the group has no video tile, and swapping its sounds is off or it has no sound'}"><i class="fa-solid fa-${group.paused ? 'play' : 'pause'}"></i></button>
+                    ${canPlayPause(group) ? `<button type="button" class="blacksmith-tool-btn is-icon${group.paused ? ' is-active' : ''}" data-action="togglePlaying" data-group-id="${id}" data-tooltip="${group.paused ? 'Play' : 'Pause'} the group: runs its &quot;${group.paused ? 'Play' : 'Pause'} is clicked&quot; events"><i class="fa-solid fa-${group.paused ? 'play' : 'pause'}"></i></button>` : ''}
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="duplicateGroup" data-group-id="${id}" data-tooltip="Duplicate the group: a copy of its parts, pin and settings, two squares to the right"><i class="fa-solid fa-clone"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="saveToLibrary" data-group-id="${id}" data-tooltip="Save to the Library: a copy you can fabricate on any scene"><i class="fa-solid fa-boxes-stacked"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="exportGroup" data-group-id="${id}" data-tooltip="Export the group as a JSON file"><i class="fa-solid fa-file-export"></i></button>
@@ -470,11 +473,20 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                         <button type="button" class="blacksmith-tool-btn${group.movePivot ? ' is-active' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="Put the grip anywhere: drag the pin once and only the pin moves. This switches itself off when you drop the pin."><i class="fa-solid fa-crosshairs"></i> ${group.movePivot ? 'Move Pivot: On' : 'Move Pivot'}</button>
                     </div>
                     <div class="puppeteer-inline">
-                        <span>Resize about the pin</span>
+                        <span>Resize</span>
                         <div class="blacksmith-tool-btn-group">
-                            ${[[0.5, 'half'], [0.8, 'a fifth smaller'], [1.25, 'a quarter bigger'], [2, 'double']].map(([factor, words]) => `
-                            <button type="button" class="blacksmith-tool-btn" data-action="scaleGroup" data-group-id="${id}" data-factor="${factor}" data-tooltip="Make the group ${words} its size: parts, lights, sounds, regions and where riders stand. Tokens keep their size. The opposite button puts it back.">${factor}&times;</button>`).join('')}
+                            <button type="button" class="blacksmith-tool-btn" data-action="scaleDown" data-group-id="${id}" data-tooltip="Make the group smaller by the step: parts, lights, sounds, regions and where riders stand. Tokens keep their size. Bigger is its opposite."><i class="fa-solid fa-down-left-and-up-right-to-center"></i> Smaller</button>
+                            <button type="button" class="blacksmith-tool-btn" data-action="scaleUp" data-group-id="${id}" data-tooltip="Make the group bigger by the step."><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Bigger</button>
                         </div>
+                        <label class="puppeteer-field" data-tooltip="How much Smaller and Bigger resize by: Bigger multiplies the group's size by this, Smaller divides by it (1.01 to 10).">
+                            by <input type="number" data-field="scaleStep" data-group-id="${id}" value="${scaleStep}" min="1.01" max="10" step="0.05">&times;
+                        </label>
+                        <button type="button" class="blacksmith-tool-btn" data-action="resetScale" data-group-id="${id}"${group.scale ? '' : ' disabled'} data-tooltip="${group.scale ? `Put the group back to the size it was before it was resized (it is ${Math.round(group.scale * 100) / 100} times that now)` : 'The group has not been resized'}"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+                    </div>
+                    <div class="puppeteer-inline">
+                        <label class="puppeteer-field" data-tooltip="How wide the group is, in grid squares. Change it to resize the group to that width, about the pin.">
+                            Width <input type="number" data-field="groupWidth" data-group-id="${id}" value="${groupWidth(scene, group)}" min="0.1" step="0.5"> squares
+                        </label>
                     </div></section>
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Events</span></header>
                     ${this._eventsHtml(group)}</section>
@@ -524,31 +536,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     { field: 'solidOnly', icon: 'fa-solid fa-vector-square', label: 'Solid parts only', checked: group.solidOnly !== false, tooltip: 'On, only the solid part of a picture counts as on the group: a token standing on a transparent corner does not board, and one moved onto it is let go. Off, the whole box around the group counts.' },
                     { field: 'ridersFree', icon: 'fa-solid fa-person-walking', label: 'Riders move freely', checked: group.ridersFree !== false, tooltip: 'On, a rider can be moved about the group by hand. Off, one moved by hand is put back where it rides.' }
                 ])}
-                ${group.facesTravel && group.rotates !== false ? this._frontHtml(group) : ''}
-                ${this._playbackHtml(group)}`;
-    }
-
-    /** What the Play and Pause button does for the group: stop its animations, and swap the sound its ambient sounds play. */
-    _playbackHtml(group) {
-        const id = esc(group.id);
-        const how = playbackOf(group);
-        const sound = (field, label, value, browse) => `
-                    <div class="puppeteer-inline puppeteer-playback-sound">
-                        <span>${label}</span>
-                        <span class="puppeteer-event-sound">
-                            <input type="text" data-field="${field}" data-group-id="${id}" value="${esc(value)}" placeholder="Path to a sound" data-tooltip="${esc(`The sound the group's ambient sounds play ${label === 'Play Sound' ? 'once it plays' : 'while it is paused'}. Empty leaves them as they are.`)}">
-                            <button type="button" class="blacksmith-tool-btn is-icon" data-action="${browse}" data-tooltip="Browse for a sound"><i class="fa-solid fa-folder-open"></i></button>
-                        </span>
-                    </div>`;
-        return `
-                ${this._optionsHtml(group.id, 'Play and pause', [
-                    { field: 'animates', icon: 'fa-solid fa-film', label: 'Start and Stop animations', checked: how.animations, tooltip: 'On, the Play and Pause button starts and stops the group\'s video tiles. Lights are not touched: Foundry\'s own lighting animation controls them.' },
-                    { field: 'swapSounds', icon: 'fa-solid fa-volume-high', label: 'Swap Sounds', checked: how.swap, tooltip: 'On, the Play and Pause button changes the sound the group\'s ambient sounds play: the Play Sound once it plays, the Pause Sound while it is paused.' }
-                ])}
-                ${how.swap ? `<div class="puppeteer-playback">
-                    ${sound('playSound', 'Play Sound', how.playSound, 'browsePlaySound')}
-                    ${sound('pauseSound', 'Pause Sound', how.pauseSound, 'browsePauseSound')}
-                </div>` : ''}`;
+                ${group.facesTravel && group.rotates !== false ? this._frontHtml(group) : ''}`;
     }
 
     /** Which way the picture's front points, for a group that faces its travel: four quick choices and a number to fine tune. */
@@ -594,7 +582,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         const macros = game.macros.contents.slice().sort((a, b) => a.name.localeCompare(b.name))
             .map((macro) => `<option value="${esc(macro.id)}">${esc(macro.name)}</option>`).join('');
         return `
-                ${rules ? `<div class="blacksmith-list">${rules}</div>` : '<div class="blacksmith-tool-hint">Nothing happens when this group is boarded, moved, hidden or hurt. Add an event to play a sound, run a macro or change the picture on a tile.</div>'}
+                ${rules ? `<div class="blacksmith-list">${rules}</div>` : '<div class="blacksmith-tool-hint">Nothing happens when this group is boarded, moved, hidden or hurt. Add an event to play a sound, run a macro, change the picture on a tile or start or stop its animations. Events for "Play is clicked" or "Pause is clicked" give the group a Play and Pause button.</div>'}
                 <div class="puppeteer-inline puppeteer-event-form">
                     <select data-field="eventOn" data-group-id="${id}" data-tooltip="When this happens">${options(TRIGGERS)}</select>
                     <select data-field="eventAt" data-group-id="${id}" style="display: none" data-tooltip="The group's token has this much health left. The levels are Blacksmith's, set in its settings.">${options(HEALTH_LEVELS)}</select>
@@ -719,6 +707,12 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             for (const kind of ['sound', 'image', 'macro']) form.querySelector(`.puppeteer-event-${kind}`).style.display = action === kind ? '' : 'none';
             return null;
         }
+        if (input.dataset.field === 'scaleStep') {
+            const step = Number(input.value);
+            if (Number.isFinite(step) && step > 1) scaleStep = Math.min(10, step);
+            input.value = scaleStep;
+            return null;
+        }
         if (['eventAt', 'eventSound', 'eventImage', 'eventTile', 'eventMacro'].includes(input.dataset.field)) return null;
         return run('Update group', async () => {
             if (input.dataset.field === 'templateName') {
@@ -746,14 +740,13 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 await setBehaviour(scene, groupId, { front: Number(input.value) || 0 });
                 return this.render();
             }
-            if (input.dataset.field === 'animates') return setBehaviour(scene, groupId, { animates: input.checked }).then(() => this.render());
-            if (input.dataset.field === 'swapSounds') return setBehaviour(scene, groupId, { swapSounds: input.checked }).then(() => this.render());
-            if (input.dataset.field === 'playSound' || input.dataset.field === 'pauseSound') {
-                await setBehaviour(scene, groupId, { [input.dataset.field]: input.value });
-                return this.render();
-            }
             if (input.dataset.field === 'announce') return setBehaviour(scene, groupId, { announce: input.checked });
             if (input.dataset.field === 'ridersFree') return setBehaviour(scene, groupId, { ridersFree: input.checked });
+            if (input.dataset.field === 'groupWidth') {
+                const { scaled } = await setGroupWidth(scene, groupId, Number(input.value));
+                if (scaled) say('Group resized', `The group is now ${input.value} squares wide.`);
+                return this.render();
+            }
             if (input.dataset.field === 'bodyLinked') return setBodyLinked(scene, groupId, input.checked);
             if (input.dataset.field === 'name') await renameGroup(scene, groupId, input.value);
             if (input.dataset.field === 'heading') await setHeading(scene, groupId, Number(input.value) || 0);
@@ -836,9 +829,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
 
     _togglePlaying(groupId) {
         return run('Play or pause group', async () => {
-            const { playing, count, sounds } = await setPlaying(canvas.scene, groupId);
-            const did = [count && `${count} video tile${count === 1 ? '' : 's'} ${playing ? 'playing' : 'paused'}`, sounds && `${sounds} sound${sounds === 1 ? '' : 's'} swapped`].filter(Boolean);
-            say(playing ? 'Group playing' : 'Group paused', did.length ? `${did.join(', ')}.` : 'Nothing needed changing.');
+            const { playing } = await setPlaying(canvas.scene, groupId);
+            say(playing ? 'Group playing' : 'Group paused', `Its "${playing ? 'Play' : 'Pause'} is clicked" events have run.`);
             this.render();
         });
     }
@@ -910,10 +902,12 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const field = (name) => form.querySelector(`[data-field="${name}"]`).value;
             const action = field('eventDo');
             const on = field('eventOn');
+            // Start and Stop have nothing more to ask for.
+            const source = { sound: 'eventSound', image: 'eventImage', macro: 'eventMacro' }[action];
             await addEvent(canvas.scene, groupId, {
                 on,
                 do: action,
-                value: field({ sound: 'eventSound', image: 'eventImage', macro: 'eventMacro' }[action]),
+                value: source ? field(source) : '',
                 ...(on === 'health' ? { at: field('eventAt') } : {}),
                 ...(action === 'image' ? { target: field('eventTile') } : {})
             });
@@ -930,24 +924,31 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     }
 
     /** Blacksmith has no file picker for a module to use, so this is Foundry's own. */
-    _browseFile(form, field, type, save = false) {
+    _browseFile(form, field, type) {
         const input = form.querySelector(`[data-field="${field}"]`);
         const FilePicker = foundry.applications.apps.FilePicker.implementation;
-        new FilePicker({
-            type,
-            current: input.value,
-            callback: (path) => {
-                input.value = path;
-                // A field that is saved as it changes is told, as if it had been typed in.
-                if (save) input.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }).render(true);
+        new FilePicker({ type, current: input.value, callback: (path) => { input.value = path; } }).render(true);
     }
 
-    _scale(groupId, factor) {
+    /** Bigger or Smaller: resize by the step in the field next to the buttons, or by its opposite. */
+    _scaleBy(target, down) {
+        const field = target.closest('.blacksmith-tool-section').querySelector('[data-field="scaleStep"]');
+        const step = Number(field?.value) || scaleStep;
         return run('Resize group', async () => {
-            const { scaled } = await scaleGroup(canvas.scene, groupId, factor);
-            say('Group resized', `${scaled} part(s) are now ${factor} times their size, about the pin.`);
+            if (!(step > 1 && step <= 10)) { say('Choose a step', 'Resize by a number between 1.01 and 10.'); return; }
+            scaleStep = step;
+            const factor = down ? 1 / step : step;
+            const { scaled } = await scaleGroup(canvas.scene, target.dataset.groupId, factor);
+            say('Group resized', `${scaled} part(s) made ${step} times ${down ? 'smaller' : 'bigger'}, about the pin.`);
+            this.render();
+        });
+    }
+
+    _resetScale(groupId) {
+        return run('Reset group size', async () => {
+            const { scaled } = await resetScale(canvas.scene, groupId);
+            say('Group size reset', `${scaled} part(s) are back at the size they were.`);
+            this.render();
         });
     }
 

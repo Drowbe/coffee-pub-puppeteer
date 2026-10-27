@@ -269,7 +269,7 @@ function registerPinMenu(blacksmith) {
         toast.show({ title: playing ? 'Group playing' : 'Group paused', icon: 'fa-solid fa-play-pause', channel: TOAST_CHANNEL, duration: 3 });
     }, (pin) => {
         const group = getGroup(canvas.scene, groupIdOf(pin));
-        return !!group && canPlayPause(canvas.scene, group);
+        return !!group && canPlayPause(group);
     });
     item('duplicate', 'Duplicate Group', 'fa-solid fa-clone', 14.5, async (groupId) => {
         const copy = await duplicateGroup(canvas.scene, groupId);

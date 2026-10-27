@@ -4,7 +4,7 @@
 import { MODULE_ID, TOAST_CHANNEL } from './constants.js';
 import { bootstrap } from './bootstrap.js';
 import { groupState } from './state.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden, setEmittersOn, setPlaying, replacePin, addEvent, removeEvent, scaleGroup } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden, setEmittersOn, setPlaying, replacePin, addEvent, removeEvent, scaleGroup, resetScale, setGroupWidth } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -87,7 +87,7 @@ Hooks.once('ready', async () => {
         clearBody: (groupId, scene = canvas.scene) => clearBody(scene, groupId),
         setBodyLinked: (groupId, linked, scene = canvas.scene) => setBodyLinked(scene, groupId, linked),
         /**
-         * How a group behaves: `{ ease: { mode: 'ease' | 'jump', ms }, rotates: boolean, facesTravel: boolean, front: degrees, ridersFree: boolean, solidOnly: boolean, animates: boolean, swapSounds: boolean, playSound: path, pauseSound: path }`. Any of
+         * How a group behaves: `{ ease: { mode: 'ease' | 'jump', ms }, rotates: boolean, facesTravel: boolean, front: degrees, ridersFree: boolean, solidOnly: boolean }`. Any of
          * them may be left out. See the API document.
          */
         setBehaviour: (groupId, options, scene = canvas.scene) => setBehaviour(scene, groupId, options),
@@ -102,9 +102,13 @@ Hooks.once('ready', async () => {
         setMemberHidden: (groupId, type, id, hidden, scene = canvas.scene) => setMemberHidden(scene, groupId, type, id, hidden),
         /** Resize a group about its pin by a factor between 0.1 and 10: parts, riders' places and the token's fit. */
         scale: (groupId, factor, scene = canvas.scene) => scaleGroup(scene, groupId, factor),
+        /** Put a resized group back to the size it had before it was resized. */
+        resetScale: (groupId, scene = canvas.scene) => resetScale(scene, groupId),
+        /** Resize a group so it is `squares` grid squares wide, within a tenth and ten times its width now. */
+        setWidth: (groupId, squares, scene = canvas.scene) => setGroupWidth(scene, groupId, squares),
         /** Switch a group's lights (`'AmbientLight'`) or sounds (`'AmbientSound'`) on or off together; `on` left out flips them. */
         setEmittersOn: (groupId, type, on, scene = canvas.scene) => setEmittersOn(scene, groupId, type, on),
-        /** Play or pause every animation (video tile) in a group; `playing` left out flips it. Returns `{ playing, count }`. */
+        /** Play or pause a group by running its "Play is clicked" or "Pause is clicked" events; `playing` left out flips it. Returns `{ playing, ran }`. */
         setPlaying: (groupId, playing, scene = canvas.scene) => setPlaying(scene, groupId, playing),
         /** Put tokens (documents) aboard a group. They must be on it. Returns how many boarded and why others did not. */
         mount: (groupId, tokens, scene = canvas.scene) => mountTokens(scene, groupId, tokens),

@@ -146,3 +146,30 @@ test('deleting a group does not touch the library entry saved from it', async ()
     const again = await library.stampTemplate(scene, id, { x: 4000, y: 2000 });
     assert.equal(again.members.length, 3);
 });
+
+test('a stamp ties each part to its own document even when Foundry returns them in another order', async () => {
+    const env = installFakes();
+    const groups = await import('../scripts/groups.js');
+    const library = await import('../scripts/library.js');
+    const { scene } = env;
+    const bed = scene.add('Tile', 'T1', { x: 3000, y: 2000, width: 400, height: 800, rotation: 0, texture: { src: 'bed.webp', anchorX: 0.5, anchorY: 0.5 } });
+    const canopy = scene.add('Tile', 'T2', { x: 3000, y: 2000, width: 400, height: 800, rotation: 90, texture: { src: 'canopy.webp', anchorX: 0.5, anchorY: 0.5 } });
+    const horse = scene.add('Tile', 'T3', { x: 3000, y: 1500, width: 200, height: 400, rotation: 180, texture: { src: 'horse.webm', anchorX: 0.5, anchorY: 0.5 } });
+    const group = await groups.createGroup(scene, { x: 3000, y: 2200 }, { name: 'Wagon' });
+    await groups.addMembers(scene, group.id, [bed, canopy, horse]);
+    await env.settle();
+
+    const copy = await library.stampTemplate(scene, library.getTemplate(await library.saveGroupToLibrary(scene, group.id)), { x: 6000, y: 2200 });
+    await env.settle();
+    for (const member of copy.members) {
+        const doc = scene.getEmbeddedCollection('Tile').get(member.id);
+        const art = doc._source.texture.src.split('.')[0];
+        const original = { bed, canopy, horse }[art]._source;
+        assert.deepEqual([doc._source.x, doc._source.y], [original.x + 3000, original.y], `${art} place`);
+        assert.equal(doc._source.rotation, original.rotation, `${art} rotation`);
+        // and the group's record of that part is the record of that document
+        const { memberUpdate } = await import('../scripts/geometry.js');
+        const wanted = memberUpdate(member, doc._source, copy.applied);
+        assert.deepEqual([doc._source.x, doc._source.y, doc._source.rotation], [wanted.x, wanted.y, wanted.rotation], `${art} record`);
+    }
+});

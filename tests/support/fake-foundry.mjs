@@ -108,12 +108,13 @@ export function installFakes({ dropOptions = false } = {}) {
             for (const doc of docs) fire(`delete${type}`, doc, {}, 'u1');
             return docs;
         },
-        async createEmbeddedDocuments(type, datas) {
+        async createEmbeddedDocuments(type, datas, options = {}) {
             const make = (data) => {
-                const id = Math.random().toString(36).slice(2, 18).padEnd(16, 'x');
+                const id = (options.keepId && data._id) || Math.random().toString(36).slice(2, 18).padEnd(16, 'x');
                 return type === 'Token' ? this.addToken(id, data) : this.add(type, id, data);
             };
-            const docs = datas.map(make);
+            // Foundry does not promise the documents come back in the order they were given, so neither does this.
+            const docs = datas.map(make).reverse();
             await Promise.resolve();
             for (const doc of docs) fire(`create${type}`, doc, {}, 'u1');
             return docs;

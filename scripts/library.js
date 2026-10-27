@@ -91,7 +91,7 @@ export async function deleteTemplate(id) {
 }
 
 // What a copy keeps of how its original behaves.
-const BEHAVIOUR = ['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce', 'facesTravel', 'front', 'solidOnly', 'animates', 'swapSounds', 'playSound', 'pauseSound', 'events'];
+const BEHAVIOUR = ['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce', 'facesTravel', 'front', 'solidOnly', 'scale', 'events'];
 
 /**
  * Make a copy of a group on the same scene: new parts, a new pin two squares to the right, a new group facing the same
@@ -171,13 +171,16 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
         if (!byType.has(entry.type)) byType.set(entry.type, []);
         byType.get(entry.type).push({ index, data: entry.data });
     });
+    // Each part is given its id before it is made, because Foundry does not promise to hand the documents back in the
+    // order they were given, and a part tied to the wrong document is moved to another part's place.
     const created = new Array(stamped.length);
     try {
         for (const type of MEMBER_TYPES) {
             const items = byType.get(type);
             if (!items) continue;
-            const docs = await scene.createEmbeddedDocuments(type, items.map((item) => item.data));
-            docs.forEach((doc, i) => { created[items[i].index] = doc; });
+            for (const item of items) item.data._id = foundry.utils.randomID();
+            await scene.createEmbeddedDocuments(type, items.map((item) => item.data), { keepId: true });
+            for (const item of items) created[item.index] = { id: item.data._id, documentName: type };
         }
     } catch (error) {
         // Do not leave half a stamp behind: remove what was made and the empty group, then say what went wrong.

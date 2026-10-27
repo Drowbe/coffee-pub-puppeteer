@@ -111,3 +111,45 @@ test('a group that was moved first is resized about where its pin now is', async
     await g.groups.scaleGroup(g.scene, g.group.id, 2);
     assert.equal(g.tile._source.x, 4200);
 });
+
+test('a group remembers how far it has been resized, and Reset puts it back', async () => {
+    const g = await stage();
+    await g.groups.scaleGroup(g.scene, g.group.id, 2);
+    assert.equal(live(g).scale, 2);
+    await g.groups.scaleGroup(g.scene, g.group.id, 1.25);
+    assert.equal(live(g).scale, 2.5);
+    assert.deepEqual(await g.groups.resetScale(g.scene, g.group.id), { scaled: 7 });
+    assert.equal('scale' in live(g), false);
+    assert.deepEqual([g.tile._source.width, g.tile._source.height], [200, 100]);
+    near(g.tile._source.x, 3100);
+    assert.deepEqual(await g.groups.resetScale(g.scene, g.group.id), { scaled: 0 }, 'nothing to reset');
+});
+
+test('Smaller and Bigger by the same step are opposites', async () => {
+    const g = await stage();
+    await g.groups.scaleGroup(g.scene, g.group.id, 1.25);
+    await g.groups.scaleGroup(g.scene, g.group.id, 1 / 1.25);
+    assert.equal('scale' in live(g), false);
+    near(g.tile._source.width, 200, 2);
+});
+
+test('a group can be reset from beyond the limits of one call', async () => {
+    const g = await stage();
+    await g.groups.scaleGroup(g.scene, g.group.id, 10);
+    await g.groups.scaleGroup(g.scene, g.group.id, 2);
+    assert.equal(live(g).scale, 20);
+    await g.groups.resetScale(g.scene, g.group.id);
+    assert.equal('scale' in live(g), false);
+});
+
+test('a group is set to a width in squares, and reports the width it has', async () => {
+    const g = await stage();
+    // The tile is 200 wide at 100 to the right of the pin, the drawing and others lie to the left; ask the group.
+    const before = g.groups.groupWidth(g.scene, live(g));
+    assert.ok(before > 0);
+    await g.groups.setGroupWidth(g.scene, g.group.id, before * 2);
+    near(g.groups.groupWidth(g.scene, live(g)), before * 2, 0.05);
+    assert.equal(live(g).scale, 2);
+    await assert.rejects(() => g.groups.setGroupWidth(g.scene, g.group.id, 0), /above zero/);
+    await assert.rejects(() => g.groups.setGroupWidth(g.scene, g.group.id, before * 50), /times its width/);
+});

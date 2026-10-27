@@ -32,6 +32,22 @@
     gap: 6px;
 }
 
+/* The on and off switches sit on a grid: equal columns, a switch and its label to a cell, however wide the window is. */
+.puppeteer-group-editor .puppeteer-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
+    gap: 6px 16px;
+    align-items: center;
+}
+
+.puppeteer-group-editor .puppeteer-options .blacksmith-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    min-width: 0;
+}
+
 .puppeteer-group-editor .puppeteer-grow {
     flex: 1 1 8em;
     min-width: 0;
@@ -128,20 +144,6 @@
     align-items: center;
     justify-content: center;
     color: var(--blacksmith-tool-text-muted);
-}
-
-/* The two sound paths under Swap Sounds: a label, then the path field and its browse button, lined up. */
-.puppeteer-group-editor .puppeteer-playback-sound > span:first-child {
-    min-width: 7em;
-}
-
-.puppeteer-group-editor .puppeteer-playback-sound .puppeteer-event-sound {
-    flex: 1;
-}
-
-.puppeteer-group-editor .puppeteer-playback-sound .puppeteer-event-sound input {
-    flex: 1;
-    min-width: 0;
 }
 
 .puppeteer-group-editor .puppeteer-event-sound,

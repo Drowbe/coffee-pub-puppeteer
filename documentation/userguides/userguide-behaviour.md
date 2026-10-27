@@ -43,12 +43,16 @@ An event is a rule on a group: when this happens, do that. Open **Events** on th
 | The group moves | Once each time the pin is moved or turned and the group follows it. Not for Move Pivot. |
 | The group is hidden | When it goes from shown to hidden. |
 | The group is shown | When it goes from hidden to shown. |
+| Play is clicked | When the group's Play button is pressed. A group has a Play and Pause button only when it has an event for one of them. |
+| Pause is clicked | When the group's Pause button is pressed. A group starts out playing, so its first press is Pause. |
 | Its token's health becomes | When the group's token (see [Making a group something that can be attacked](userguide-targets.md)) reaches a health level: Healthy, Injured, Bloodied, Critical or Dead. Fires once when the level changes, not on every hit. |
 
 | Do | What it does |
 |---|---|
 | Play a sound | Plays the sound you choose, for everyone. Use the folder button to browse. |
 | Show a picture on a tile | Changes the picture of one of the group's tiles. |
+| Start the animations | Starts the group's video tiles, on every screen. |
+| Stop the animations | Stops the group's video tiles, on every screen. |
 | Run a macro | Runs a world macro on the GM's screen. The macro is given `scope.group` (its `id` and `name`), `scope.scene` and `scope.event` (its `name`, and for boarding and leaving the `token`, for moving where it `from` and `to`). |
 
 ### Damage levels

@@ -142,9 +142,9 @@ test('a half-made stamp is cleaned up, not left on the map', async () => {
 
     // Walls fail to create, after the tile has been.
     const create = scene.createEmbeddedDocuments.bind(scene);
-    scene.createEmbeddedDocuments = async (type, datas) => {
+    scene.createEmbeddedDocuments = async (type, datas, options) => {
         if (type === 'Wall') throw new Error('a wall could not be made');
-        return create(type, datas);
+        return create(type, datas, options);
     };
     await assert.rejects(library.stampTemplate(scene, id, { x: 4000, y: 4000 }), /a wall could not be made/);
     await env.settle();

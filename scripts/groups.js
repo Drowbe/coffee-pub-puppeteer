@@ -13,7 +13,7 @@ import { announceBoarding, playCue } from './announce.js';
 import { fireEvent, normaliseEvent, MAX_EVENTS } from './events.js';
 import { buildTemplate } from './template.js';
 import { bodyFootprint, bodyTraits, bodyToken, fitBody, bodyMove } from './body.js';
-import { RIDER_FLAG, STAYED_FLAG, captureRider, insideGroup, tokenCentre, riderUpdate, riderMove } from './riders.js';
+import { RIDER_FLAG, STAYED_FLAG, captureRider, footprintBox, insideGroup, tokenCentre, riderUpdate, riderMove } from './riders.js';
 
 export const PIN_TYPE = 'group';
 const PIN_ICON = 'fa-solid fa-up-down-left-right';
@@ -547,9 +547,6 @@ export function setMovePivot(scene, groupId, on) {
  *  - `solidOnly`: whether only the solid part of the group counts as on it when a token boards or moves about. On (the
  *    default), the transparent parts of a tile's picture do not; off, the whole box that holds the group does.
  *  - `announce`: whether a token boarding or leaving is announced in chat, with a sound.
- *  - `animates`: whether Play and Pause start and stop the group's video tiles. On by default.
- *  - `swapSounds`, `playSound`, `pauseSound`: whether Play and Pause swap the sound its ambient sounds play, and the two
- *    sound paths. An empty path leaves the sounds as they are for that state.
  * @returns {Promise<object>} The group record.
  */
 export function setBehaviour(scene, groupId, options = {}) {
@@ -589,20 +586,6 @@ export function setBehaviour(scene, groupId, options = {}) {
             if (options.facesTravel) patch.facesTravel = true;
             else patch['-=facesTravel'] = null;
         }
-        if ('animates' in options) {
-            if (options.animates) patch['-=animates'] = null;
-            else patch.animates = false;
-        }
-        if ('swapSounds' in options) {
-            if (options.swapSounds) patch.swapSounds = true;
-            else patch['-=swapSounds'] = null;
-        }
-        for (const key of ['playSound', 'pauseSound']) {
-            if (!(key in options)) continue;
-            const path = String(options[key] ?? '').trim();
-            if (path) patch[key] = path;
-            else patch[`-=${key}`] = null;
-        }
 
         if ('rotates' in options && !!options.rotates !== (group.rotates !== false)) {
             if (!options.rotates) {
@@ -627,24 +610,60 @@ export function setBehaviour(scene, groupId, options = {}) {
 
 export const SCALE_LIMITS = Object.freeze({ min: 0.1, max: 10 });
 
+/** How wide a group is, in grid squares: the width of the box that holds its sized parts, along its own axis. */
+export function groupWidth(scene, group) {
+    const box = footprintBox(scene, group);
+    const grid = scene.grid.sizeX ?? scene.grid.size;
+    return Math.round(((box.x1 - box.x0) / grid) * 100) / 100;
+}
+
 /**
  * Resize a group about its pin. Every part sits `factor` times as far from the pin and is `factor` times as big (a tile's
  * width and height, a light's reach, a sound's radius, a drawing's size, a region's shapes), riders stand `factor`
  * times as far from the pin, and the group's token is refitted. Tokens, notes and walls keep their own size. A scale
- * and its reverse put everything back, except where a size must be a whole number of pixels.
+ * and its reverse put everything back, except where a size must be a whole number of pixels. The group remembers how
+ * much it has been resized in all (`scale`), so it can be put back with `resetScale`.
  * @param {number} factor  Between 0.1 and 10, other than 1.
  * @returns {Promise<{scaled: number}>} How many parts were resized.
  */
 export function scaleGroup(scene, groupId, factor) {
-    const { utils } = getBlacksmith();
     const by = Number(factor);
     if (!Number.isFinite(by) || by < SCALE_LIMITS.min || by > SCALE_LIMITS.max) {
         return Promise.reject(new Error(`${MODULE_ID}: resize by a factor between ${SCALE_LIMITS.min} and ${SCALE_LIMITS.max}`));
     }
+    return rescale(scene, groupId, () => by);
+}
+
+/** Put a group back to the size it had before it was resized. @returns {Promise<{scaled: number}>} */
+export function resetScale(scene, groupId) {
+    return rescale(scene, groupId, (group) => 1 / (group.scale ?? 1));
+}
+
+/**
+ * Resize a group so it is a given number of grid squares wide (see `groupWidth`).
+ * @param {number} squares  Above zero, and between a tenth and ten times the width it has now.
+ * @returns {Promise<{scaled: number}>} How many parts were resized.
+ */
+export function setGroupWidth(scene, groupId, squares) {
+    const want = Number(squares);
+    if (!Number.isFinite(want) || want <= 0) return Promise.reject(new Error(`${MODULE_ID}: a width is a number of squares above zero`));
+    return rescale(scene, groupId, (group) => {
+        const by = want / groupWidth(scene, group);
+        if (!Number.isFinite(by) || by < SCALE_LIMITS.min || by > SCALE_LIMITS.max) {
+            throw new Error(`${MODULE_ID}: a group can be made between ${SCALE_LIMITS.min} and ${SCALE_LIMITS.max} times its width in one go`);
+        }
+        return by;
+    });
+}
+
+/** Resize a group by whatever `pick` says, given the group as it is now. */
+function rescale(scene, groupId, pick) {
+    const { utils } = getBlacksmith();
     return runExclusive(scene, groupId, async () => {
         await apply(scene, groupId);
         const group = requireGroup(scene, groupId);
-        if (by === 1) return { scaled: 0 };
+        const by = pick(group);
+        if (Math.abs(by - 1) < 1e-6) return { scaled: 0 };
         const anchor = { ...group.applied };
 
         const members = [];
@@ -665,7 +684,13 @@ export function scaleGroup(scene, groupId, factor) {
             await scene.updateEmbeddedDocuments('Token', tokens.map((rider) => riderUpdate(scene, rider, scene.tokens.get(rider.tokenId)._source, anchor)), riderMove());
         }
 
-        await patchGroup(scene, groupId, group.riders ? { members, riders } : { members });
+        // How far it has been resized in all, so it can be put back; at its own size again, nothing is kept.
+        const total = Math.round((group.scale ?? 1) * by * 10000) / 10000;
+        const patch = { members };
+        if (group.riders) patch.riders = riders;
+        if (Math.abs(total - 1) < 0.0005) patch['-=scale'] = null;
+        else patch.scale = total;
+        await patchGroup(scene, groupId, patch);
         await fitBody(scene, groupId);
         utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" resized by ${by}`, { parts: members.length, riders: riders.length }, true, false);
         return { scaled: members.length };
@@ -788,68 +813,28 @@ export async function setEmittersOn(scene, groupId, type, on) {
     return { on: turnOn, count: documents.length };
 }
 
-const VIDEO = /\.(mp4|webm|m4v|ogv|mov)(\?.*)?$/i;
+/** The events of a group that its Play and Pause button runs. */
+const PLAYBACK = ['play', 'pause'];
 
-/** The video tiles of a group: the parts that animate. */
-export function videoTiles(scene, group) {
-    return group.members
-        .filter((member) => member.type === 'Tile')
-        .map((member) => scene.getEmbeddedCollection('Tile').get(member.id))
-        .filter((doc) => doc && VIDEO.test(doc._source.texture?.src ?? ''));
-}
-
-/** The ambient sounds of a group. */
-export function soundParts(scene, group) {
-    return group.members
-        .filter((member) => member.type === 'AmbientSound')
-        .map((member) => scene.getEmbeddedCollection('AmbientSound').get(member.id))
-        .filter(Boolean);
+/** Whether a group has anything for its Play and Pause button to do: an event for either. */
+export function canPlayPause(group) {
+    return (group.events ?? []).some((rule) => PLAYBACK.includes(rule.on));
 }
 
 /**
- * What Play and Pause do for a group: `animations` starts and stops its video tiles (on unless turned off), and `swap`
- * changes the sound its ambient sounds play, to `playSound` while it plays and `pauseSound` while it is paused.
- */
-export function playbackOf(group) {
-    return {
-        animations: group.animates !== false,
-        swap: !!group.swapSounds,
-        playSound: group.playSound ?? '',
-        pauseSound: group.pauseSound ?? ''
-    };
-}
-
-/** Whether Play and Pause has anything to do for a group: a video tile to stop, or a sound to swap. */
-export function canPlayPause(scene, group) {
-    const how = playbackOf(group);
-    return (how.animations && videoTiles(scene, group).length > 0) || (how.swap && soundParts(scene, group).length > 0);
-}
-
-/**
- * Play or pause a group. Left out, `playing` flips it. What that does is the group's choice (see `playbackOf`).
- * Animations: every video tile, as Foundry's own play and pause control does it to one tile, by an update carrying
- * `playVideo`, which reaches every client; the tile's autoplay is set to match, so a paused group stays paused when the
- * scene is loaded again. Sounds: each ambient sound of the group is given the sound for the new state, if one is set.
+ * Play or pause a group: run the events it has for "Play is clicked" or "Pause is clicked" (see events.js), which is how a
+ * group says what playing and pausing mean for it. Left out, `playing` flips what it was doing; a group starts out
+ * playing. Nothing happens to a group that has no such event.
  * @param {boolean} [playing]
- * @returns {Promise<{playing: boolean, count: number, sounds: number}>}  What they were set to, how many video tiles
- *   were played or paused, and how many sounds were swapped.
+ * @returns {Promise<{playing: boolean, ran: boolean}>}  What the group is now, and whether it had an event to run.
  */
 export async function setPlaying(scene, groupId, playing) {
     const group = requireGroup(scene, groupId);
-    const how = playbackOf(group);
-    if (!canPlayPause(scene, group)) return { playing: false, count: 0, sounds: 0 };
+    if (!canPlayPause(group)) return { playing: !group.paused, ran: false };
     const play = playing === undefined ? !!group.paused : !!playing;
-
-    const tiles = how.animations ? videoTiles(scene, group) : [];
-    if (tiles.length) {
-        await scene.updateEmbeddedDocuments('Tile', tiles.map((doc) => ({ _id: doc.id, video: { autoplay: play } })), { ...FOLLOWER_WRITE(), diff: false, playVideo: play });
-    }
-    const path = play ? how.playSound : how.pauseSound;
-    const sounds = how.swap && path ? soundParts(scene, group).filter((doc) => doc._source.path !== path) : [];
-    if (sounds.length) await scene.updateEmbeddedDocuments('AmbientSound', sounds.map((doc) => ({ _id: doc.id, path })), FOLLOWER_WRITE());
-
     await patchGroup(scene, groupId, play ? { '-=paused': null } : { paused: true });
-    return { playing: play, count: tiles.length, sounds: sounds.length };
+    await fireEvent(scene, getGroup(scene, groupId), play ? 'play' : 'pause');
+    return { playing: play, ran: true };
 }
 
 export async function setMemberHidden(scene, groupId, type, id, hidden) {

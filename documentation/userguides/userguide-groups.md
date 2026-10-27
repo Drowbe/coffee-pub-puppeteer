@@ -39,7 +39,9 @@ Both are under **Position** on an open card.
 
 ## Resize a group
 
-Under **Position** on an open card, choose **0.5×**, **0.8×**, **1.25×** or **2×**. The group grows or shrinks about its pin: every part sits that many times as far from the pin and is that many times as big, so tiles, drawings, lights, sounds and regions all keep their proportions, and walls and notes move to the new distance. Riders stand that many times as far from the pin but keep their own size, and a group's token is refitted to cover the new size. Resize by 2 and then by 0.5 and everything is back where it was, except that a drawing's size is kept to whole pixels. From a macro, `scale(groupId, factor)` takes any factor from 0.1 to 10.
+Under **Position** on an open card, **Resize** has two opposite buttons, **Smaller** and **Bigger**, and a step between them (1.25 to begin with). **Bigger** multiplies the group's size by the step and **Smaller** divides by it, so one undoes the other. The group grows or shrinks about its pin: every part sits that many times as far from the pin and is that many times as big, so tiles, drawings, lights, sounds and regions all keep their proportions, and walls and notes move to the new distance. Riders stand that many times as far from the pin but keep their own size, and a group's token is refitted to cover the new size.
+
+**Reset** puts the group back to the size it had before it was resized, however many times it has been. It is greyed out for a group that has not been resized. **Width** shows how wide the group is in grid squares; type a number to resize the group to exactly that width. Sizes are kept to whole pixels where Foundry needs it, so a long run of resizes can leave a part a pixel out. From a macro: `scale(groupId, factor)` (0.1 to 10), `resetScale(groupId)` and `setWidth(groupId, squares)`.
 
 ## Edit parts by hand
 
@@ -47,12 +49,13 @@ Move, turn or resize any part directly on the map. The group remembers the new p
 
 ## Play and pause
 
-**Pause** on a card pauses the group, on every screen, and the button becomes **Play**. What that does is set under **Behaviour**, in the two options below the others:
+A group has a **Pause** button on its card, and **Play or Pause Group** on its pin menu, only when it has an event for it. Add one under **Events** on the card: **Pause is clicked** or **Play is clicked**, then what to do:
 
-- **Start and Stop animations** (on by default) stops and starts the group's video tiles. It uses Foundry's own play and pause for a video tile, and sets each tile to start or not start by itself to match, so a paused group is still paused when the scene is loaded again.
-- **Swap Sounds** changes the sound the group's ambient sounds play. Turn it on and two fields appear: **Play Sound**, which its sounds are given when the group plays, and **Pause Sound**, which they are given while it is paused. Each has a browse button. A field left empty leaves the sounds as they are for that state. Pick a quiet sound, or a silent file, for Pause if you want the group to go quiet.
+- **Start the animations** or **Stop the animations** starts or stops the group's video tiles, on every screen. It uses Foundry's own play and pause for a video tile and sets each tile to start or not start by itself to match, so a group that was stopped is still stopped when the scene is loaded again.
+- **Play a sound** plays a sound for everyone. Use it to swap one sound for another, or to hear a click.
+- **Run a macro** and **Show a picture on a tile** work as they do for any event.
 
-The button is greyed out when the group has nothing to do: no video tile, or no ambient sound to swap. The pin menu has **Play or Pause Group** with the same rule. Lights are not touched; Foundry's own lighting animation controls them.
+A group can have as many events on each side as you like. To pause a wagon's animation and quiet it, add **Pause is clicked** with Stop the animations, and **Play is clicked** with Start the animations and a Play a sound. A group starts out playing, so the first press runs the Pause events and the button turns into **Play**. Lights are not touched; Foundry's own lighting animation controls them.
 
 ## Duplicate a group
 
@@ -60,7 +63,7 @@ Choose the copy button on a group's card. A new group appears two squares to the
 
 ## If a group loses its pin
 
-If a pin is deleted, the group's card says so and the group cannot be moved. Choose **Make a New Pin** on the card. A new pin appears where the group last was, facing the way it faced, and nothing on the map moves. The group follows the new pin as it did the old one. A group nobody wants any more can be deleted instead.
+Deleting a group's pin, from Blacksmith's own pin menu or any other way, deletes the group, just as the **Delete** button on its card does: its record, its token and its parts go, and its riders are let go where they stand. A notice says so. Nothing is asked first, so use **Delete** on the card if you want to keep the parts. A group that lost its pin some other way, such as while no GM was connected, shows a warning on its card with **Make a New Pin**, which puts a new pin where the group last was and moves nothing.
 
 ## Delete a group
 
