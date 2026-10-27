@@ -43,7 +43,9 @@ const FACING_MIN_SQUARES = 0.25;
  */
 export function travelHeading(group, from, to, grid) {
     if (!group.facesTravel || group.rotates === false) return null;
-    if (Math.abs(normAngle(from.heading) - normAngle(to.heading)) > 0.01) return null;
+    // Compared round the circle: 359.99 and 0.01 are a fiftieth of a degree apart, not nearly a full turn.
+    const apart = Math.abs(normAngle(from.heading) - normAngle(to.heading));
+    if (Math.min(apart, 360 - apart) > 0.01) return null;
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     if (Math.hypot(dx, dy) < FACING_MIN_SQUARES * grid) return null;

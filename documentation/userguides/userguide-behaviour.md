@@ -9,14 +9,14 @@ Everything here is GM only. Each group has a **Behaviour** section in the Group 
 **Moves by** chooses what players see when a pin moves or turns.
 
 - **Gliding** eases the group, and any riders, to the new place over a short time, and the group follows the pointer while you drag the pin. Set how long it takes in milliseconds, from 100 to 3000. The default is 350.
-- **Travelling** moves the group at a steady pace, as a token moves, so a long move takes longer than a short one. Set the pace in squares a second, from 0.5 to 60. The default is 6, which is how fast a token's own animation moves. A turn takes about a second for a half turn, and the longer of the move and the turn sets the time. It follows the pointer while you drag, as gliding does.
+- **Travelling** moves the group at a steady pace, as a token moves, so a long move takes longer than a short one. Set the pace in squares a second, from 0.5 to 60. The default is 6, which is how fast a token's own animation moves. A turn takes about a second for a half turn, and the longer of the move and the turn sets the time. The group stays where it is while you drag the pin, as a token does, and travels to the pin when you drop it.
 - **Jumping** shows no movement between the two places.
 
 Lights, walls, sounds and regions always jump, because Foundry works out sight and sound from where they are saved, so they cannot be drawn part way. A cart with a lantern on it shows the lantern snap to its new place at the end of each move.
 
 ## Stop it turning
 
-**Faces its travel** turns a group to face the way you moved it, as a vehicle does: drag its pin east and the group turns to head east, and the pin turns with it. Its front is the bottom of its picture, as a token's is, so draw or set up a cart, boat or wagon with its front pointing down the map. A very short move does not turn it, and if you turn the pin yourself in the same move, your turn is the one that counts. It needs **Turns with its pin**, and is switched off while that is off.
+**Faces its travel** turns a group to face the way you moved it, as a vehicle does: drag its pin east and the group turns to head east, and the pin turns with it. Its front is the bottom of its picture, as a token's is, so draw or set up a cart, boat or wagon with its front pointing down the map. While you drag a gliding group it turns to face the pointer, and a travelling one turns as it sets off, moving and turning together. A very short move does not turn it, and if you turn the pin yourself in the same move, your turn is the one that counts. It needs **Turns with its pin**, and is switched off while that is off.
 
 **Turns with its pin** is on by default. Turn it off for a group that should slide about without ever turning, such as a platform on rails. The group keeps the way it faces now, the pin can be turned freely, and the **Heading** field and rotate buttons are disabled. Turning it on again records the group against the pin's own heading first, so nothing swings round.
 

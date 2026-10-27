@@ -229,7 +229,7 @@ export async function apply(scene, groupId) {
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" writing members`, { anchor, updates: Object.fromEntries(updates) }, true, false);
     // Where the group was, so every client can ease from there to where it is now (pin groups only; a token
     // already animates itself). It is read before the record is changed below.
-    const glide = glideOptions(group);
+    const glide = glideOptions(group, anchor);
     let refused = 0;
     for (const [type, batch] of updates) {
         await scene.updateEmbeddedDocuments(type, batch, { puppeteer: { follower: true, ...(glide ? { glide } : {}) } });

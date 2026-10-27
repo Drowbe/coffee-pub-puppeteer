@@ -232,9 +232,16 @@ test('travelling moves at a steady pace, and a longer move takes longer', async 
     assert.equal(g.ticker.fns.size, 0);
 });
 
-test('a group that travels follows the pointer during a drag, as one that glides does', async (t) => {
+test('a group that travels does not follow the pointer during a drag; it travels when the pin is dropped', async (t) => {
     const g = await deck(t);
     await g.groups.setBehaviour(g.scene, g.group.id, { ease: { mode: 'travel' } });
     g.emitPin('dragMove', { pinId: g.group.anchor.id, pin: { x: 3300, y: 2100, rotation: 0, config: { puppeteer: { groupId: g.group.id } } } });
-    near(g.tile.object.mesh.position.x, 3700, 1e-6);
+    assert.equal(g.tile.object.mesh.position.x, null, 'nothing is drawn while it is dragged');
+    await g.pins.update(g.group.anchor.id, { x: 3300, y: 2100 });
+    await g.settle();
+    g.ticker.run();
+    near(g.tile.object.mesh.position.x, 3400, 1e-6);          // the first frame is where it was
+    g.advance(100);
+    g.ticker.run();
+    assert.ok(g.tile.object.mesh.position.x > 3400 && g.tile.object.mesh.position.x < 3700, 'on its way');
 });

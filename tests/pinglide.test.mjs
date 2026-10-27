@@ -56,7 +56,36 @@ test('the follower says where the group was, in the options of what it writes', 
     await g.settle();
     const tileWrite = g.optionsSeen.find((c) => c.type === 'Tile');
     assert.equal(tileWrite.options.puppeteer.follower, true);
-    assert.deepEqual(tileWrite.options.puppeteer.glide, { groupId: g.group.id, from: { x: 3000, y: 2000, heading: 0 } });
+    assert.deepEqual(tileWrite.options.puppeteer.glide, { groupId: g.group.id, from: { x: 3000, y: 2000, heading: 0 }, to: { x: 3400, y: 2000, heading: 0 } });
+});
+
+test('a group that faces its travel eases to the heading it was written at, not the one its pin had', async (t) => {
+    const g = await gate(t);
+    await g.groups.setBehaviour(g.scene, g.group.id, { facesTravel: true });
+    await g.pins.update(g.group.anchor.id, { x: 3400, y: 2000 });
+    await g.settle();
+    const tileWrite = g.optionsSeen.find((c) => c.type === 'Tile');
+    assert.deepEqual(tileWrite.options.puppeteer.glide.to, { x: 3400, y: 2000, heading: 270 });
+    // Part way through it is part way along and part way round, the short way (0 to 270 is a quarter turn back).
+    g.advance(100);
+    g.ticker.run();
+    assert.ok(at(g).x > 3400 && at(g).x < 3800, `part way along: ${at(g).x}`);
+    const turned = ((at(g).angle % 360) + 360) % 360;
+    assert.ok(turned > 270 && turned < 360, `part way round: ${turned}`);
+    g.advance(2000);
+    g.ticker.run();
+    near(at(g).x, g.tile._source.x, 1e-6);
+    near(((at(g).angle % 360) + 360) % 360, 270, 1e-6);
+});
+
+test('a group that faces its travel turns toward the pointer as the pin is dragged', async (t) => {
+    const g = await gate(t);
+    await g.groups.setBehaviour(g.scene, g.group.id, { facesTravel: true });
+    g.emitPin('dragMove', { pinId: g.group.anchor.id, pin: { x: 3400, y: 2000, rotation: 0, config: { puppeteer: { groupId: g.group.id } } } });
+    near(((at(g).angle % 360) + 360) % 360, 270, 1e-6);
+    // Dragged back to where it began, it does not turn.
+    g.emitPin('dragMove', { pinId: g.group.anchor.id, pin: { x: 3010, y: 2000, rotation: 0, config: { puppeteer: { groupId: g.group.id } } } });
+    near(((at(g).angle % 360) + 360) % 360, 0, 1e-6);
 });
 
 test('when a pin moves, the group eases from where it was to where the pin is, then stops', async (t) => {

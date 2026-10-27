@@ -17,7 +17,7 @@ import { MODULE_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { memberUpdate } from './geometry.js';
 import { getGroup } from './store.js';
-import { anchorState, headingOf } from './anchor.js';
+import { anchorState, headingOf, travelHeading } from './anchor.js';
 import { riderUpdate } from './riders.js';
 
 const TWEENED = ['Tile', 'Drawing', 'Note'];
@@ -188,9 +188,14 @@ function dragGroup(event) {
     if (!group || group.anchor.type !== 'pin' || group.anchor.id !== event.pinId) return;
     // Move Pivot is on: the pin is being put somewhere else, and the group does not follow it.
     if (group.movePivot) return;
-    if (easeOf(group).mode === 'jump') return;
+    // Only a gliding group follows the pointer. A travelling one stays put and goes when the pin is dropped, as a token
+    // does, and a jumping one jumps then.
+    if (easeOf(group).mode !== 'ease') return;
     live.set(`${scene.id}:${group.id}`, performance.now());
-    showGroup(scene, group, { x: event.pin.x, y: event.pin.y, heading: headingOf(group, event.pin.rotation) });
+    const pinAt = { x: event.pin.x, y: event.pin.y, heading: headingOf(group, event.pin.rotation) };
+    // A group that faces its travel turns to face the pointer as it is dragged, from where the drag began.
+    const facing = travelHeading(group, group.applied, pinAt, scene.grid.sizeX ?? scene.grid.size);
+    showGroup(scene, group, facing === null ? pinAt : { ...pinAt, heading: facing });
 }
 
 // ---- a pin that moved or turned -----------------------------------------------------------------------
@@ -224,12 +229,11 @@ function beginGlide(doc, options) {
     if (ease.mode === 'jump') return;
     // From where it is drawn if it is already moving, so a second move does not snap back first.
     const from = running?.shown ?? glide.from;
+    // Where the follower put the group, which for a group that faces its travel is not where its pin faces yet.
+    const to = glide.to ?? anchorState(scene, group);
     let ms = ease.ms;
-    if (ease.mode === 'travel') {
-        const to = anchorState(scene, group);
-        if (to) ms = travelMs(from, to, ease.speed, scene.grid.sizeX ?? scene.grid.size);
-    }
-    glides.set(key, { scene, groupId: group.id, from, shown: null, start: performance.now(), ms, linear: ease.mode === 'travel' });
+    if (ease.mode === 'travel' && to) ms = travelMs(from, to, ease.speed, scene.grid.sizeX ?? scene.grid.size);
+    glides.set(key, { scene, groupId: group.id, from, to: glide.to ?? null, shown: null, start: performance.now(), ms, linear: ease.mode === 'travel' });
     if (!ticking) startTicking();
 }
 
@@ -252,7 +256,7 @@ function tick() {
     const now = performance.now();
     for (const [key, glide] of glides) {
         const group = getGroup(glide.scene, glide.groupId);
-        const to = group ? anchorState(glide.scene, group) : null;
+        const to = group ? (glide.to ?? anchorState(glide.scene, group)) : null;
         if (!group || !to) {
             glides.delete(key);
             continue;
@@ -274,7 +278,7 @@ function tick() {
  */
 export function motionOf(scene, group) {
     const glide = glides.get(`${scene.id}:${group.id}`);
-    const to = glide ? anchorState(scene, group) : null;
+    const to = glide ? (glide.to ?? anchorState(scene, group)) : null;
     if (!glide || !to) return { moving: false, speed: 0, progress: 1 };
     const squares = Math.hypot(to.x - glide.from.x, to.y - glide.from.y) / (scene.grid.sizeX ?? scene.grid.size);
     const progress = Math.min(1, (performance.now() - glide.start) / glide.ms);
@@ -289,7 +293,12 @@ export function resetTween() {
     ticking = false;
 }
 
-/** Used when the follower writes a pin group: where the group was, for the clients to ease from. */
-export function glideOptions(group) {
-    return group.anchor.type === 'pin' && easeOf(group).mode !== 'jump' ? { groupId: group.id, from: { ...group.applied } } : undefined;
+/**
+ * Used when the follower writes a pin group: where the group was and where it is going, for the clients to ease between.
+ * @param {object} group
+ * @param {{x: number, y: number, heading: number}} [to]  Where the follower is putting the group.
+ */
+export function glideOptions(group, to) {
+    if (group.anchor.type !== 'pin' || easeOf(group).mode === 'jump') return undefined;
+    return { groupId: group.id, from: { ...group.applied }, ...(to ? { to: { x: to.x, y: to.y, heading: to.heading } } : {}) };
 }

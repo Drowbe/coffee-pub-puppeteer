@@ -67,7 +67,8 @@ Tile, AmbientLight, AmbientSound and Note `x, y`, and every number in a Wall's `
 
 `scripts/tween.js`. Only what is drawn changes; documents are never touched.
 
-- **Dragging a pin:** Blacksmith reports `dragMove` on the dragging client, and Tiles, Drawings and Notes follow the pointer there.
+- **Dragging a pin:** Blacksmith reports `dragMove` on the dragging client, and Tiles, Drawings and Notes follow the pointer there when the group glides (a group that faces its travel turns toward the pointer as well, from `applied`). A travelling or jumping group does not follow; it moves when the pin is dropped.
+- **The glide's destination:** the follower puts `to` (the anchor it is writing, with the travel heading) beside `from` in the glide options, so every client eases to what was written and not to the pin, whose heading is only turned to match a moment later.
 - **A pin that moved or turned:** the follower puts the previous `applied` pose in its write options. Each client eases the pin pose from there to the new one over about 350 ms and recomputes the members each frame, so a turn swings along arcs. The client that just dragged skips it.
 - Lights, Walls, Sounds and Regions take part in perception and cannot be animated by moving a sprite, so they update when the documents are written.
 
