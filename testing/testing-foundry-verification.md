@@ -38,11 +38,11 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 ## Behaviour
 
-- [ ] Moves by Gliding: the group glides on a pin drop and follows the pointer during a drag. With 1000 ms it takes visibly longer.
-- [ ] Moves by Travelling at 6 squares a second: a six-square move takes about a second, a twelve-square move about two, a nudge is not instant, a half turn takes about a second, the members and riders move at a steady pace (not slowing at the end), and a drag still follows the pointer. The pace field appears for Travelling and the milliseconds field for Gliding.
-- [ ] Moves by Jumping: no movement between the two places and nothing follows a drag.
-- [ ] Riders glide along with the group, and a turn swings them on an arc.
-- [ ] Turns when its pin turns, switched off: turning the pin turns nothing, the heading field and rotate buttons are disabled, moving the pin still carries the group. Switch it back on and nothing swings.
+- [x] Moves by Gliding: the group glides on a pin drop and follows the pointer during a drag. With 1000 ms it takes visibly longer.
+- [x] Moves by Travelling at 6 squares a second: a six-square move takes about a second, a twelve-square move about two, a nudge is not instant, a half turn takes about a second, the members and riders move at a steady pace (not slowing at the end), and a drag still follows the pointer. The pace field appears for Travelling and the milliseconds field for Gliding.
+- [x] Moves by Jumping: no movement between the two places and nothing follows a drag.
+- [x] Riders glide along with the group, and a turn swings them on an arc.
+- [x] Turns when its pin turns, switched off: turning the pin turns nothing, the heading field and rotate buttons are disabled, moving the pin still carries the group. Switch it back on and nothing swings.
 - [ ] Riders can move about, switched off: a rider moved by hand goes straight back.
 - [ ] Announce boarding in chat: a public card and a soft sound for everyone when a token boards, and when it leaves.
 
@@ -65,6 +65,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 - [ ] Save a group to the library and the entry shows a picture of it: the tiles' images where they sit, walls as dark lines, lights and sounds as dots, centred in a square with nothing of the map under it. Replace from Group redraws it. A tile that is a video or a missing image shows as a plain box.
 
+- [ ] A group with Tokens board when they move onto it, Travelling, Faces its travel and an event, saved to the Library and fabricated again: the copy has the same switches and settings, a token dragged onto it boards, and its event runs. An entry saved before this fix has none of it and is saved again first.
 - [ ] Save, Stamp, Import and Export. A stamp of a group that has a body, once turned, has its own body for that stamp.
 - [ ] A stamp in a world without that actor has no body and a toast says so.
 

@@ -219,12 +219,16 @@ function beginGlide(doc, options) {
     // The GM who just dragged the pin is already looking at the destination.
     if (performance.now() - (live.get(key) ?? -Infinity) < LIVE_MS) return;
 
-    // Already gliding, as when several types of member arrive in turn: that glide is the one.
-    const running = glides.get(key);
-    if (running && performance.now() - running.start < 50) return;
-
     const group = getGroup(scene, glide.groupId);
     if (!group) return;
+
+    // Already gliding, as when several types of member arrive in turn: that glide is the one. The member that has just
+    // arrived is drawn where the glide has it, not where its document now puts it.
+    const running = glides.get(key);
+    if (running && performance.now() - running.start < 50) {
+        showGroup(scene, group, running.shown ?? running.from);
+        return;
+    }
     const ease = easeOf(group);
     if (ease.mode === 'jump') return;
     // From where it is drawn if it is already moving, so a second move does not snap back first.
@@ -233,7 +237,10 @@ function beginGlide(doc, options) {
     const to = glide.to ?? anchorState(scene, group);
     let ms = ease.ms;
     if (ease.mode === 'travel' && to) ms = travelMs(from, to, ease.speed, scene.grid.sizeX ?? scene.grid.size);
-    glides.set(key, { scene, groupId: group.id, from, to: glide.to ?? null, shown: null, start: performance.now(), ms, linear: ease.mode === 'travel' });
+    glides.set(key, { scene, groupId: group.id, from, to: glide.to ?? null, shown: from, start: performance.now(), ms, linear: ease.mode === 'travel' });
+    // Draw it where it was now, not on the next frame: the document is already at its destination, Foundry redraws the
+    // member from it before the next tick, and until this is drawn the group would show at the end of its move for a frame.
+    showGroup(scene, group, from);
     if (!ticking) startTicking();
 }
 

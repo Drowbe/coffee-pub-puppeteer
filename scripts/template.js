@@ -22,6 +22,49 @@ const withoutOmitted = (data) => {
     return copy;
 };
 
+// What a copy keeps of how its original behaves: everything the Behaviour and Events sections set, and how far it has been
+// resized. Absent from a group means the default, so only what is set travels.
+export const BEHAVIOUR = Object.freeze(['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce', 'facesTravel', 'front', 'solidOnly', 'scale', 'events']);
+
+/**
+ * The behaviour of a group, for a template. An event that changes the picture of one of the group's tiles names that
+ * tile by its place in the template's member list, because the tile's own id means nothing on another scene.
+ */
+function behaviourOf(group, indexOf) {
+    const behaviour = {};
+    for (const key of BEHAVIOUR) if (group[key] !== undefined) behaviour[key] = structuredClone(group[key]);
+    if (behaviour.events) {
+        behaviour.events = behaviour.events.flatMap((rule) => {
+            if (rule.do !== 'image') return [rule];
+            const index = indexOf.get(rule.target);
+            if (index === undefined) return [];
+            const { target, ...rest } = rule;
+            return [{ ...rest, targetIndex: index }];
+        });
+        if (!behaviour.events.length) delete behaviour.events;
+    }
+    return behaviour;
+}
+
+/**
+ * The behaviour a template holds, for the group made from it: events that change a tile are pointed at the tile that was
+ * made for it. `ids` are the ids of the new members, in the template's order, and `heading` is the way the stamp faces.
+ */
+export function stampBehaviour(behaviour, ids, heading = 0) {
+    const stamped = structuredClone(behaviour ?? {});
+    // A group that does not turn with its pin holds the way it faces: the way this stamp faces.
+    if (stamped.rotates === false) stamped.fixedHeading = heading;
+    if (stamped.events) {
+        stamped.events = stamped.events.flatMap((rule) => {
+            if (rule.targetIndex === undefined) return [rule];
+            const { targetIndex, ...rest } = rule;
+            return ids[targetIndex] ? [{ ...rest, target: ids[targetIndex] }] : [];
+        });
+        if (!stamped.events.length) delete stamped.events;
+    }
+    return stamped;
+}
+
 /**
  * Snapshot a group.
  * @param {object} group    A group record from the store.
@@ -33,17 +76,21 @@ const withoutOmitted = (data) => {
  */
 export function buildTemplate(group, sources, body) {
     const members = [];
+    const indexOf = new Map();
     for (const member of group.members) {
         const source = sources.get(`${member.type}:${member.id}`);
         if (!source) continue;
         const { id, ...offsets } = member;
+        indexOf.set(member.id, members.length);
         members.push({ ...structuredClone(offsets), data: withoutOmitted(source) });
     }
+    const behaviour = behaviourOf(group, indexOf);
     return {
         version: TEMPLATE_VERSION,
         name: group.name,
         anchorType: group.anchor.type,
         ...(body ? { body: { ...body } } : {}),
+        ...(Object.keys(behaviour).length ? { behaviour } : {}),
         members
     };
 }
@@ -55,6 +102,7 @@ export function validateTemplate(template) {
     if (template.version !== TEMPLATE_VERSION) fail(`version ${template.version}, expected ${TEMPLATE_VERSION}`);
     if (!Array.isArray(template.members)) fail('no members list');
     if (template.body !== undefined && typeof template.body?.actorId !== 'string') fail('its body names no actor');
+    if (template.behaviour !== undefined && (typeof template.behaviour !== 'object' || template.behaviour === null)) fail('its behaviour is not an object');
     if (template.thumbnail !== undefined && !(typeof template.thumbnail === 'string' && template.thumbnail.startsWith('data:image/'))) fail('its thumbnail is not an image');
     template.members.forEach((member, i) => {
         if (!MEMBER_TYPES.includes(member?.type)) fail(`member ${i} has an unsupported type`);

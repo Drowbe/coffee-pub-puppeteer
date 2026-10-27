@@ -84,7 +84,7 @@ The body is fitted to the group by the follower. Do not move it yourself: it is 
 
 | Call | Does |
 |---|---|
-| `exportGroup(groupId, scene)` | A portable template (format version 2) of the group. |
+| `exportGroup(groupId, scene)` | A portable template (format version 2) of the group: its parts, its body's actor and how it behaves (`behaviour`: movement, turning, boarding, events, size and the rest of the Behaviour section). A template without `behaviour`, saved by an earlier build, stamps with the defaults. |
 | `library.list()` | Saved templates. |
 | `library.save(groupId, scene)` | Saves the group to the world library. A group with a body saves the actor it represents. |
 | `library.stamp(templateId, { scene, point, heading, name })` | Creates new parts, a new pin and a new group from a template, with a body if the template names an actor that exists in this world. |

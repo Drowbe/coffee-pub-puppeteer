@@ -210,3 +210,29 @@ test('the tween never changes a document', async (t) => {
     g.emitPin('dragMove', { pinId: g.group.anchor.id, pin: { x: 3500, y: 2000, rotation: 0, config: { puppeteer: { groupId: g.group.id } } } });
     assert.equal(JSON.stringify([g.tile._source, g.note._source]), final);
 });
+
+test('a group of one kind of part is drawn where it was the moment its documents are written, and a redraw by Foundry does not show the end', async (t) => {
+    const g = await gate(t);
+    // Only tiles, so nothing arrives after the first write to draw the group over it.
+    await g.groups.removeMember(g.scene, g.group.id, 'Note', 'N1');
+    await g.groups.removeMember(g.scene, g.group.id, 'AmbientLight', 'L1');
+    await g.pins.update(g.group.anchor.id, { x: 3400, y: 2000 });
+    await g.settle();
+    // No frame has run: the tile is already where the group was, not where its document now is.
+    near(at(g).x, 3400, 0.5);
+    // Foundry redraws a member from its document before the next tick, which would put it at the end of the move.
+    g.tile.object.mesh.position.set(g.tile._source.x, g.tile._source.y);
+    g.fire('refreshTile', g.tile.object);
+    near(at(g).x, 3400, 0.5);
+    assert.ok(g.tile._source.x > 3400, 'the document itself is at the destination');
+});
+
+test('a travelling group of tiles is drawn at its start the moment its documents are written, too', async (t) => {
+    const g = await gate(t);
+    await g.groups.removeMember(g.scene, g.group.id, 'Note', 'N1');
+    await g.groups.removeMember(g.scene, g.group.id, 'AmbientLight', 'L1');
+    await g.groups.setBehaviour(g.scene, g.group.id, { ease: { mode: 'travel' } });
+    await g.pins.update(g.group.anchor.id, { x: 3600, y: 2000 });
+    await g.settle();
+    near(at(g).x, 3400, 0.5);
+});

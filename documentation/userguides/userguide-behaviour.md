@@ -61,7 +61,7 @@ The health levels are Blacksmith's, so a group is Bloodied at the same line as e
 
 To make a cart that becomes a wreck: give the cart a token, then add **Its token's health becomes** Bloodied, **Show a picture on a tile**, the cart's tile and the damaged picture. Add a second event for Healthy that shows the original picture again, so healing puts it back. A group without a token has no health and never fires these.
 
-A group can have twenty events. If an event fails, for example because its macro was deleted, the GM is told and the rest still run; the group keeps moving. A duplicate of a group has its events too. Events are not saved to the library.
+A group can have twenty events. If an event fails, for example because its macro was deleted, the GM is told and the rest still run; the group keeps moving. A duplicate of a group has its events too, and so does a group saved to the library and fabricated from it; an event that changes the picture on a tile is pointed at the new group's own tile. A library entry saved before 14.0.0 had none of this, so save it again.
 
 ## Other controls that live beside it
 

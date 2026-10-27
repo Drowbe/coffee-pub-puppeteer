@@ -7,7 +7,7 @@
 import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, normAngle } from './geometry.js';
-import { stampMembers, validateTemplate } from './template.js';
+import { stampMembers, stampBehaviour, validateTemplate } from './template.js';
 import { createGroup, deleteGroup, exportGroup, setBody, HIDEABLE } from './groups.js';
 import { anchorState } from './anchor.js';
 import { getGroup } from './store.js';
@@ -90,9 +90,6 @@ export async function deleteTemplate(id) {
     return true;
 }
 
-// What a copy keeps of how its original behaves.
-const BEHAVIOUR = ['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce', 'facesTravel', 'front', 'solidOnly', 'scale', 'events'];
-
 /**
  * Make a copy of a group on the same scene: new parts, a new pin two squares to the right, a new group facing the same
  * way. It is a fabrication from the group itself, so the copy has its own body for the same actor if the original has
@@ -119,9 +116,6 @@ export async function duplicateGroup(scene, groupId, { name } = {}) {
 
     const grid = scene.grid.sizeX ?? scene.grid.size;
     const copy = await stampTemplate(scene, template, { x: state.x + (2 * grid), y: state.y }, { heading: state.heading, name: name ?? `${group.name} copy` });
-    const behaviour = {};
-    for (const key of BEHAVIOUR) if (group[key] !== undefined) behaviour[key] = structuredClone(group[key]);
-    if (Object.keys(behaviour).length) await patchGroup(scene, copy.id, behaviour);
     return getGroup(scene, copy.id);
 }
 
@@ -191,7 +185,8 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
 
     // The template's own offsets are exactly what the stamp used, so they are the new group's offsets.
     const members = source.members.map(({ data, ...offsets }, index) => ({ ...structuredClone(offsets), id: created[index].id }));
-    await patchGroup(scene, group.id, { members, applied: anchor });
+    // How the original behaved comes with it, with its events pointed at this stamp's own tiles.
+    await patchGroup(scene, group.id, { members, applied: anchor, ...stampBehaviour(source.behaviour, members.map((member) => member.id), anchor.heading) });
     utils.postConsoleAndNotification(MODULE_NAME, `Stamped "${source.name}" with ${members.length} member(s)`, { groupId: group.id, anchor }, true, false);
 
     // The group stands without a body if the actor is not in this world (a template from another world, or an

@@ -173,3 +173,59 @@ test('a stamp ties each part to its own document even when Foundry returns them 
         assert.deepEqual([doc._source.x, doc._source.y, doc._source.rotation], [wanted.x, wanted.y, wanted.rotation], `${art} record`);
     }
 });
+
+async function wagonWithBehaviour() {
+    const env = installFakes();
+    const groups = await import('../scripts/groups.js');
+    const library = await import('../scripts/library.js');
+    const { scene } = env;
+    const bed = scene.add('Tile', 'T1', { x: 3000, y: 2000, width: 400, height: 800, rotation: 0, texture: { src: 'bed.webp', anchorX: 0.5, anchorY: 0.5 } });
+    const canopy = scene.add('Tile', 'T2', { x: 3000, y: 2000, width: 400, height: 800, rotation: 0, texture: { src: 'canopy.webp', anchorX: 0.5, anchorY: 0.5 } });
+    const group = await groups.createGroup(scene, { x: 3000, y: 2200 }, { name: 'Wagon' });
+    await groups.addMembers(scene, group.id, [bed, canopy]);
+    await groups.setMountable(scene, group.id, true);
+    await groups.setBehaviour(scene, group.id, { ease: { mode: 'travel', speed: 4 }, facesTravel: true, front: 180, solidOnly: false, announce: true, ridersFree: false });
+    await groups.addEvent(scene, group.id, { on: 'pause', do: 'stop' });
+    await groups.addEvent(scene, group.id, { on: 'move', do: 'image', value: 'wrecked.webp', target: 'T2' });
+    await env.settle();
+    return { ...env, groups, library, group };
+}
+
+test('a library entry carries how the group behaves, so a fabricated group is mountable and moves as it did', async () => {
+    const g = await wagonWithBehaviour();
+    const id = await g.library.saveGroupToLibrary(g.scene, g.group.id);
+    const copy = await g.library.stampTemplate(g.scene, id, { x: 6000, y: 2200 });
+    assert.equal(copy.mountable, true);
+    assert.deepEqual(copy.ease, { mode: 'travel', ms: 350, speed: 4 });
+    assert.equal(copy.facesTravel, true);
+    assert.equal(copy.front, 180);
+    assert.equal(copy.solidOnly, false);
+    assert.equal(copy.announce, true);
+    assert.equal(copy.ridersFree, false);
+    assert.equal(copy.events.length, 2);
+});
+
+test('a stamped event that changes a tile points at the stamp\'s own tile, not the original\'s', async () => {
+    const g = await wagonWithBehaviour();
+    const copy = await g.library.stampTemplate(g.scene, await g.library.saveGroupToLibrary(g.scene, g.group.id), { x: 6000, y: 2200 });
+    const rule = copy.events.find((event) => event.do === 'image');
+    assert.notEqual(rule.target, 'T2');
+    assert.equal(copy.members[1].id, rule.target, 'the second part is the canopy');
+    assert.equal('targetIndex' in rule, false);
+});
+
+test('an entry saved before behaviour travelled still stamps, with the defaults', async () => {
+    const g = await wagonWithBehaviour();
+    const template = g.groups.exportGroup(g.scene, g.group.id);
+    delete template.behaviour;
+    const copy = await g.library.stampTemplate(g.scene, template, { x: 6000, y: 2200 });
+    assert.equal(copy.mountable, undefined);
+    assert.equal(copy.events, undefined);
+});
+
+test('a duplicate points its events at its own tiles too', async () => {
+    const g = await wagonWithBehaviour();
+    const copy = await g.library.duplicateGroup(g.scene, g.group.id);
+    assert.equal(copy.mountable, true);
+    assert.equal(copy.events.find((event) => event.do === 'image').target, copy.members[1].id);
+});
