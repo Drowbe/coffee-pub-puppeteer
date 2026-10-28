@@ -45,13 +45,17 @@ test('with Move Pivot on, dragging the pin moves only the pin', async () => {
     near(record(g).riders[0].dx, -200);
 });
 
-test('one drop is one use: the mode switches itself off, and the next drag takes the group', async () => {
+test('the mode stays on until it is switched off, then the next drag takes the group', async () => {
     const g = await ship();
     await g.groups.setMovePivot(g.scene, g.group.id, true);
     await g.pins.update(g.group.anchor.id, { x: 3400, y: 2000 });
     await g.settle();
-    assert.equal(record(g).movePivot, undefined);
-    await g.pins.update(g.group.anchor.id, { x: 3600, y: 2000 });
+    assert.equal(record(g).movePivot, true);
+    await g.pins.update(g.group.anchor.id, { x: 3500, y: 2000 });
+    await g.settle();
+    assert.equal(g.tile._source.x, 3000);                                 // still only the pin
+    await g.groups.setMovePivot(g.scene, g.group.id, false);
+    await g.pins.update(g.group.anchor.id, { x: 3700, y: 2000 });
     await g.settle();
     assert.equal(g.tile._source.x, 3200);                                 // the whole group followed, 200 right
 });
@@ -61,6 +65,7 @@ test('afterwards the group moves and turns about the new grip, and nothing jumps
     await g.groups.setMovePivot(g.scene, g.group.id, true);
     await g.pins.update(g.group.anchor.id, { x: 3400, y: 2000 });
     await g.settle();
+    await g.groups.setMovePivot(g.scene, g.group.id, false);
     assert.equal(record(g).movePivot, undefined);
 
     await g.pins.update(g.group.anchor.id, { rotation: 90 });
@@ -108,4 +113,32 @@ test('a drag with it on is not followed on screen', async () => {
     await g.groups.setMovePivot(g.scene, g.group.id, true);
     g.emitPin('dragMove', { pinId: g.group.anchor.id, pin: { x: 3300, y: 2100, rotation: 0, config: { puppeteer: { groupId: g.group.id } } } });
     assert.equal(g.tile.object.mesh.position.x, null);
+});
+
+test('a pin moved and then turned in the mode, in many small steps, never turns the group', async () => {
+    const g = await ship();
+    await g.groups.setMovePivot(g.scene, g.group.id, true);
+    await g.pins.update(g.group.anchor.id, { x: 3400, y: 2000 });
+    await g.settle();
+    for (const rotation of [5, 10, 15, 20, 25, 30]) {
+        await g.pins.update(g.group.anchor.id, { rotation });
+        await g.settle();
+    }
+    assert.equal(g.tile._source.x, 3000);
+    assert.equal(g.tile._source.rotation, 0);
+    assert.equal(g.light._source.x, 2700);
+    assert.equal(g.sailor._source.x, 3150);
+    near(record(g).heading, 30, 0.01);
+});
+
+test('turning the pin in the mode keeps the front of the picture the same way round from it', async () => {
+    const g = await ship();
+    await g.groups.setBehaviour(g.scene, g.group.id, { front: 180 });
+    await g.groups.setMovePivot(g.scene, g.group.id, true);
+    await g.pins.update(g.group.anchor.id, { rotation: 90 });
+    await g.settle();
+    assert.equal(record(g).front, 90);
+    await g.pins.update(g.group.anchor.id, { rotation: 180 });
+    await g.settle();
+    assert.equal(record(g).front, undefined);
 });

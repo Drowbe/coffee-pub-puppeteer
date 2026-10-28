@@ -128,6 +128,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         addSelected: (event, target, win) => win._addSelected(target.dataset.groupId),
         removeSelected: (event, target, win) => win._removeSelected(target.dataset.groupId),
         selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId, target.dataset.type || null),
+        centrePivot: (event, target, win) => win._recenterPivot(target.dataset.groupId),
+        movePivot: (event, target, win) => win._movePivot(target.dataset.groupId),
         panTo: (event, target, win) => win._panTo(target.dataset.groupId),
         editMember: (event, target, win) => win._editMember(target.dataset.type, target.dataset.id),
         removeMember: (event, target, win) => win._removeMember(target.dataset.groupId, target.dataset.type, target.dataset.id),
@@ -491,7 +493,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
 
         const warnings = [
             lost ? `<div class="blacksmith-tool-card-notice is-warning"><i class="fa-solid fa-triangle-exclamation"></i> This group has lost its pin, so it cannot be moved. <button type="button" class="blacksmith-tool-btn" data-action="replacePin" data-group-id="${id}" data-tooltip="Put a new pin where the group last was. Nothing moves.">Make a New Pin</button></div>` : '',
-            group.movePivot ? '<div class="blacksmith-tool-card-notice is-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Drag the pin to where the grip should be: it moves only the pin, nothing else moves, and this switches itself off when you drop it. Choose Move Pivot again to cancel.</div>' : ''
+            group.movePivot ? '<div class="blacksmith-tool-card-notice is-warning"><i class="fa-solid fa-crosshairs"></i> <strong>Move Pivot is on.</strong> Drag or turn the pin as you like: only the pin moves, and nothing else does. It stays on until you choose Move Pivot again.</div>' : ''
         ].join('');
 
         return `
@@ -511,7 +513,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <button type="button" class="blacksmith-tool-btn is-icon" data-action="panTo" data-group-id="${id}" data-tooltip="Go to this group's pin"><i class="fa-solid fa-location-crosshairs"></i></button>
                     <button type="button" class="blacksmith-tool-btn is-icon${group.hidden ? ' is-active' : ''}" data-action="toggleGroupHidden" data-group-id="${id}" data-tooltip="${group.hidden ? 'Show the group' : 'Hide the group'}: hides its tiles, drawings, regions and body, and turns its lights and sounds off. Walls and notes are not affected."><i class="fa-solid fa-eye${group.hidden ? '-slash' : ''}"></i></button>
                     ${canPlayPause(group) ? `<button type="button" class="blacksmith-tool-btn is-icon${group.paused ? ' is-active' : ''}" data-action="togglePlaying" data-group-id="${id}" data-tooltip="${group.paused ? 'Play' : 'Pause'} the group: runs its &quot;${group.paused ? 'Play' : 'Pause'} is clicked&quot; events"><i class="fa-solid fa-${group.paused ? 'play' : 'pause'}"></i></button>` : ''}
-                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="groupMenu" data-group-id="${id}" data-tooltip="More: centre or move the pivot, duplicate, save to the Library, export, delete"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="groupMenu" data-group-id="${id}" data-tooltip="More: bring to front, send to back, duplicate, save to the Library, export, delete"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                 </span>
             </div>
             ${warnings}
@@ -610,6 +612,12 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                         <span class="puppeteer-divider"></span>
                         <button type="button" class="blacksmith-tool-btn is-icon" data-action="resetScale" data-group-id="${id}"${group.scale ? '' : ' disabled'} data-tooltip="${group.scale ? `Reset: put the group back to the size it was before it was resized (it is ${Math.round(group.scale * 100) / 100} times that now)` : 'Reset: the group has not been resized'}"><i class="fa-solid fa-rotate-left"></i></button>
                     </div></section>
+                <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Pin</span></header>
+                    <div class="puppeteer-inline">
+                        <button type="button" class="blacksmith-tool-btn" data-action="centrePivot" data-group-id="${id}" data-tooltip="Move the pin to the middle of the group without moving anything"><i class="fa-solid fa-bullseye"></i> Centre Pivot</button>
+                        <button type="button" class="blacksmith-tool-btn${group.movePivot ? ' is-active' : ''}" data-action="movePivot" data-group-id="${id}" data-tooltip="${group.movePivot ? 'On. Drag or turn the pin and only the pin moves. Choose again to switch it off.' : 'Drag or turn the pin and only the pin moves, so the grip can go anywhere and point anywhere. It stays on until you choose it again.'}"><i class="fa-solid fa-crosshairs"></i> Move Pivot${group.movePivot ? ': On' : ''}</button>
+                    </div>
+                    ${this._frontHtml(group)}</section>
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Events</span></header>
                     ${this._eventsHtml(group)}</section>
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Parts</span></header>
@@ -659,19 +667,18 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     { field: 'solidOnly', icon: 'fa-solid fa-vector-square', label: 'Ignore Transparent Area', checked: group.solidOnly !== false, tooltip: 'On, the transparent parts of a picture do not count as on the group: a token standing on a transparent corner does not board, and one moved onto it is let go. Off, the whole box around the group counts.' },
                     { field: 'snap', icon: 'fa-solid fa-border-all', label: 'Snap to Grid', checked: !!group.snap, tooltip: 'On, when the pin is dropped the group goes to the nearest point of the grid (a square\'s centre or corner), and the pin with it.' },
                     { field: 'ridersFree', icon: 'fa-solid fa-person-walking', label: 'Riders move freely', checked: group.ridersFree !== false, tooltip: 'On, a rider can be moved about the group by hand. Off, one moved by hand is put back where it rides.' }
-                ])}
-                ${group.facesTravel && group.rotates !== false ? this._frontHtml(group) : ''}`;
+                ])}`;
     }
 
-    /** Which way the picture's front points, for a group that faces its travel: four quick choices and a number to fine tune. */
+    /** Which way the group's front points: four quick choices and a number to fine tune. A group that faces its travel leads with it. */
     _frontHtml(group) {
         const id = esc(group.id);
         const front = Number(group.front) || 0;
         const choices = [[0, 'fa-arrow-down', 'Down'], [90, 'fa-arrow-left', 'Left'], [180, 'fa-arrow-up', 'Up'], [270, 'fa-arrow-right', 'Right']];
         return `
                 <div class="puppeteer-inline">
-                    <span>Front of the picture</span>
-                    <div class="blacksmith-tool-segmented" role="radiogroup" aria-label="Front of the picture" data-tooltip="Which way the group's picture points as it sits now, so it can lead with its front when it travels. A token's front is its bottom; a cart or a ship is often drawn pointing up.">
+                    <span>Front of the group</span>
+                    <div class="blacksmith-tool-segmented" role="radiogroup" aria-label="Front of the group" data-tooltip="Which way the group's picture points, measured from the pin's arrow, so a group that faces its travel can lead with its front. A token's front is its bottom; a cart or a ship is often drawn pointing up. Turn the pin with Move Pivot on and this follows it.">
                         ${choices.map(([degrees, icon, name]) => `
                         <label class="blacksmith-tool-segment">
                             <input type="radio" name="front-${id}" value="${degrees}" data-field="front" data-group-id="${id}"${front === degrees ? ' checked' : ''}>
@@ -1260,7 +1267,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         return run('Move pivot', async () => {
             const group = listGroups(canvas.scene).find((g) => g.id === groupId);
             const on = await setMovePivot(canvas.scene, groupId, !group?.movePivot);
-            say(on ? 'Move Pivot is on' : 'Move Pivot is off', on ? 'Drag the pin to where the grip should be. Nothing else will move, and this switches off when you drop it.' : 'Dragging the pin moves the group again.');
+            say(on ? 'Move Pivot is on' : 'Move Pivot is off', on ? 'Drag or turn the pin as you like. Only the pin moves. It stays on until you choose Move Pivot again.' : 'Dragging the pin moves the group again.');
             this.render();
         });
     }
@@ -1275,8 +1282,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             x: at ? at.right : event.clientX,
             y: at ? at.bottom : event.clientY,
             zones: [
-                { name: 'Centre Pivot', icon: 'fa-solid fa-bullseye', description: 'Move the pin to the middle of the group without moving anything', callback: () => this._recenterPivot(groupId) },
-                { name: group.movePivot ? 'Move Pivot: On' : 'Move Pivot', icon: 'fa-solid fa-crosshairs', description: 'Drag the pin once and only the pin moves, so the grip can go anywhere', callback: () => this._movePivot(groupId) },
                 { name: 'Bring to Front', icon: 'fa-solid fa-angles-up', description: 'Draw the whole group above everything else on the scene, parts keeping their order', callback: () => this._restack(groupId, 'front') },
                 { name: 'Send to Back', icon: 'fa-solid fa-angles-down', description: 'Draw the whole group below everything else on the scene, parts keeping their order', callback: () => this._restack(groupId, 'back') },
                 { separator: true },

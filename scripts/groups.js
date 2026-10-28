@@ -551,9 +551,10 @@ export async function setMountable(scene, groupId, mountable) {
 }
 
 /**
- * Turn Move Pivot on or off. While it is on, the next move or turn of the group's pin moves only the grip: every part,
- * rider and the body stay where they are and are recorded against the pin's new place, and the mode switches itself
- * off. Off, the pin takes the group with it.
+ * Turn Move Pivot on or off. While it is on, moving or turning the group's pin moves only the grip: every part, rider and
+ * the body stay where they are and are recorded against the pin's new place. It stays on until it is turned off, so the
+ * pin can be moved and turned as often as needed. Off, the pin takes the group with it. The front of the picture is kept
+ * pointing the same way round from the pin when the pin is turned.
  * @returns {Promise<boolean>} The new state.
  */
 export function setMovePivot(scene, groupId, on) {

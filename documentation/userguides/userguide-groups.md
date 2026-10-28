@@ -33,11 +33,12 @@ To hide one part, choose the eye beside it under **Parts**. A light or a sound h
 
 ## Choose where the group turns about
 
-Both are in the **...** menu in the group card's bar.
+The **...** menu in the group card's bar has **Bring to Front** and **Send to Back**. Where the group turns about is under **Pin** on an open card.
 
 - **Bring to Front** and **Send to Back** draw the whole group above or below everything else on the scene (its tiles and drawings; the parts keep their order among themselves). If something still covers the group afterwards, it is higher by elevation, and the elevation needs changing instead.
-- **Centre Pivot** moves the pin to the middle of the group without moving anything, so the group turns about its own centre.
-- **Move Pivot** puts the pin anywhere, such as the prow of a ship, a wagon's hitch or a door's hinge. Choose **Move Pivot** from the **...** menu (the card shows a notice) and drag the pin to where you want it. The pin moves, nothing else does, and Move Pivot switches itself off when you drop the pin. After that the group moves and turns about the new spot. Choose **Move Pivot** again before dragging to cancel.
+- **Centre Pivot** (under **Pin**) moves the pin to the middle of the group without moving anything, so the group turns about its own centre.
+- **Move Pivot** (under **Pin**) puts the pin anywhere, and points it anywhere: the prow of a ship, a wagon's hitch or a door's hinge. Choose it (the button reads **Move Pivot: On** and the card shows a notice), then drag the pin to where you want it and turn it with Shift and the wheel. Only the pin moves or turns; nothing else does, however many times you do it. It stays on until you choose **Move Pivot** again, and then the group moves and turns about the new spot.
+- **Front of the group** (under **Pin**) says which end of the group is its front, measured from the pin's arrow: **Down**, **Left**, **Up** or **Right**, or a number of degrees. It is what a group that **Faces its travel** leads with. Turn the pin to point at the front with Move Pivot on and the setting follows the turn, so the front stays the same end of the group.
 
 ## Resize a group
 

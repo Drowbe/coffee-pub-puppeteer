@@ -35,7 +35,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 ## Card menu and Resize
 
-- [x] The ... in a card's bar opens Blacksmith's menu with Centre Pivot, Move Pivot (reads Move Pivot: On while it is), Duplicate, Save to Library, Export and Delete, and each does what its button did. The menu closes on a click outside it and on Escape.
+- [x] The ... in a card's bar opens Blacksmith's menu with Bring to Front, Send to Back, Duplicate, Save to Library, Export and Delete (Centre Pivot and Move Pivot are now under Pin), and each does what its button did. The menu closes on a click outside it and on Escape.
 - [x] Resize is one line that fits at the default window width and a narrow one: Smaller, Bigger, the step with its x inside the field, the width with its icon and sq inside, Reset greyed until the group has been resized. Typing a width resizes the group to it. With Group Bounds on, one side of each group is heavier and labelled Width, and it is the side the width field measures (it can read a little differently from the box when the group has lights or walls beyond its tiles).
 
 ## Duplicate
@@ -44,9 +44,9 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 ## Move Pivot
 
-- [x] Choose Move Pivot on a group with a rider and a body. Drag the pin to the prow. Nothing else moves, and the button and notice switch off by themselves when the pin is dropped.
-- [x] Drag the pin again and the whole group follows. Turn it with Shift and the wheel and the group turns about the new grip.
-- [x] Choose Move Pivot, then choose it again before dragging: it cancels.
+- [ ] Under Pin on a card, choose Move Pivot on a group with a rider and a body. Drag the pin to the prow and then turn it with Shift and the wheel, in several notches. Nothing else moves or turns, the button reads Move Pivot: On and the notice stays until it is chosen again. Choose it again: the next drag takes the whole group.
+- [ ] With Move Pivot off, drag the pin and the whole group follows. Turn it with Shift and the wheel and the group turns about the new grip.
+- [ ] Under Pin, Front of the group is always shown. With Move Pivot on, turn the pin to point at the front of a group that Faces its travel: the Front setting follows the turn, and moving the pin afterwards turns the group to lead with that end.
 
 ## Behaviour
 

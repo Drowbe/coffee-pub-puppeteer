@@ -13,6 +13,7 @@ import { glideOptions } from './tween.js';
 import { fitBody } from './body.js';
 import { carryRiders, captureRider } from './riders.js';
 import { fireEvent } from './events.js';
+import { normAngle } from './frame.js';
 
 // One chain per group, so a move and the rotation that follows it a moment later never write concurrently.
 // Hook Manager callbacks are started back to back and not awaited.
@@ -177,9 +178,17 @@ export async function repivot(scene, group, anchor) {
         const token = scene.tokens.get(rider.tokenId);
         return token ? captureRider(scene, rider.tokenId, token._source, anchor) : rider;
     });
-    // One drop is one use: the mode switches itself off, so the next drag takes the group again.
-    const patch = { members, applied: anchor, heading: anchor.heading, '-=movePivot': null };
+    // The mode stays on until it is switched off, so the pin can be moved and then turned (a turn is many writes) without
+    // the first of them handing the group back to the pin.
+    const patch = { members, applied: anchor, heading: anchor.heading };
     if (group.riders) patch.riders = riders;
+    // The picture has not moved, so if the pin's heading has, the front of the picture is the same way round from it.
+    const turned = anchor.heading - (group.applied?.heading ?? anchor.heading);
+    if (Math.abs(normAngle(turned)) > 0.005 && (group.front || group.facesTravel)) {
+        const front = Math.round(normAngle((Number(group.front) || 0) - turned) * 100) / 100;
+        if (front) patch.front = front;
+        else patch['-=front'] = null;
+    }
     await patchGroup(scene, group.id, patch);
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}": pivot moved to ${Math.round(anchor.x)}, ${Math.round(anchor.y)}; ${members.length} member(s) re-recorded, none moved`, anchor, true, false);
 }
