@@ -402,6 +402,20 @@ export async function removeMember(scene, groupId, type, id) {
  * the token is called, which is otherwise the group's name.
  * @returns {Promise<TokenDocument>} The body token.
  */
+/**
+ * The world actor for an actor that may be in a compendium. A token is made from a world actor, so a compendium actor is
+ * imported first, as Foundry does when one is dropped on the canvas; one already imported from the same source is reused,
+ * so dropping the same monster twice does not fill the Actors sidebar.
+ * @param {Actor} actor
+ * @returns {Promise<Actor>}
+ */
+export async function worldActor(actor) {
+    if (!actor?.pack) return actor;
+    const existing = game.actors.find((candidate) => candidate._stats?.compendiumSource === actor.uuid);
+    if (existing) return existing;
+    return game.actors.importFromCompendium(game.packs.get(actor.pack), actor.id);
+}
+
 export function setBody(scene, groupId, actorId, { linked = false, name } = {}) {
     const { utils } = getBlacksmith();
     return runExclusive(scene, groupId, async () => {

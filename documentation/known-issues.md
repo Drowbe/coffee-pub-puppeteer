@@ -9,7 +9,6 @@ Limits we know about and have not removed, with a way round where there is one.
 - **Moving a locked body by hand is refused.** That is the point of locking it, and it also means the GM cannot nudge it. Move the group by its pin. The token cannot be unlocked either (the unlock is refused); use Remove Token on the group to free it.
 - **With Tokens board when they move onto it on, every token boards, enemies included.** Switch the option off, or dismount the token, if that is not wanted.
 - **Regions with token or grid shapes cannot be carried.** They are refused with a reason.
-- **Compendium actors cannot be dropped on a body row.** Import them into the world first.
 - **Walls and notes cannot be hidden.** Foundry gives them no hidden state, so hiding a group leaves them visible. Riders are never hidden.
 - **Levels are ignored.** A group moves on the level it was made on and carries its parts' levels as they were. It does not follow its pin to another level.
 - **A pin is never snapped for the group.** Members keep their exact offsets from the pin, so a pin dropped on a grid snap does not pull the parts onto the grid.

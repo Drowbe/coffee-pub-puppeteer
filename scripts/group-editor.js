@@ -7,7 +7,7 @@ import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, selectToken, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
-    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, setGroupWidth, groupWidth, HIDEABLE
+    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, worldActor, setGroupWidth, groupWidth, HIDEABLE
 } from './groups.js';
 import { TRIGGERS, ACTIONS, HEALTH_LEVELS, describeEvent } from './events.js';
 import { easeOf } from './tween.js';
@@ -822,12 +822,10 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             }
             const actor = await fromUuid(data.uuid);
             if (!actor) return;
-            if (actor.pack) {
-                say('Import the actor first', `${actor.name} is in a compendium. Import it to the world, then drop it here.`);
-                return;
-            }
-            await setBody(canvas.scene, groupId, actor.id);
-            say('Group is now a target', `Attacks and damage on this group go to ${actor.name}.`);
+            const imported = actor.pack;
+            const source = await worldActor(actor);
+            await setBody(canvas.scene, groupId, source.id);
+            say('Group is now a target', `Attacks and damage on this group go to ${source.name}.${imported ? ' It was imported from the compendium into your Actors.' : ''}`);
         });
     }
 

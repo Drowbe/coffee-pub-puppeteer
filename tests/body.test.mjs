@@ -266,3 +266,30 @@ test('a group\'s token is called what the group is called, and follows when the 
     const other = await g.groups.createGroup(g.scene, { x: 100, y: 100 }, { name: 'Crate' });
     await g.groups.renameGroup(g.scene, other.id, 'Barrel');
 });
+
+test('a compendium actor is imported once and the copy is used', async () => {
+    const g = await stage();
+    let imports = 0;
+    // A world collection finds by predicate and imports from a pack, as Foundry's does.
+    game.actors.find = (test) => [...game.actors.values()].find(test);
+    game.packs = new Map([['world.monsters', {}]]);
+    game.actors.importFromCompendium = async (pack, id) => {
+        imports += 1;
+        const copy = {
+            id: 'A2', name: 'Dragon', _stats: { compendiumSource: `Compendium.world.monsters.Actor.${id}` },
+            async getTokenDocument(data) { return { toObject: () => ({ name: 'Dragon', actorId: 'A2', ...data }) }; }
+        };
+        game.actors.set('A2', copy);
+        return copy;
+    };
+    const inPack = { id: 'X9', pack: 'world.monsters', uuid: 'Compendium.world.monsters.Actor.X9', name: 'Dragon' };
+    const first = await g.groups.worldActor(inPack);
+    const second = await g.groups.worldActor(inPack);
+    assert.equal(first.id, 'A2');
+    assert.equal(second, first);
+    assert.equal(imports, 1);
+    // A world actor is returned as it is.
+    assert.equal(await g.groups.worldActor(game.actors.get('A1')), game.actors.get('A1'));
+    const token = await g.groups.setBody(g.scene, g.group.id, first.id);
+    assert.equal(token._source.actorId, 'A2');
+});

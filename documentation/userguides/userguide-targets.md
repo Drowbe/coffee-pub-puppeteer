@@ -12,7 +12,7 @@ Everything here is GM only. Most groups do not need this: a group moves and turn
 
 The actor's picture is never shown on the map. You never place, size or move the token: it follows the group and changes size when you add or remove parts or turn the group.
 
-Actors in a compendium must be imported into the world before you can drop them.
+An actor dragged from a compendium is imported into your Actors first, as Foundry does when you drop one on the map, and the token is made from that copy. Dropping the same compendium actor again reuses the copy.
 
 ## Choose whether it shares hit points
 
