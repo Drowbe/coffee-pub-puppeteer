@@ -7,7 +7,7 @@ import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, selectToken, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
-    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, worldActor, setGroupWidth, groupWidth, HIDEABLE
+    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, reorderMember, stackMember, worldActor, setGroupWidth, groupWidth, HIDEABLE
 } from './groups.js';
 import { TRIGGERS, ACTIONS, HEALTH_LEVELS, describeEvent } from './events.js';
 import { easeOf } from './tween.js';
@@ -33,6 +33,9 @@ const TYPE_ICON = {
 };
 
 // Which group cards are open. Module level so it survives a redraw and a close and reopen.
+// The part types that stack, so have a place in front of or behind the group's others.
+const STACKABLE = ['Tile', 'Drawing'];
+
 const expanded = new Set();
 
 // The library categories that are closed (an open one is not remembered; every category starts open).
@@ -130,6 +133,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         removeSelected: (event, target, win) => win._removeSelected(target.dataset.groupId),
         selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId, target.dataset.type || null),
         panTo: (event, target, win) => win._panTo(target.dataset.groupId),
+        stackMember: (event, target, win) => win._stackMember(target.dataset.groupId, target.dataset.type, target.dataset.id, target.dataset.direction),
         removeMember: (event, target, win) => win._removeMember(target.dataset.groupId, target.dataset.type, target.dataset.id),
         boardSelected: (event, target, win) => win._boardSelected(target.dataset.groupId),
         dismount: (event, target, win) => win._dismount(target.dataset.groupId, target.dataset.tokenId),
@@ -231,6 +235,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             card.addEventListener('dragleave', (event) => { if (!card.contains(event.relatedTarget)) card.classList.remove('is-over'); });
             card.addEventListener('drop', (event) => { event.preventDefault(); card.classList.remove('is-over'); this._dropTemplate(event, card.dataset.dropCategory); });
         }
+        this._wirePartDrag();
         this._fillThumbnails();
         // An actor dragged from the sidebar onto an empty token target gives the group a token.
         for (const zone of this.element.querySelectorAll('[data-drop-group]')) {
@@ -238,6 +243,57 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             zone.addEventListener('dragleave', () => zone.classList.remove('is-over'));
             zone.addEventListener('drop', (event) => { event.preventDefault(); zone.classList.remove('is-over'); this._dropActor(event, zone.dataset.dropGroup); });
         }
+    }
+
+    /** Parts are dragged by their grip: dropped on a row they go before it (upper half) or after it (lower half). */
+    _wirePartDrag() {
+        for (const grip of this.element.querySelectorAll('[data-grip-id]')) {
+            grip.addEventListener('dragstart', (event) => {
+                event.dataTransfer.setData('text/plain', `puppeteer-part:${grip.dataset.gripGroup}:${grip.dataset.gripType}:${grip.dataset.gripId}`);
+                event.dataTransfer.effectAllowed = 'move';
+                const row = grip.closest('.blacksmith-list-row');
+                if (row) event.dataTransfer.setDragImage(row, 10, 10);
+            });
+        }
+        for (const row of this.element.querySelectorAll('.blacksmith-list-row:has([data-grip-id])')) {
+            const grip = row.querySelector('[data-grip-id]');
+            const side = (event) => {
+                const box = row.getBoundingClientRect();
+                return event.clientY > box.top + (box.height / 2) ? 'after' : 'before';
+            };
+            const clear = () => row.classList.remove('is-drop-before', 'is-drop-after');
+            row.addEventListener('dragover', (event) => {
+                if (!event.dataTransfer?.types?.includes('text/plain')) return;
+                event.preventDefault();
+                clear();
+                row.classList.add(`is-drop-${side(event)}`);
+            });
+            row.addEventListener('dragleave', (event) => { if (!row.contains(event.relatedTarget)) clear(); });
+            row.addEventListener('drop', (event) => {
+                clear();
+                const [kind, groupId, type, id] = (event.dataTransfer?.getData('text/plain') ?? '').split(':');
+                if (kind !== 'puppeteer-part' || groupId !== grip.dataset.gripGroup) return;
+                event.preventDefault();
+                event.stopPropagation();
+                if (type === grip.dataset.gripType && id === grip.dataset.gripId) return;
+                this._reorderPart(groupId, { type, id }, { type: grip.dataset.gripType, id: grip.dataset.gripId }, side(event) === 'after');
+            });
+        }
+    }
+
+    _reorderPart(groupId, part, anchor, after) {
+        return run('Move part', async () => {
+            await reorderMember(canvas.scene, groupId, part.type, part.id, anchor, after);
+            this.render();
+        });
+    }
+
+    _stackMember(groupId, type, id, direction) {
+        return run('Move part in the stack', async () => {
+            const moved = await stackMember(canvas.scene, groupId, type, id, direction);
+            if (!moved) say('Nothing to change', direction === 'forward' ? 'It is already in front of the group\'s other parts, or they are at a different elevation.' : 'It is already behind the group\'s other parts, or they are at a different elevation.');
+            this.render();
+        });
     }
 
     /** Draw each group's picture into its card; a card keeps its placeholder until the picture is ready (or if there is none). */
@@ -502,6 +558,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             const picked = !!doc?.object?.controlled;
             return `
                 <div class="blacksmith-list-row${present ? ' puppeteer-clickable' : ' puppeteer-missing'}${picked ? ' is-selected' : ''}"${present ? ` data-action="selectMember" data-type="${esc(member.type)}" data-id="${esc(member.id)}" data-tooltip="Select this ${esc((TYPE_LABEL[member.type] ?? member.type).toLowerCase())} on the canvas (Shift to add to the selection)"` : ''}>
+                    <span class="puppeteer-grip" draggable="true" data-grip-group="${id}" data-grip-type="${esc(member.type)}" data-grip-id="${esc(member.id)}" data-tooltip="Drag to move this part in the list"><i class="fa-solid fa-grip-vertical"></i></span>
                     <i class="${TYPE_ICON[member.type] ?? 'fa-solid fa-circle'} puppeteer-type-icon"></i>
                     <div class="blacksmith-list-row-main puppeteer-part">
                         ${present ? this._editableHtml('memberLabel', member.label ?? '', kind, { 'group-id': group.id, type: member.type, id: member.id }) : `<span>${esc(kind)} (missing)</span>`}
@@ -509,6 +566,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                             data-tooltip="${esc(`${scene.uuid}.${member.type}.${member.id}`)} (click to copy)">${esc(member.id)}</button>
                     </div>
                     <div class="blacksmith-list-row-action">
+                        ${present && STACKABLE.includes(member.type) ? `<button type="button" class="blacksmith-tool-btn is-icon" data-action="stackMember" data-direction="forward" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}" data-tooltip="Bring this part forward: draw it over the group's next part"><i class="fa-solid fa-angle-up"></i></button>
+                        <button type="button" class="blacksmith-tool-btn is-icon" data-action="stackMember" data-direction="backward" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}" data-tooltip="Send this part back: draw it under the group's previous part"><i class="fa-solid fa-angle-down"></i></button>` : ''}
                         ${canHide ? (EMITTERS.includes(member.type)
         ? `<button type="button" class="blacksmith-tool-btn is-icon${hiddenNow ? '' : ' is-active'}" data-action="toggleMemberHidden" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                             data-tooltip="${hiddenNow ? 'Off. Turn this on' : 'On. Turn this off'}"><i class="fa-solid fa-power-off"></i></button>`

@@ -46,3 +46,44 @@ test('a group already at the front is left alone, and a bad direction is refused
     assert.equal((await g.groups.restackGroup(g.scene, g.group.id, 'front')).moved, 0);
     assert.throws(() => g.groups.restackGroup(g.scene, g.group.id, 'sideways'), /front/);
 });
+
+test('a part moves one step forward or back among the group, and stops at the ends', async () => {
+    const g = await stage();
+    // The group's tiles are T2 (sort 1) under T1 (sort 2).
+    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T2', 'forward'), true);
+    let now = sorts(g.scene);
+    assert.ok(now.T2 > now.T1, JSON.stringify(now));
+    assert.equal(now.T0, 7);
+    // T2 is now the top of the group, so another step forward does nothing.
+    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T2', 'forward'), false);
+    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T2', 'backward'), true);
+    now = sorts(g.scene);
+    assert.ok(now.T2 < now.T1, JSON.stringify(now));
+});
+
+test('two parts with the same sort order are told apart by a step, and elevation is respected', async () => {
+    const g = await stage();
+    g.scene.collections.Tile.get('T2')._source.sort = 2;
+    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T1', 'forward'), true);
+    assert.equal(sorts(g.scene).T1, 3);
+    g.scene.collections.Tile.get('T2')._source.elevation = 4;
+    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T1', 'forward'), false);
+    assert.throws(() => g.groups.stackMember(g.scene, g.group.id, 'Wall', 'W1', 'forward'), /only tiles and drawings/);
+});
+
+test('a part can be moved to another place in the list, and the order is only the list', async () => {
+    const g = await stage();
+    const order = () => g.scene.getFlag('coffee-pub-puppeteer', 'groups')[g.group.id].members.map((member) => member.id);
+    assert.deepEqual(order(), ['T1', 'T2', 'D1']);
+    assert.equal(await g.groups.reorderMember(g.scene, g.group.id, 'Drawing', 'D1', { type: 'Tile', id: 'T1' }, false), true);
+    assert.deepEqual(order(), ['D1', 'T1', 'T2']);
+    assert.equal(await g.groups.reorderMember(g.scene, g.group.id, 'Drawing', 'D1', { type: 'Tile', id: 'T1' }, true), true);
+    assert.deepEqual(order(), ['T1', 'D1', 'T2']);
+    assert.equal(await g.groups.reorderMember(g.scene, g.group.id, 'Tile', 'T1', null), true);
+    assert.deepEqual(order(), ['D1', 'T2', 'T1']);
+    // Where it already is: nothing written.
+    assert.equal(await g.groups.reorderMember(g.scene, g.group.id, 'Tile', 'T1', null), false);
+    await assert.rejects(() => g.groups.reorderMember(g.scene, g.group.id, 'Tile', 'T9', null), /not a member/);
+    // Nothing on the map changed.
+    assert.equal(sorts(g.scene).T1, 2);
+});

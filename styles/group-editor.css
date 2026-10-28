@@ -251,3 +251,19 @@
 .puppeteer-group-editor .puppeteer-template[draggable="true"] {
     cursor: grab;
 }
+
+/* A part is dragged by its grip, and shows where it will land. */
+.puppeteer-group-editor .puppeteer-grip {
+    flex: 0 0 auto;
+    cursor: grab;
+    color: var(--blacksmith-tool-text-muted);
+    padding: 0 4px 0 0;
+}
+
+.puppeteer-group-editor .blacksmith-list-row.is-drop-before {
+    box-shadow: 0 -2px 0 0 var(--blacksmith-tool-accent, #ff9a1f);
+}
+
+.puppeteer-group-editor .blacksmith-list-row.is-drop-after {
+    box-shadow: 0 2px 0 0 var(--blacksmith-tool-accent, #ff9a1f);
+}

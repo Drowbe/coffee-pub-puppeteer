@@ -397,12 +397,6 @@ export async function removeMember(scene, groupId, type, id) {
 // ---- the body token ----------------------------------------------------------------------------------
 
 /**
- * Make a group targetable: give it a token of `actorId`, transparent, locked, sized to cover the group and moved
- * with it. The token is unlinked unless `linked`, so a prefab stamped twice has two sets of hit points. `name` is what
- * the token is called, which is otherwise the group's name.
- * @returns {Promise<TokenDocument>} The body token.
- */
-/**
  * The world actor for an actor that may be in a compendium. A token is made from a world actor, so a compendium actor is
  * imported first, as Foundry does when one is dropped on the canvas; one already imported from the same source is reused,
  * so dropping the same monster twice does not fill the Actors sidebar.
@@ -416,6 +410,12 @@ export async function worldActor(actor) {
     return game.actors.importFromCompendium(game.packs.get(actor.pack), actor.id);
 }
 
+/**
+ * Make a group targetable: give it a token of `actorId`, transparent, locked, sized to cover the group and moved
+ * with it. The token is unlinked unless `linked`, so a prefab stamped twice has two sets of hit points. `name` is what
+ * the token is called, which is otherwise the group's name.
+ * @returns {Promise<TokenDocument>} The body token.
+ */
 export function setBody(scene, groupId, actorId, { linked = false, name } = {}) {
     const { utils } = getBlacksmith();
     return runExclusive(scene, groupId, async () => {
@@ -869,6 +869,63 @@ export function restackGroup(scene, groupId, where) {
             moved += updates.length;
         }
         return { moved };
+    });
+}
+
+/**
+ * Move one part of a group to another place in its list. The order of the list has no effect on the map; it is how the
+ * parts read in the editor, and the order a library entry keeps.
+ * @param {{type: string, id: string}|null} anchor  The part to put it beside, or null for the end of the list.
+ * @param {boolean} [after]  Put it after the anchor instead of before it.
+ * @returns {Promise<boolean>}  Whether the order changed.
+ */
+export function reorderMember(scene, groupId, type, id, anchor, after = false) {
+    return runExclusive(scene, groupId, async () => {
+        const group = requireGroup(scene, groupId);
+        const from = group.members.findIndex((member) => member.type === type && member.id === id);
+        if (from < 0) throw new Error(`${MODULE_ID}: ${type} ${id} is not a member of group "${group.name}"`);
+        const members = [...group.members];
+        const [mine] = members.splice(from, 1);
+        let at = members.length;
+        if (anchor) {
+            const beside = members.findIndex((member) => member.type === anchor.type && member.id === anchor.id);
+            if (beside < 0) throw new Error(`${MODULE_ID}: ${anchor.type} ${anchor.id} is not a member of group "${group.name}"`);
+            at = after ? beside + 1 : beside;
+        }
+        members.splice(at, 0, mine);
+        if (members.every((member, index) => member === group.members[index])) return false;
+        await patchGroup(scene, groupId, { members });
+        return true;
+    });
+}
+
+/**
+ * Move one tile or drawing a step forward or back among the group's own tiles or drawings, by trading sort order with its
+ * neighbour in the stack. Elevation is not changed, so a part held by elevation does not move.
+ * @param {'forward'|'backward'} direction
+ * @returns {Promise<boolean>}  Whether it moved; false at the top or bottom of the group's stack, or when elevation decides.
+ */
+export function stackMember(scene, groupId, type, id, direction) {
+    if (!STACKED.includes(type)) throw new Error(`${MODULE_ID}: only tiles and drawings stack, not "${type}"`);
+    if (direction !== 'forward' && direction !== 'backward') throw new Error(`${MODULE_ID}: a part goes "forward" or "backward", not "${direction}"`);
+    return runExclusive(scene, groupId, async () => {
+        const group = requireGroup(scene, groupId);
+        const collection = scene.getEmbeddedCollection(type);
+        const parts = group.members.filter((member) => member.type === type).map((member) => collection.get(member.id)).filter(Boolean).sort(stackOrder);
+        const index = parts.findIndex((part) => part.id === id);
+        if (index < 0) throw new Error(`${MODULE_ID}: ${type} ${id} is not a member of group "${group.name}"`);
+        const mine = parts[index];
+        const other = parts[index + (direction === 'forward' ? 1 : -1)];
+        if (!other) return false;
+        if ((mine._source.elevation ?? 0) !== (other._source.elevation ?? 0)) return false;
+        const mineSort = mine._source.sort ?? 0;
+        const otherSort = other._source.sort ?? 0;
+        // Trade places; two parts with the same sort order are told apart by one step.
+        const updates = mineSort === otherSort
+            ? [{ _id: mine.id, sort: otherSort + (direction === 'forward' ? 1 : -1) }]
+            : [{ _id: mine.id, sort: otherSort }, { _id: other.id, sort: mineSort }];
+        await scene.updateEmbeddedDocuments(type, updates, FOLLOWER_WRITE());
+        return true;
     });
 }
 
