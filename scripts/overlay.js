@@ -129,7 +129,8 @@ function draw() {
             }
         }
 
-        // The pivot, and a tick showing which way the group faces (heading zero faces down the screen).
+        // The pivot, and a tick showing which way the group's front points: its heading (zero faces down the screen) turned
+        // by where the front of its picture is measured from that.
         const arm = 20;
         g.lineStyle(2, COLOUR, 1);
         g.moveTo(anchor.x - arm, anchor.y);
@@ -137,7 +138,7 @@ function draw() {
         g.moveTo(anchor.x, anchor.y - arm);
         g.lineTo(anchor.x, anchor.y + arm);
         g.drawCircle(anchor.x, anchor.y, 7);
-        const tip = rotate(0, 70, anchor.heading);
+        const tip = rotate(0, 70, anchor.heading + (Number(group.front) || 0));
         g.lineStyle(4, COLOUR, 1);
         g.moveTo(anchor.x, anchor.y);
         g.lineTo(anchor.x + tip.x, anchor.y + tip.y);

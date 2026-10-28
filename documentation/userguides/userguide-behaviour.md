@@ -22,7 +22,7 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 
 ## Keep riders in place
 
-**Riders move freely** is on by default. Turn it off and a rider moved by hand is put straight back where it rides.
+**Riders move freely** (under **Riders**) is on by default. Turn it off and a rider moved by hand is put straight back where it rides.
 
 ## Ignore Transparent Area
 
@@ -34,7 +34,7 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 
 ## Announce boarding
 
-**Announce boarding** posts a public card and plays a soft sound for everyone when a token boards or leaves. It is off by default.
+**Announce boarding** (under **Riders**) posts a public card and plays a soft sound for everyone when a token boards or leaves. It is off by default.
 
 ## Make things happen
 
