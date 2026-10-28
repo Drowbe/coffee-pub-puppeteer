@@ -206,22 +206,23 @@ function registerPinMenu(blacksmith) {
         submenu: children.map(([childName, childIcon, action]) => ({ ...entry(childName, childIcon, action), gmOnly: true }))
     });
 
-    item('capture-area', 'Capture Area into Group', 'fa-solid fa-vector-square', 9, async (groupId) => {
+    const modifyRows = [];
+    modifyRows.push(['Capture Area into Group', 'fa-solid fa-vector-square', async (groupId) => {
         const result = await captureArea(canvas.scene, groupId);
         if (!result) return;
         toast.show({ title: result.added ? 'Members added' : 'Nothing new in that box', subtitle: `${result.added} added${result.skipped ? `, ${result.skipped} skipped` : ''}.${result.unsupported.length ? ` Not added: ${result.unsupported.join('; ')}.` : ''}`, icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 6 });
-    });
-    item('add-selected', 'Add Selected to Group', 'fa-solid fa-plus', 10, async (groupId) => {
+    }]);
+    modifyRows.push(['Add Selected to Group', 'fa-solid fa-plus', async (groupId) => {
         const { added, skipped, unsupported } = await addSelected(canvas.scene, groupId);
         toast.show(!added && !skipped
             ? { title: 'Nothing selected', subtitle: 'Select tiles, lights, sounds, walls, drawings, notes or regions first.', icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 4 }
             : { title: 'Members added', subtitle: `${added} added${skipped ? `, ${skipped} skipped` : ''}.${unsupported.length ? ` Not added: ${unsupported.join('; ')}.` : ''}`, icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 6 });
-    });
-    item('remove-selected', 'Remove Selected from Group', 'fa-solid fa-minus', 11, async (groupId) => {
+    }]);
+    modifyRows.push(['Remove Selected from Group', 'fa-solid fa-minus', async (groupId) => {
         const removed = await removeSelected(canvas.scene, groupId);
         toast.show({ title: removed ? 'Members removed' : 'Nothing to remove', subtitle: removed ? `${removed} removed.` : 'None of the selected items are in this group.', icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 4 });
-    });
-    item('select-members', 'Select Group Members', 'fa-solid fa-object-group', 12, async (groupId) => {
+    }]);
+    modifyRows.push(['Select Group Members', 'fa-solid fa-object-group', async (groupId) => {
         const { type, selected, counts } = selectMembers(canvas.scene, groupId);
         const others = Object.entries(counts).filter(([t]) => t !== type).map(([t, n]) => `${n} ${t}`).join(', ');
         toast.show({
@@ -231,7 +232,8 @@ function registerPinMenu(blacksmith) {
             channel: TOAST_CHANNEL,
             duration: 6
         });
-    });
+    }]);
+    submenu('modify', 'Modify Group', 'fa-solid fa-pen-to-square', 9, modifyRows);
     item('toggle-hidden', 'Hide or Show Group', 'fa-solid fa-eye-slash', 12.8, async (groupId) => {
         const hidden = await setGroupHidden(canvas.scene, groupId, !getGroup(canvas.scene, groupId).hidden);
         toast.show({ title: hidden ? 'Group hidden' : 'Group shown', icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 3 });

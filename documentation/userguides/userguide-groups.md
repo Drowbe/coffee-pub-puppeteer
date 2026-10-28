@@ -11,7 +11,7 @@ Everything here is GM only. A group is a pin on the map plus the tiles, drawings
 3. Or choose **Capture Area** and drag a box. Everything inside it, on every layer, joins the group.
 4. To take parts out, select them and choose **Remove Selected**, or use the cross beside a part under **Parts**.
 
-Right-clicking the pin gives the same actions, and double-clicking the pin opens the Group Editor on that group. The pin menu also has **Hide or Show Group**, **Duplicate Group** and three submenus for what is done less often: **Lights, Sounds and Bounds** (switch the group's lights, switch its sounds, show or hide its bounds), **Pivot and Rotation** (move the pivot to the group's centre, rotate 90 degrees either way) and **Group Layer** (bring the group to the front, send it to the back). The lights and sounds items flip them together: if any is on they all go off, and if none is they all come on; a group that has none says so.
+Right-clicking the pin gives the same actions, and double-clicking the pin opens the Group Editor on that group. The pin menu also has **Hide or Show Group**, **Duplicate Group** and four submenus for what is done less often: **Modify Group** (capture an area into the group, add the selected items, remove the selected items, select the group's members), **Lights, Sounds and Bounds** (switch the group's lights, switch its sounds, show or hide its bounds), **Pivot and Rotation** (move the pivot to the group's centre, rotate 90 degrees either way) and **Group Layer** (bring the group to the front, send it to the back). The lights and sounds items flip them together: if any is on they all go off, and if none is they all come on; a group that has none says so.
 
 ## Name parts and find them again
 
