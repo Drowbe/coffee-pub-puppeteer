@@ -96,7 +96,7 @@ Hooks.once('ready', async () => {
         clearBody: (groupId, scene = canvas.scene) => clearBody(scene, groupId),
         setBodyLinked: (groupId, linked, scene = canvas.scene) => setBodyLinked(scene, groupId, linked),
         /**
-         * How a group behaves: `{ ease: { mode: 'ease' | 'jump', ms }, rotates: boolean, facesTravel: boolean, front: degrees, ridersFree: boolean, solidOnly: boolean }`. Any of
+         * How a group behaves: `{ ease: { mode: 'ease' | 'jump', ms }, rotates: boolean, facesTravel: boolean, front: degrees, ridersFree: boolean, solidOnly: boolean, snap: boolean }`. Any of
          * them may be left out. See the API document.
          */
         setBehaviour: (groupId, options, scene = canvas.scene) => setBehaviour(scene, groupId, options),

@@ -24,9 +24,13 @@ Lights, walls, sounds and regions always jump, because Foundry works out sight a
 
 **Riders move freely** is on by default. Turn it off and a rider moved by hand is put straight back where it rides.
 
-## Solid parts only
+## Ignore Transparent Area
 
-**Solid parts only** is on by default. Only the solid part of a picture counts as on the group, so a token standing on the transparent corner of a ship's picture does not board, and a rider moved onto one is let go. Turn it off and the whole box around the group counts. It makes no difference to a picture with no transparent edges, and a group with no tile in it uses the box of its drawings and regions.
+**Ignore Transparent Area** is on by default. Only the solid part of a picture counts as on the group, so a token standing on the transparent corner of a ship's picture does not board, and a rider moved onto one is let go. Turn it off and the whole box around the group counts. It makes no difference to a picture with no transparent edges, and a group with no tile in it uses the box of its drawings and regions.
+
+## Snap to Grid
+
+**Snap to Grid** is off by default. Turn it on and, when you drop the group's pin, the group goes to the nearest point of the grid (the centre or the corner of a square) and the pin goes there too, so the pin and the group never disagree. The point is the pin's, which is the grip of the group: put the pin at a corner of the group and the corner lands on the grid. It does nothing on a gridless scene, and while **Move Pivot** is on the pin is free to go anywhere.
 
 ## Announce boarding
 

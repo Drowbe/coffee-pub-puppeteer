@@ -47,6 +47,17 @@ test('a group already at the front is left alone, and a bad direction is refused
     assert.throws(() => g.groups.restackGroup(g.scene, g.group.id, 'sideways'), /front/);
 });
 
+test('the list shows the stack as the canvas has it, whatever order the record holds', async () => {
+    const g = await stage();
+    const ids = () => g.groups.displayOrder(g.scene, g.groups.listGroups(g.scene)[0].members).map((member) => member.id);
+    assert.deepEqual(ids(), ['T1', 'T2', 'D1']);
+    g.scene.collections.Tile.get('T2')._source.sort = 5;
+    assert.deepEqual(ids(), ['T2', 'T1', 'D1']);
+    // A tile at a higher elevation is in front of the rest.
+    g.scene.collections.Tile.get('T1')._source.elevation = 3;
+    assert.deepEqual(ids(), ['T1', 'T2', 'D1']);
+});
+
 test('two parts with the same sort order are told apart when the list is reordered', async () => {
     const g = await stage();
     g.scene.collections.Tile.get('T2')._source.sort = 2;

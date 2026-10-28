@@ -7,7 +7,7 @@ import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, selectToken, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
-    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, reorderMember, worldActor, setGroupWidth, groupWidth, HIDEABLE
+    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, reorderMember, displayOrder, worldActor, setGroupWidth, groupWidth, HIDEABLE
 } from './groups.js';
 import { TRIGGERS, ACTIONS, HEALTH_LEVELS, describeEvent } from './events.js';
 import { easeOf } from './tween.js';
@@ -533,7 +533,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <i class="${icon}"></i> ${Math.abs(degrees)}
             </button>`;
 
-        const members = group.members.map((member) => {
+        const members = displayOrder(scene, group.members).map((member) => {
             const doc = scene.getEmbeddedCollection(member.type).get(member.id);
             const present = !!doc;
             const kind = `${TYPE_LABEL[member.type] ?? member.type} ${member.id.slice(0, 6)}`;
@@ -656,7 +656,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     { field: 'rotates', icon: 'fa-solid fa-rotate', label: 'Turns with its pin', checked: group.rotates !== false, tooltip: 'On, the group turns when its pin turns. Off, it keeps the way it faces and only follows its pin about.' },
                     { field: 'facesTravel', icon: 'fa-solid fa-location-arrow', label: 'Faces its travel', checked: !!group.facesTravel, disabled: group.rotates === false, tooltip: 'On, a group turns to face the way it was moved, as a vehicle does. Its front is the bottom of its picture, as a token\'s is. It needs Turns with its pin.' },
                     { field: 'announce', icon: 'fa-solid fa-bullhorn', label: 'Announce boarding', checked: !!group.announce, tooltip: 'Post a chat card, with a sound, when a token boards or leaves.' },
-                    { field: 'solidOnly', icon: 'fa-solid fa-vector-square', label: 'Solid parts only', checked: group.solidOnly !== false, tooltip: 'On, only the solid part of a picture counts as on the group: a token standing on a transparent corner does not board, and one moved onto it is let go. Off, the whole box around the group counts.' },
+                    { field: 'solidOnly', icon: 'fa-solid fa-vector-square', label: 'Ignore Transparent Area', checked: group.solidOnly !== false, tooltip: 'On, the transparent parts of a picture do not count as on the group: a token standing on a transparent corner does not board, and one moved onto it is let go. Off, the whole box around the group counts.' },
+                    { field: 'snap', icon: 'fa-solid fa-border-all', label: 'Snap to Grid', checked: !!group.snap, tooltip: 'On, when the pin is dropped the group goes to the nearest point of the grid (a square\'s centre or corner), and the pin with it.' },
                     { field: 'ridersFree', icon: 'fa-solid fa-person-walking', label: 'Riders move freely', checked: group.ridersFree !== false, tooltip: 'On, a rider can be moved about the group by hand. Off, one moved by hand is put back where it rides.' }
                 ])}
                 ${group.facesTravel && group.rotates !== false ? this._frontHtml(group) : ''}`;
@@ -837,6 +838,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             if (input.dataset.field === 'easeSpeed') return setBehaviour(scene, groupId, { ease: { speed: Number(input.value) } });
             if (input.dataset.field === 'rotates') { await setBehaviour(scene, groupId, { rotates: input.checked }); return this.render(); }
             if (input.dataset.field === 'solidOnly') return setBehaviour(scene, groupId, { solidOnly: input.checked });
+            if (input.dataset.field === 'snap') return setBehaviour(scene, groupId, { snap: input.checked });
             if (input.dataset.field === 'facesTravel') { await setBehaviour(scene, groupId, { facesTravel: input.checked }); return this.render(); }
             if (input.dataset.field === 'front' || input.dataset.field === 'frontDegrees') {
                 await setBehaviour(scene, groupId, { front: Number(input.value) || 0 });

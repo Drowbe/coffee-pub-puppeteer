@@ -579,6 +579,8 @@ export function setMovePivot(scene, groupId, on) {
  *  - `ridersFree`: whether a rider may be moved about inside the group. Off, a rider moved by hand is put back.
  *  - `solidOnly`: whether only the solid part of the group counts as on it when a token boards or moves about. On (the
  *    default), the transparent parts of a tile's picture do not; off, the whole box that holds the group does.
+ *  - `snap`: whether the group, when its pin is dropped, goes to the nearest point of the grid (a square's centre or
+ *    corner), and its pin with it. Off by default.
  *  - `announce`: whether a token boarding or leaving is announced in chat, with a sound.
  * @returns {Promise<object>} The group record.
  */
@@ -614,6 +616,10 @@ export function setBehaviour(scene, groupId, options = {}) {
         if ('solidOnly' in options) {
             if (options.solidOnly) patch['-=solidOnly'] = null;
             else patch.solidOnly = false;
+        }
+        if ('snap' in options) {
+            if (options.snap) patch.snap = true;
+            else patch['-=snap'] = null;
         }
         if ('facesTravel' in options) {
             if (options.facesTravel) patch.facesTravel = true;
@@ -873,6 +879,27 @@ export function restackGroup(scene, groupId, where) {
 }
 
 /**
+ * A group's parts in the order the editor lists them. Tiles, and drawings, are listed as the canvas stacks them, the one
+ * drawn in front first, so the list always shows the layer order whatever order the record holds; the other kinds keep
+ * their places, and so does each type's set of parts among them. A part whose document is gone keeps to the end of its type.
+ * @returns {object[]}  The members, in listed order.
+ */
+export function displayOrder(scene, members) {
+    const next = [...members];
+    for (const type of STACKED) {
+        const collection = scene.getEmbeddedCollection(type);
+        const slots = [];
+        const mine = [];
+        next.forEach((member, index) => { if (member.type === type) { slots.push(index); mine.push(member); } });
+        const present = mine.filter((member) => collection.get(member.id));
+        const gone = mine.filter((member) => !collection.get(member.id));
+        present.sort((a, b) => stackOrder(collection.get(b.id), collection.get(a.id)));
+        [...present, ...gone].forEach((member, k) => { next[slots[k]] = member; });
+    }
+    return next;
+}
+
+/**
  * Give a group's tiles, and its drawings, the stacking its list asks for: the first in the list is drawn in front, the
  * last at the back. The sort order values the parts already hold are dealt out again in that order, so the group keeps
  * its place among the scene's other tiles and drawings. Elevation is not changed, so a part held by elevation stays where
@@ -909,8 +936,9 @@ export function reorderMember(scene, groupId, type, id, anchor, after = false) {
         const group = requireGroup(scene, groupId);
         const from = group.members.findIndex((member) => member.type === type && member.id === id);
         if (from < 0) throw new Error(`${MODULE_ID}: ${type} ${id} is not a member of group "${group.name}"`);
-        const members = [...group.members];
-        const [mine] = members.splice(from, 1);
+        const listed = displayOrder(scene, group.members);
+        const members = [...listed];
+        const [mine] = members.splice(listed.findIndex((member) => member.type === type && member.id === id), 1);
         let at = members.length;
         if (anchor) {
             const beside = members.findIndex((member) => member.type === anchor.type && member.id === anchor.id);
@@ -918,7 +946,7 @@ export function reorderMember(scene, groupId, type, id, anchor, after = false) {
             at = after ? beside + 1 : beside;
         }
         members.splice(at, 0, mine);
-        if (members.every((member, index) => member === group.members[index])) return false;
+        if (members.every((member, index) => member === listed[index])) return false;
         await patchGroup(scene, groupId, { members });
         await stackByList(scene, members);
         return true;

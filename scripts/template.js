@@ -24,7 +24,7 @@ const withoutOmitted = (data) => {
 
 // What a copy keeps of how its original behaves: everything the Behaviour and Events sections set, and how far it has been
 // resized. Absent from a group means the default, so only what is set travels.
-export const BEHAVIOUR = Object.freeze(['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce', 'facesTravel', 'front', 'solidOnly', 'scale', 'events']);
+export const BEHAVIOUR = Object.freeze(['ease', 'rotates', 'fixedHeading', 'ridersFree', 'mountable', 'announce', 'facesTravel', 'front', 'solidOnly', 'snap', 'scale', 'events']);
 
 /**
  * The behaviour of a group, for a template. An event that changes the picture of one of the group's tiles names that

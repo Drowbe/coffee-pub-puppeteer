@@ -306,3 +306,25 @@ export function recaptureMember(member, data, anchor) {
 export function memberUpdate(member, data, anchor) {
     return handler(member.type).apply(member.type, member, data, anchor);
 }
+
+/**
+ * The nearest place on the scene's grid to a point, for a group that snaps. Foundry's own snapping is used for the scene
+ * in view (a square's centre or corner, a hex's centre or vertex); for a scene that is not in view a square grid is
+ * snapped to the half squares, which holds both centres and corners, and any other grid is left as it is. A gridless
+ * scene has nothing to snap to.
+ * @param {Scene} scene
+ * @param {{x: number, y: number}} point
+ * @returns {{x: number, y: number}}
+ */
+export function snapToGrid(scene, point) {
+    const grid = scene.grid;
+    if (!grid || grid.type === 0) return { x: point.x, y: point.y };
+    const modes = globalThis.CONST?.GRID_SNAPPING_MODES;
+    if (modes && globalThis.canvas?.scene === scene && typeof canvas.grid?.getSnappedPoint === 'function') {
+        const snapped = canvas.grid.getSnappedPoint({ x: point.x, y: point.y }, { mode: modes.CENTER | modes.VERTEX });
+        return { x: snapped.x, y: snapped.y };
+    }
+    if (grid.type !== undefined && grid.type !== 1) return { x: point.x, y: point.y };
+    const half = (axis, size) => Math.round(axis / (size / 2)) * (size / 2);
+    return { x: half(point.x, grid.sizeX ?? grid.size), y: half(point.y, grid.sizeY ?? grid.size) };
+}

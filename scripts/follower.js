@@ -6,7 +6,7 @@
 // a position that is still being dragged.
 import { MODULE_ID, MODULE_NAME, BLACKSMITH_ID } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
-import { MEMBER_TYPES, recaptureMember, memberUpdate, memberOutOfStep, sameAnchor, poseDiffers as differs } from './geometry.js';
+import { MEMBER_TYPES, recaptureMember, memberUpdate, memberOutOfStep, sameAnchor, snapToGrid, poseDiffers as differs } from './geometry.js';
 import { getGroup, getGroups, patchGroup } from './store.js';
 import { anchorState, travelHeading } from './anchor.js';
 import { glideOptions } from './tween.js';
@@ -201,6 +201,23 @@ export async function apply(scene, groupId) {
         return;
     }
 
+    // A group that snaps goes to the grid point nearest where its pin was dropped, and the pin goes there too, so what
+    // the pin shows and where the group is stay the same.
+    const pinPatch = {};
+    if (group.snap) {
+        const at = snapToGrid(scene, anchor);
+        if (Math.abs(at.x - anchor.x) > 0.5 || Math.abs(at.y - anchor.y) > 0.5) {
+            pinPatch.x = at.x;
+            pinPatch.y = at.y;
+            anchor = { ...anchor, x: at.x, y: at.y };
+        }
+        // The pin was dropped back on the grid point the group already holds: only the pin needs to move.
+        if (sameAnchor(group.applied, anchor)) {
+            if (pinPatch.x !== undefined && group.anchor.type === 'pin') await getBlacksmith().pins.update(group.anchor.id, pinPatch, { sceneId: scene.id });
+            return;
+        }
+    }
+
     // A group that faces its travel turns to the way it was moved. The pin is turned to match once the group is there,
     // so what the pin shows and what the group does stay the same.
     const facing = travelHeading(group, group.applied, anchor, scene.grid.sizeX ?? scene.grid.size);
@@ -250,7 +267,8 @@ export async function apply(scene, groupId) {
     await patchGroup(scene, groupId, patch);
     // The body covers the members, so it goes where they went.
     await fitBody(scene, groupId);
-    if (facing !== null) await getBlacksmith().pins.update(group.anchor.id, { rotation: facing }, { sceneId: scene.id });
+    if (facing !== null) pinPatch.rotation = facing;
+    if (Object.keys(pinPatch).length && group.anchor.type === 'pin') await getBlacksmith().pins.update(group.anchor.id, pinPatch, { sceneId: scene.id });
     utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" moved ${keep.length} member(s)`, anchor, true, false);
     await fireEvent(scene, group, 'move', { from: group.applied, to: anchor });
 }
