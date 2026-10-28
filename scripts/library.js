@@ -272,7 +272,7 @@ export async function stampTemplate(scene, template, point, { heading = 0, name 
     // The template's own offsets are exactly what the stamp used, so they are the new group's offsets.
     const members = source.members.map(({ data, ...offsets }, index) => ({ ...structuredClone(offsets), id: created[index].id }));
     // How the original behaved comes with it, with its events pointed at this stamp's own tiles.
-    await patchGroup(scene, group.id, { members, applied: anchor, ...stampBehaviour(source.behaviour, members.map((member) => member.id), anchor.heading) });
+    await patchGroup(scene, group.id, { members, applied: anchor, ...stampBehaviour(source.behaviour, members.map((member) => member.id)) });
     utils.postConsoleAndNotification(MODULE_NAME, `Stamped "${source.name}" with ${members.length} member(s)`, { groupId: group.id, anchor }, true, false);
 
     // The group stands without a body if the actor is not in this world (a template from another world, or an

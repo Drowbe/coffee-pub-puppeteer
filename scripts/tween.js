@@ -192,7 +192,7 @@ function dragGroup(event) {
     // does, and a jumping one jumps then.
     if (easeOf(group).mode !== 'ease') return;
     live.set(`${scene.id}:${group.id}`, performance.now());
-    const pinAt = { x: event.pin.x, y: event.pin.y, heading: headingOf(group, event.pin.rotation) };
+    const pinAt = { x: event.pin.x, y: event.pin.y, heading: headingOf(event.pin.rotation) };
     // A group that faces its travel turns to face the pointer as it is dragged, from where the drag began.
     const facing = travelHeading(group, group.applied, pinAt, scene.grid.sizeX ?? scene.grid.size);
     showGroup(scene, group, facing === null ? pinAt : { ...pinAt, heading: facing });

@@ -72,14 +72,6 @@ test('the copy keeps the original\'s behaviour choices', async () => {
     assert.equal(copy.mountable, true);
 });
 
-test('a group that does not turn is copied facing the way it faced', async () => {
-    const g = await wagon();
-    await g.groups.setBehaviour(g.scene, g.group.id, { rotates: false });
-    const copy = await g.library.duplicateGroup(g.scene, g.group.id);
-    assert.equal(copy.rotates, false);
-    assert.equal(copy.fixedHeading, g.scene.getFlag(FLAG, 'groups')[g.group.id].fixedHeading);
-});
-
 test('a group with a body is copied with its own body, unlinked or linked as the original', async () => {
     const g = await wagon();
     await g.groups.setBody(g.scene, g.group.id, 'A1', { linked: true });

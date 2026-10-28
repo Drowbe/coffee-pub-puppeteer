@@ -14,11 +14,11 @@ Everything here is GM only. Each group has a **Behaviour** section in the Group 
 
 Lights, walls, sounds and regions always jump, because Foundry works out sight and sound from where they are saved, so they cannot be drawn part way. A cart with a lantern on it shows the lantern snap to its new place at the end of each move.
 
-## Stop it turning
+## Lock rotation
 
-**Faces its travel** turns a group to face the way you moved it, as a vehicle does: drag its pin east and the group turns to head east, and the pin turns with it. Tell it which end of the picture is the front with **Front of the group**, under **Pin**: **Down** (a token's front, the default), **Left**, **Up** or **Right**, or a number of degrees clockwise from down to fine tune. A cart drawn with its horse at the top needs **Up**; turn the group first if the picture is at an angle, then pick the nearest and adjust the number. While you drag a gliding group it turns to face the pointer, and a travelling one turns as it sets off, moving and turning together. A very short move does not turn it, and if you turn the pin yourself in the same move, your turn is the one that counts. It needs **Turns with its pin**, and is switched off while that is off.
+**Lock Rotation** is on by default: a group keeps the way it faces when you move it, however you move it. Turn it off and the group turns to face the way you moved it, as a vehicle does: drag its pin east and the group turns to head east, and the pin turns with it. Tell it which end of the picture is the front with **Front of the group**, under **Pin**: **Down** (a token's front, the default), **Left**, **Up** or **Right**, or a number of degrees clockwise from down to fine tune. A cart drawn with its horse at the top needs **Up**. While you drag a gliding group it turns to face the pointer, and a travelling one turns as it sets off, moving and turning together. A very short move does not turn it, and if you turn the pin yourself in the same move, your turn is the one that counts.
 
-**Turns with its pin** is on by default. Turn it off for a group that should slide about without ever turning, such as a platform on rails. The group keeps the way it faces now, the pin can be turned freely, and the **Heading** field and rotate buttons are disabled. Turning it on again records the group against the pin's own heading first, so nothing swings round.
+Lock Rotation only stops the group turning by itself. A turn you ask for is always made, locked or not: turn the pin (select it, hold Shift and scroll), or use the **Heading** field and the rotate buttons under **Position**. A token on the group (its Token section) is locked or unlocked to match.
 
 ## Keep riders in place
 
@@ -69,6 +69,6 @@ A group can have twenty events. If an event fails, for example because its macro
 
 ## Other controls that live beside it
 
-- **Tokens board when they move onto it** is on the group's riders row (see [Carrying tokens as riders](userguide-riders.md)).
+- **Tokens Board** is on the group's riders row (see [Carrying tokens as riders](userguide-riders.md)).
 - The **Group Bounds** button on the Puppeteer bar (see [Getting started](userguide-getting-started.md)) lights up while the bounds are shown.
 - Puppeteer's messages come on their own channel. A GM can switch them off in Blacksmith's notification settings.

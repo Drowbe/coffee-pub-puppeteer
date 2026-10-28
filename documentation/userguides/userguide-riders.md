@@ -6,7 +6,7 @@ Setting this up is GM only. Players board by moving their own tokens.
 
 ## Let tokens board
 
-On the group's row in the Group Editor, turn on **Tokens board when they move onto it**. From then on:
+On the group's row in the Group Editor, turn on **Tokens Board**. From then on:
 
 - A token that moves onto the group boards it, whether the GM or a player moved it.
 - A token created on the group, by dragging an actor from the sidebar onto it, boards it.

@@ -530,7 +530,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             </button>`;
         const step = (degrees, icon) => `
             <button type="button" class="blacksmith-tool-btn" data-action="rotate"
-                data-group-id="${id}" data-degrees="${degrees}"${group.rotates === false ? ' disabled' : ''}
+                data-group-id="${id}" data-degrees="${degrees}"
                 data-tooltip="Rotate ${Math.abs(degrees)} degrees ${degrees < 0 ? 'counter-clockwise' : 'clockwise'}">
                 <i class="${icon}"></i> ${Math.abs(degrees)}
             </button>`;
@@ -589,7 +589,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <section class="blacksmith-tool-section"><header class="blacksmith-tool-section-head"><span class="blacksmith-tool-section-title">Position</span></header>
                     <div class="puppeteer-inline">
                         <label class="puppeteer-heading">Heading
-                            <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1"${group.rotates === false ? ' disabled' : ''}>&deg;
+                            <input type="number" data-field="heading" data-group-id="${id}" value="${Math.round(heading * 100) / 100}" min="0" max="360" step="1">&deg;
                         </label>
                         ${step(-90, 'fa-solid fa-rotate-left')}${step(-15, 'fa-solid fa-rotate-left')}${step(15, 'fa-solid fa-rotate-right')}${step(90, 'fa-solid fa-rotate-right')}
                     </div>
@@ -661,8 +661,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     </label>` : ''}
                 </div>
                 ${this._optionsHtml(group.id, 'Behaviour options', [
-                    { field: 'rotates', icon: 'fa-solid fa-rotate', label: 'Turns with its pin', checked: group.rotates !== false, tooltip: 'On, the group turns when its pin turns. Off, it keeps the way it faces and only follows its pin about.' },
-                    { field: 'facesTravel', icon: 'fa-solid fa-location-arrow', label: 'Faces its travel', checked: !!group.facesTravel, disabled: group.rotates === false, tooltip: 'On, a group turns to face the way it was moved, as a vehicle does. Its front is the bottom of its picture, as a token\'s is. It needs Turns with its pin.' },
+                    { field: 'lockRotation', icon: 'fa-solid fa-lock', label: 'Lock Rotation', checked: !group.facesTravel, tooltip: 'On, the group keeps the way it faces when it is moved. Off, it turns to face the way it was moved, as a vehicle does, leading with its front (set under Pin). Either way, turning the pin or using Heading turns it. A token on the group is locked or unlocked to match.' },
                     { field: 'solidOnly', icon: 'fa-solid fa-vector-square', label: 'Ignore Transparent Area', checked: group.solidOnly !== false, tooltip: 'On, the transparent parts of a picture do not count as on the group: a token standing on a transparent corner does not board, and one moved onto it is let go. Off, the whole box around the group counts.' },
                     { field: 'snap', icon: 'fa-solid fa-border-all', label: 'Snap to Grid', checked: !!group.snap, tooltip: 'On, when the pin is dropped the group goes to the nearest point of the grid (a square\'s centre or corner), and the pin with it.' }
                 ])}`;
@@ -733,7 +732,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <button type="button" class="blacksmith-tool-btn" data-action="boardSelected" data-group-id="${id}" data-tooltip="Put the selected tokens aboard. They must be on the group."><i class="fa-solid fa-person-walking-luggage"></i> Board Selected</button>
                 </div>
                 ${this._optionsHtml(group.id, 'Boarding', [
-                    { field: 'mountable', icon: 'fa-solid fa-person-walking-luggage', label: 'Tokens board when they move onto it', checked: !!group.mountable, tooltip: 'A token that moves onto this group, or is dropped on it from the sidebar, boards it. Off, nothing boards unless you choose Board Selected.' },
+                    { field: 'mountable', icon: 'fa-solid fa-person-walking-luggage', label: 'Tokens Board', checked: !!group.mountable, tooltip: 'A token that moves onto this group, or is dropped on it from the sidebar, boards it. Off, nothing boards unless you choose Board Selected.' },
                     { field: 'announce', icon: 'fa-solid fa-bullhorn', label: 'Announce boarding', checked: !!group.announce, tooltip: 'Post a chat card, with a sound, when a token boards or leaves.' },
                     { field: 'ridersFree', icon: 'fa-solid fa-person-walking', label: 'Riders move freely', checked: group.ridersFree !== false, tooltip: 'On, a rider can be moved about the group by hand. Off, one moved by hand is put back where it rides.' }
                 ])}
@@ -843,10 +842,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             if (input.dataset.field === 'easeMode') { await setBehaviour(scene, groupId, { ease: { mode: input.value } }); return this.render(); }
             if (input.dataset.field === 'easeMs') return setBehaviour(scene, groupId, { ease: { ms: Number(input.value) } });
             if (input.dataset.field === 'easeSpeed') return setBehaviour(scene, groupId, { ease: { speed: Number(input.value) } });
-            if (input.dataset.field === 'rotates') { await setBehaviour(scene, groupId, { rotates: input.checked }); return this.render(); }
-            if (input.dataset.field === 'solidOnly') return setBehaviour(scene, groupId, { solidOnly: input.checked });
-            if (input.dataset.field === 'snap') return setBehaviour(scene, groupId, { snap: input.checked });
-            if (input.dataset.field === 'facesTravel') { await setBehaviour(scene, groupId, { facesTravel: input.checked }); return this.render(); }
+            if (input.dataset.field === 'lockRotation') { await setBehaviour(scene, groupId, { lockRotation: input.checked }); return this.render(); }
             if (input.dataset.field === 'front' || input.dataset.field === 'frontDegrees') {
                 await setBehaviour(scene, groupId, { front: Number(input.value) || 0 });
                 return this.render();

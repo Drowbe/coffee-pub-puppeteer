@@ -35,10 +35,9 @@ test('the heading of a move is Foundry\'s rotation: down is 0, west 90, up 180, 
     near(go(300, 300), 315);
 });
 
-test('no heading is chosen unless the group asks for one, can turn, and was only moved', () => {
+test('no heading is chosen unless the group is unlocked and was only moved', () => {
     const to = pose(0, 3500);
     assert.equal(travelHeading({}, pose(0), to, 100), null, 'not asked for');
-    assert.equal(travelHeading({ facesTravel: true, rotates: false }, pose(0), to, 100), null, 'does not turn with its pin');
     assert.equal(travelHeading({ facesTravel: true }, pose(0), pose(45, 3500), 100), null, 'the pin was turned by hand as well');
     assert.equal(travelHeading({ facesTravel: true }, pose(0), pose(0, 3020), 100), null, 'a nudge is not a journey');
 });
@@ -80,17 +79,39 @@ test('turning the pin by hand is obeyed, and the group does not face its travel 
     near(live(plain).heading, 0);
 });
 
-test('turning it off removes the setting, a duplicate keeps it, and it cannot turn a group that does not turn', async () => {
+test('locking removes the setting, a duplicate keeps it, and a locked group does not turn as it moves', async () => {
     const g = await boat();
     assert.equal(live(g).facesTravel, true);
     const library = await import('../scripts/library.js');
     const copy = await library.duplicateGroup(g.scene, g.group.id);
     assert.equal(copy.facesTravel, true);
-    await g.groups.setBehaviour(g.scene, g.group.id, { facesTravel: false });
+    await g.groups.setBehaviour(g.scene, g.group.id, { lockRotation: true });
     assert.equal(live(g).facesTravel, undefined);
-
-    await g.groups.setBehaviour(g.scene, g.group.id, { facesTravel: true, rotates: false });
+    await g.groups.setBehaviour(g.scene, g.group.id, { lockRotation: false });
+    assert.equal(live(g).facesTravel, true);
+    await g.groups.setBehaviour(g.scene, g.group.id, { lockRotation: true });
     await g.pins.update(g.group.anchor.id, { x: 3500 });
     await g.settle();
     near(live(g).heading, 0);
+});
+
+test('a turn that is asked for is made even when rotation is locked', async () => {
+    const g = await boat({});
+    await g.groups.setHeading(g.scene, g.group.id, 90);
+    await g.settle();
+    near(live(g).heading, 90);
+    await g.groups.rotateBy(g.scene, g.group.id, 45);
+    await g.settle();
+    near(live(g).heading, 135);
+});
+
+test('the group\'s token is locked and unlocked with the group', async () => {
+    const g = await boat({});
+    game.actors.set('A1', { id: 'A1', name: 'Boat', async getTokenDocument(data) { return { toObject: () => ({ actorId: 'A1', ...data }) }; } });
+    const body = await g.groups.setBody(g.scene, g.group.id, 'A1');
+    assert.equal(body._source.lockRotation, true);
+    await g.groups.setBehaviour(g.scene, g.group.id, { lockRotation: false });
+    assert.equal(body._source.lockRotation, false);
+    await g.groups.setBehaviour(g.scene, g.group.id, { lockRotation: true });
+    assert.equal(body._source.lockRotation, true);
 });

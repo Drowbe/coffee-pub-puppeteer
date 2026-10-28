@@ -6,8 +6,8 @@ import {
     MEMBER_TYPES, UnsupportedMemberError, captureMember, recaptureMember, memberExtent, memberUpdate, scaleMember, poseOffset, extentCentre, groupBounds, sameAnchor, normAngle
 } from './geometry.js';
 import { getGroup, getGroups, saveGroup, patchGroup, deleteGroupRecord } from './store.js';
-import { syncGroup, runExclusive, apply, repivot } from './follower.js';
-import { anchorState, anchorExists, headingOf } from './anchor.js';
+import { syncGroup, runExclusive, apply } from './follower.js';
+import { anchorState, anchorExists } from './anchor.js';
 import { EASE_LIMITS, TRAVEL_SPEED_LIMITS, DEFAULT_TRAVEL_SPEED } from './tween.js';
 import { announceBoarding, playCue } from './announce.js';
 import { fireEvent, normaliseEvent, MAX_EVENTS } from './events.js';
@@ -425,7 +425,7 @@ export function setBody(scene, groupId, actorId, { linked = false, name } = {}) 
         const actor = game.actors.get(actorId);
         if (!actor) throw new Error(`${MODULE_ID}: there is no actor ${actorId}`);
 
-        const data = { ...bodyFootprint(scene, group), ...bodyTraits(groupId), actorLink: !!linked, name: name ?? group.name };
+        const data = { ...bodyFootprint(scene, group), ...bodyTraits(groupId), lockRotation: !group.facesTravel, actorLink: !!linked, name: name ?? group.name };
         const document = await actor.getTokenDocument(data);
         const [token] = await scene.createEmbeddedDocuments('Token', [document.toObject()]);
         await patchGroup(scene, groupId, { body: { tokenId: token.id, actorId } });
@@ -448,7 +448,7 @@ export function adoptBody(scene, groupId, token) {
         if (!token.actorId) throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} has no actor to represent`);
         if (token.getFlag(MODULE_ID, 'groupId') || token.getFlag(MODULE_ID, RIDER_FLAG)) throw new Error(`${MODULE_ID}: ${token.name ?? 'that token'} already belongs to a group`);
 
-        await token.update({ ...bodyFootprint(scene, group), ...bodyTraits(groupId) }, bodyMove());
+        await token.update({ ...bodyFootprint(scene, group), ...bodyTraits(groupId), lockRotation: !group.facesTravel }, bodyMove());
         await patchGroup(scene, groupId, { body: { tokenId: token.id, actorId: token.actorId } });
         utils.postConsoleAndNotification(MODULE_NAME, `Group "${group.name}" now uses ${token.name} as its body`, { tokenId: token.id }, true, false);
         return token;
@@ -569,12 +569,13 @@ export function setMovePivot(scene, groupId, on) {
 
 /**
  * Choose how a group behaves.
+ *  - `lockRotation`: boolean, on by default. On, the group keeps its heading when it is moved. Off, it turns to face the way
+ *    it was moved (its front is set by `front`). Either way a turn that is asked for, with the pin or the Heading field, is
+ *    made. It is `facesTravel` turned the other way round, and a group's body token gets the same lock.
  *  - `facesTravel`: boolean. When the pin is moved the group turns to face the way it went (its front is the bottom of its
  *    picture, as a token's is). It does nothing for a group that does not turn with its pin.
  *  - `ease`: `{ mode: 'ease' | 'travel' | 'jump', ms, speed }`. How the group moves on screen when its pin moves or turns:
  *    a short glide of `ms`, a steady travel at `speed` squares a second, or no movement between the two places.
- *  - `rotates`: whether the group turns when its pin does. Off, it keeps the way it faces now and only follows the pin
- *    about. Turning it back on records the group again against the pin's own heading, so nothing swings.
  *  - `front`: degrees, which way the picture's front points as a clockwise turn from down (0 down, 90 left, 180 up, 270
  *    right). A group that faces its travel puts this end first.
  *  - `ridersFree`: whether a rider may be moved about inside the group. Off, a rider moved by hand is put back.
@@ -586,7 +587,7 @@ export function setMovePivot(scene, groupId, on) {
  * @returns {Promise<object>} The group record.
  */
 export function setBehaviour(scene, groupId, options = {}) {
-    const { pins } = getBlacksmith();
+    if ('lockRotation' in options) options = { ...options, facesTravel: !options.lockRotation };
     return runExclusive(scene, groupId, async () => {
         await apply(scene, groupId);
         const group = requireGroup(scene, groupId);
@@ -627,21 +628,12 @@ export function setBehaviour(scene, groupId, options = {}) {
             else patch['-=facesTravel'] = null;
         }
 
-        if ('rotates' in options && !!options.rotates !== (group.rotates !== false)) {
-            if (!options.rotates) {
-                // Freeze the way it faces now, so choosing this moves nothing.
-                patch.rotates = false;
-                patch.fixedHeading = group.applied.heading;
-            } else {
-                // Record every part against the pin's own heading first, so nothing swings round to meet it.
-                const pin = pins.get(group.anchor.id, { sceneId: scene.id });
-                if (!pin) throw new Error(`${MODULE_ID}: the pin of group "${group.name}" is gone`);
-                await repivot(scene, { ...group, rotates: true }, { x: pin.x, y: pin.y, heading: pin.rotation ?? 0 });
-                patch['-=rotates'] = null;
-                patch['-=fixedHeading'] = null;
-            }
-        }
         if (Object.keys(patch).length) await patchGroup(scene, groupId, patch);
+        // The body token is lined up with the group, so it is locked as the group is.
+        if ('facesTravel' in patch || '-=facesTravel' in patch) {
+            const token = bodyToken(scene, getGroup(scene, groupId));
+            if (token) await token.update({ lockRotation: !patch.facesTravel }, bodyMove());
+        }
         return getGroup(scene, groupId);
     });
 }
@@ -1018,7 +1010,6 @@ export async function setBodyLinked(scene, groupId, linked) {
 /** Set the heading in degrees (clockwise, 0 facing down). The follower moves the members. */
 export async function setHeading(scene, groupId, degrees) {
     const group = requireGroup(scene, groupId);
-    if (group.rotates === false) throw new Error(`${MODULE_ID}: group "${group.name}" does not turn with its pin; turn it on in Behaviour first`);
     // A pin group faces where its pin faces. Turning it here and turning the pin with Shift + wheel are the same
     // write, and the follower does the rest.
     await getBlacksmith().pins.update(group.anchor.id, { rotation: normAngle(degrees) }, { sceneId: scene.id });
