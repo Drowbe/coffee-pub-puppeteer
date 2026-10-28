@@ -3,7 +3,7 @@
 import { MODULE_ID, TOAST_CHANNEL } from './constants.js';
 import { bootstrap } from './bootstrap.js';
 import { groupState } from './state.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden, setEmittersOn, setPlaying, replacePin, addEvent, removeEvent, scaleGroup, resetScale, setGroupWidth } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden, setEmittersOn, setPlaying, replacePin, addEvent, removeEvent, scaleGroup, resetScale, setGroupWidth, restackGroup } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -115,6 +115,8 @@ Hooks.once('ready', async () => {
         resetScale: (groupId, scene = canvas.scene) => resetScale(scene, groupId),
         /** Resize a group so it is `squares` grid squares wide, within a tenth and ten times its width now. */
         setWidth: (groupId, squares, scene = canvas.scene) => setGroupWidth(scene, groupId, squares),
+        /** Draw a whole group above (`'front'`) or below (`'back'`) everything else of its tiles' and drawings' kinds, by sort order. Returns `{ moved }`. */
+        restack: (groupId, where, scene = canvas.scene) => restackGroup(scene, groupId, where),
         /** Switch a group's lights (`'AmbientLight'`) or sounds (`'AmbientSound'`) on or off together; `on` left out flips them. */
         setEmittersOn: (groupId, type, on, scene = canvas.scene) => setEmittersOn(scene, groupId, type, on),
         /** Play or pause a group by running its "Play is clicked" or "Pause is clicked" events; `playing` left out flips it. Returns `{ playing, ran }`. */

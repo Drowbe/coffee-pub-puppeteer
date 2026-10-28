@@ -11,7 +11,7 @@ Everything here is GM only. A group is a pin on the map plus the tiles, drawings
 3. Or choose **Capture Area** and drag a box. Everything inside it, on every layer, joins the group.
 4. To take parts out, select them and choose **Remove Selected**, or use the cross beside a part under **Parts**.
 
-Right-clicking the pin gives the same actions, and double-clicking the pin opens the Group Editor on that group. The pin menu also has **Hide or Show Group**, **Switch Group Lights On or Off** and **Switch Group Sounds On or Off** (each shown only if the group has any) and **Duplicate Group**. The lights and sounds items flip them together: if any is on they all go off, and if none is they all come on.
+Right-clicking the pin gives the same actions, and double-clicking the pin opens the Group Editor on that group. The pin menu also has **Hide or Show Group**, **Duplicate Group** and three submenus for what is done less often: **Lights, Sounds and Bounds** (switch the group's lights, switch its sounds, show or hide its bounds), **Pivot and Rotation** (move the pivot to the group's centre, rotate 90 degrees either way) and **Group Layer** (bring the group to the front, send it to the back). The lights and sounds items flip them together: if any is on they all go off, and if none is they all come on; a group that has none says so.
 
 ## Name parts and find them again
 
@@ -34,6 +34,7 @@ To hide one part, choose the eye beside it under **Parts**. A light or a sound h
 
 Both are in the **...** menu in the group card's bar.
 
+- **Bring to Front** and **Send to Back** draw the whole group above or below everything else on the scene (its tiles and drawings; the parts keep their order among themselves). If something still covers the group afterwards, it is higher by elevation, and the elevation needs changing instead.
 - **Centre Pivot** moves the pin to the middle of the group without moving anything, so the group turns about its own centre.
 - **Move Pivot** puts the pin anywhere, such as the prow of a ship, a wagon's hitch or a door's hinge. Choose **Move Pivot** from the **...** menu (the card shows a notice) and drag the pin to where you want it. The pin moves, nothing else does, and Move Pivot switches itself off when you drop the pin. After that the group moves and turns about the new spot. Choose **Move Pivot** again before dragging to cancel.
 

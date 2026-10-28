@@ -7,7 +7,7 @@ import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, selectToken, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
-    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, setGroupWidth, groupWidth, HIDEABLE
+    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, setGroupWidth, groupWidth, HIDEABLE
 } from './groups.js';
 import { TRIGGERS, ACTIONS, HEALTH_LEVELS, describeEvent } from './events.js';
 import { easeOf } from './tween.js';
@@ -1219,6 +1219,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             zones: [
                 { name: 'Centre Pivot', icon: 'fa-solid fa-bullseye', description: 'Move the pin to the middle of the group without moving anything', callback: () => this._recenterPivot(groupId) },
                 { name: group.movePivot ? 'Move Pivot: On' : 'Move Pivot', icon: 'fa-solid fa-crosshairs', description: 'Drag the pin once and only the pin moves, so the grip can go anywhere', callback: () => this._movePivot(groupId) },
+                { name: 'Bring to Front', icon: 'fa-solid fa-angles-up', description: 'Draw the whole group above everything else on the scene, parts keeping their order', callback: () => this._restack(groupId, 'front') },
+                { name: 'Send to Back', icon: 'fa-solid fa-angles-down', description: 'Draw the whole group below everything else on the scene, parts keeping their order', callback: () => this._restack(groupId, 'back') },
                 { separator: true },
                 { name: 'Duplicate', icon: 'fa-solid fa-clone', description: 'A copy two squares to the right, with its own pin and parts', callback: () => this._duplicate(groupId) },
                 { name: 'Save to Library', icon: 'fa-solid fa-boxes-stacked', description: 'A copy you can fabricate on any scene', callback: () => this._saveToLibrary(groupId) },
@@ -1226,6 +1228,15 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 { separator: true },
                 { name: 'Delete', icon: 'fa-solid fa-trash', callback: () => this._deleteGroup(groupId) }
             ]
+        });
+    }
+
+    _restack(groupId, where) {
+        return run(where === 'front' ? 'Bring to front' : 'Send to back', async () => {
+            const { moved } = await restackGroup(canvas.scene, groupId, where);
+            say(moved ? (where === 'front' ? 'Group brought to the front' : 'Group sent to the back') : 'Nothing to change', moved
+                ? `${moved} part(s) given a new place in the stack. If something still covers the group, it is higher by elevation: change the elevation instead.`
+                : 'The group is already there, or has no tiles or drawings to stack.');
         });
     }
 

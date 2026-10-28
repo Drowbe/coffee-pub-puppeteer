@@ -4,7 +4,7 @@ import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { toggleBounds, boundsShown, BOUNDS_BAR_ITEM } from './overlay.js';
 import { syncAllGroups } from './follower.js';
-import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup, setGroupHidden, setEmittersOn, setPlaying, canPlayPause } from './groups.js';
+import { captureArea, recenterPivot, addSelected, removeSelected, selectMembers, rotateBy, createGroup, setGroupHidden, setEmittersOn, setPlaying, canPlayPause, restackGroup } from './groups.js';
 import { getGroup } from './store.js';
 import { duplicateGroup } from './library.js';
 import { placeNewGroup } from './placement.js';
@@ -174,27 +174,36 @@ function registerToolbar(blacksmith) {
     });
 }
 
-// The pin you right-click is the group, so these need no group picker.
+// The pin you right-click is the group, so these need no group picker. What is done often is on the menu itself; what is
+// done now and then is in a submenu, so the menu stays short.
 function registerPinMenu(blacksmith) {
     const { pins, utils, toast } = blacksmith;
 
-    const item = (id, name, icon, order, action, visible = true) => pins.registerContextMenuItem(`${MODULE_ID}-${id}`, {
-        name,
-        icon: `<i class="${icon}"></i>`,
+    /** Wrap an action on a group so a failure is reported, not thrown into Blacksmith's menu. */
+    const guarded = (name, action) => async (pin) => {
+        const groupId = groupIdOf(pin);
+        if (!groupId) return;
+        try {
+            await action(groupId);
+        } catch (error) {
+            console.error(`${MODULE_ID}: ${name} failed`, error);
+            utils.postConsoleAndNotification(MODULE_NAME, `${name} failed: ${error.message}`, null, false, true);
+        }
+    };
+    const entry = (name, icon, action) => ({ name, icon: `<i class="${icon}"></i>`, onClick: guarded(name, action) });
+
+    const register = (id, order, spec, visible = true) => pins.registerContextMenuItem(`${MODULE_ID}-${id}`, {
+        ...spec,
         moduleId: MODULE_ID,
         gmOnly: true,
         order,
-        visible,
-        onClick: async (pin) => {
-            const groupId = groupIdOf(pin);
-            if (!groupId) return;
-            try {
-                await action(groupId);
-            } catch (error) {
-                console.error(`${MODULE_ID}: ${name} failed`, error);
-                utils.postConsoleAndNotification(MODULE_NAME, `${name} failed: ${error.message}`, null, false, true);
-            }
-        }
+        visible
+    });
+    const item = (id, name, icon, order, action, visible) => register(id, order, entry(name, icon, action), visible);
+    const submenu = (id, name, icon, order, children) => register(id, order, {
+        name,
+        icon: `<i class="${icon}"></i>`,
+        submenu: children.map(([childName, childIcon, action]) => ({ ...entry(childName, childIcon, action), gmOnly: true }))
     });
 
     item('capture-area', 'Capture Area into Group', 'fa-solid fa-vector-square', 9, async (groupId) => {
@@ -223,35 +232,11 @@ function registerPinMenu(blacksmith) {
             duration: 6
         });
     });
-    item('centre-pivot', 'Move Pivot to Group Centre', 'fa-solid fa-bullseye', 12.5, async (groupId) => {
-        const anchor = await recenterPivot(canvas.scene, groupId);
-        toast.show({
-            title: anchor ? 'Pivot centred' : 'Nothing to centre on',
-            subtitle: anchor
-                ? `Pin ${anchor.from ? `moved from ${anchor.from.x}, ${anchor.from.y} ` : ''}to ${anchor.x}, ${anchor.y}, the middle of a ${anchor.width} by ${anchor.height} group. Nothing else moved.`
-                : 'The group has no members yet.',
-            icon: 'fa-solid fa-up-down-left-right',
-            channel: TOAST_CHANNEL,
-            duration: 8
-        });
-    });
-    item('toggle-bounds', 'Show or Hide Group Bounds', 'fa-solid fa-border-none', 12.7, async () => toggleBounds());
-    item('rotate-cw', 'Rotate Group 90° Clockwise', 'fa-solid fa-rotate-right', 13, (groupId) => rotateBy(canvas.scene, groupId, 90));
-    item('rotate-ccw', 'Rotate Group 90° Counter-clockwise', 'fa-solid fa-rotate-left', 14, (groupId) => rotateBy(canvas.scene, groupId, -90));
-    // Only offered when the group has any, so a plain platform's menu stays short.
-    const has = (type) => (pin) => !!getGroup(canvas.scene, groupIdOf(pin))?.members.some((member) => member.type === type);
     item('toggle-hidden', 'Hide or Show Group', 'fa-solid fa-eye-slash', 12.8, async (groupId) => {
         const hidden = await setGroupHidden(canvas.scene, groupId, !getGroup(canvas.scene, groupId).hidden);
         toast.show({ title: hidden ? 'Group hidden' : 'Group shown', icon: 'fa-solid fa-up-down-left-right', channel: TOAST_CHANNEL, duration: 3 });
     });
-    item('toggle-lights', 'Switch Group Lights On or Off', 'fa-solid fa-lightbulb', 12.9, async (groupId) => {
-        const { on } = await setEmittersOn(canvas.scene, groupId, 'AmbientLight');
-        toast.show({ title: on ? 'Lights on' : 'Lights off', icon: 'fa-solid fa-lightbulb', channel: TOAST_CHANNEL, duration: 3 });
-    }, has('AmbientLight'));
-    item('toggle-sounds', 'Switch Group Sounds On or Off', 'fa-solid fa-volume-high', 12.95, async (groupId) => {
-        const { on } = await setEmittersOn(canvas.scene, groupId, 'AmbientSound');
-        toast.show({ title: on ? 'Sounds on' : 'Sounds off', icon: 'fa-solid fa-volume-high', channel: TOAST_CHANNEL, duration: 3 });
-    }, has('AmbientSound'));
+    // Only offered when the group has events for it, so a plain platform's menu stays short.
     item('toggle-playing', 'Play or Pause Group', 'fa-solid fa-play-pause', 12.97, async (groupId) => {
         const { playing } = await setPlaying(canvas.scene, groupId);
         toast.show({ title: playing ? 'Group playing' : 'Group paused', icon: 'fa-solid fa-play-pause', channel: TOAST_CHANNEL, duration: 3 });
@@ -259,6 +244,42 @@ function registerPinMenu(blacksmith) {
         const group = getGroup(canvas.scene, groupIdOf(pin));
         return !!group && canPlayPause(group);
     });
+
+    // A submenu's rows cannot be hidden one by one, so a switch for something the group has none of says so when chosen.
+    const emitters = (type, plural, icon) => async (groupId) => {
+        const { on, count } = await setEmittersOn(canvas.scene, groupId, type);
+        toast.show({ title: count ? `${plural} ${on ? 'on' : 'off'}` : `No ${plural.toLowerCase()} in this group`, icon, channel: TOAST_CHANNEL, duration: 3 });
+    };
+    submenu('switches', 'Lights, Sounds and Bounds', 'fa-solid fa-lightbulb', 13, [
+        ['Switch Group Lights On or Off', 'fa-solid fa-lightbulb', emitters('AmbientLight', 'Lights', 'fa-solid fa-lightbulb')],
+        ['Switch Group Sounds On or Off', 'fa-solid fa-volume-high', emitters('AmbientSound', 'Sounds', 'fa-solid fa-volume-high')],
+        ['Show or Hide Group Bounds', 'fa-solid fa-border-none', async () => toggleBounds()]
+    ]);
+    submenu('position', 'Pivot and Rotation', 'fa-solid fa-arrows-rotate', 13.5, [
+        ['Move Pivot to Group Centre', 'fa-solid fa-bullseye', async (groupId) => {
+            const anchor = await recenterPivot(canvas.scene, groupId);
+            toast.show({
+                title: anchor ? 'Pivot centred' : 'Nothing to centre on',
+                subtitle: anchor
+                    ? `Pin ${anchor.from ? `moved from ${anchor.from.x}, ${anchor.from.y} ` : ''}to ${anchor.x}, ${anchor.y}, the middle of a ${anchor.width} by ${anchor.height} group. Nothing else moved.`
+                    : 'The group has no members yet.',
+                icon: 'fa-solid fa-up-down-left-right',
+                channel: TOAST_CHANNEL,
+                duration: 8
+            });
+        }],
+        ['Rotate Group 90\u00b0 Clockwise', 'fa-solid fa-rotate-right', (groupId) => rotateBy(canvas.scene, groupId, 90)],
+        ['Rotate Group 90\u00b0 Counter-clockwise', 'fa-solid fa-rotate-left', (groupId) => rotateBy(canvas.scene, groupId, -90)]
+    ]);
+    const restack = (where) => async (groupId) => {
+        const { moved } = await restackGroup(canvas.scene, groupId, where);
+        toast.show({ title: moved ? (where === 'front' ? 'Group brought to the front' : 'Group sent to the back') : 'Nothing to change', icon: 'fa-solid fa-layer-group', channel: TOAST_CHANNEL, duration: 3 });
+    };
+    submenu('layer', 'Group Layer', 'fa-solid fa-layer-group', 14, [
+        ['Bring Group to Front', 'fa-solid fa-angles-up', restack('front')],
+        ['Send Group to Back', 'fa-solid fa-angles-down', restack('back')]
+    ]);
+
     item('duplicate', 'Duplicate Group', 'fa-solid fa-clone', 14.5, async (groupId) => {
         const copy = await duplicateGroup(canvas.scene, groupId);
         toast.show({ title: 'Group duplicated', subtitle: `${copy.name} is two squares to the right.`, icon: 'fa-solid fa-clone', channel: TOAST_CHANNEL, duration: 4 });

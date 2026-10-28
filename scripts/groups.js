@@ -811,6 +811,53 @@ export function setGroupHidden(scene, groupId, hidden) {
 }
 
 /** Hide or show one part of a group. Only the types in HIDEABLE can be hidden. */
+/** The member types that stack: Foundry draws them by elevation, then by sort order. */
+export const STACKED = Object.freeze(['Tile', 'Drawing']);
+
+const stackOrder = (a, b) => ((a._source.elevation ?? 0) - (b._source.elevation ?? 0)) || ((a._source.sort ?? 0) - (b._source.sort ?? 0));
+
+/**
+ * Move a whole group above or below everything else on the scene of its kind, keeping its parts in the same order among
+ * themselves. This changes the parts' sort order only, never their elevation, so a part that something sits above by
+ * elevation needs its elevation changed instead.
+ * @param {'front'|'back'} where
+ * @returns {Promise<{moved: number}>}  How many parts were given a new place in the stack.
+ */
+export function restackGroup(scene, groupId, where) {
+    if (where !== 'front' && where !== 'back') throw new Error(`${MODULE_ID}: a group goes to the "front" or the "back", not "${where}"`);
+    return runExclusive(scene, groupId, async () => {
+        const group = requireGroup(scene, groupId);
+        let moved = 0;
+        for (const type of STACKED) {
+            const ids = new Set(group.members.filter((member) => member.type === type).map((member) => member.id));
+            const collection = scene.getEmbeddedCollection(type);
+            const parts = [...ids].map((id) => collection.get(id)).filter(Boolean).sort(stackOrder);
+            if (!parts.length) continue;
+            const others = [...collection.values()].filter((doc) => !ids.has(doc.id));
+            const elevations = parts.map((part) => part._source.elevation ?? 0);
+            let first;
+            if (where === 'front') {
+                // Above whatever is drawn at or above the group's lowest part.
+                const rivals = others.filter((doc) => (doc._source.elevation ?? 0) >= Math.min(...elevations));
+                first = rivals.length ? Math.max(...rivals.map((doc) => doc._source.sort ?? 0)) + 1 : null;
+            } else {
+                // Below whatever is drawn at or below the group's highest part.
+                const rivals = others.filter((doc) => (doc._source.elevation ?? 0) <= Math.max(...elevations));
+                first = rivals.length ? Math.min(...rivals.map((doc) => doc._source.sort ?? 0)) - parts.length : null;
+            }
+            if (first === null) continue;
+            const updates = [];
+            parts.forEach((part, index) => {
+                if ((part._source.sort ?? 0) !== first + index) updates.push({ _id: part.id, sort: first + index });
+            });
+            if (!updates.length) continue;
+            await scene.updateEmbeddedDocuments(type, updates, FOLLOWER_WRITE());
+            moved += updates.length;
+        }
+        return { moved };
+    });
+}
+
 /**
  * Switch a group's lights or its sounds on or off together. Left out, `on` flips them: if any is on they all go off, if none
  * is they all come on. A light or a sound is on when it is not hidden.
