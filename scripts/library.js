@@ -37,11 +37,18 @@ function write(library) {
     return getBlacksmith().utils.setSettingSafely(MODULE_ID, KEY, library);
 }
 
+/** How many parts of each type a template holds, as { Tile: 3, AmbientLight: 2 }. */
+function partCounts(members) {
+    const counts = {};
+    for (const member of members) counts[member.type] = (counts[member.type] ?? 0) + 1;
+    return counts;
+}
+
 /** What the library holds, by name. `category` is the id of its category, or null. */
 export function listTemplates() {
     const known = new Set(readCategories().map((category) => category.id));
     return Object.entries(read())
-        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, actor: template.body?.actorName ?? null, description: template.description ?? '', thumbnail: template.thumbnail ?? null, savedAt: template.savedAt ?? 0, category: known.has(template.category) ? template.category : null }))
+        .map(([id, template]) => ({ id, name: template.name, members: template.members.length, counts: partCounts(template.members), actor: template.body?.actorName ?? null, description: template.description ?? '', thumbnail: template.thumbnail ?? null, savedAt: template.savedAt ?? 0, category: known.has(template.category) ? template.category : null }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 

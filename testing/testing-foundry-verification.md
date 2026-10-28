@@ -46,6 +46,7 @@ Everything below has shipped and has not been proven in a running world. The aut
 
 - [ ] Under Pin on a card, choose Move Pivot on a group with a rider and a body. Drag the pin to the prow and then turn it with Shift and the wheel, in several notches. Nothing else moves or turns, the button reads Move Pivot: On and the notice stays until it is chosen again. Choose it again: the next drag takes the whole group.
 - [ ] With Move Pivot off, drag the pin and the whole group follows. Turn it with Shift and the wheel and the group turns about the new grip.
+- [ ] The switches under Riders and Behaviour sit in three tight columns from the left (a short gap, not spread across the window). A Library entry has a larger picture that sets the row's height; beside it the name, a line like "3 tiles, 2 lights, 1 region", and a description in a smaller size than the name that stops at two lines with an ellipsis (hovering shows all of it).
 - [ ] Lock Rotation is on by default: drag the pin in any direction and the group keeps its heading. Turn the pin with Shift and the wheel, or use Heading and the rotate buttons: the group turns even while locked. Turn Lock Rotation off and drag the pin: the group turns to lead with its front. A group with a token: the token's Lock Rotation (in its configuration) follows the switch.
 - [ ] Under Pin, Front of the group is always shown. With Move Pivot on, turn the pin to point at the front of a group with Lock Rotation off: the Front setting follows the turn, and moving the pin afterwards turns the group to lead with that end.
 

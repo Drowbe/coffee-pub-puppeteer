@@ -32,11 +32,13 @@
     gap: 6px;
 }
 
-/* The on and off switches sit on a grid: equal columns, a switch and its label to a cell, however wide the window is. */
+/* The on and off switches sit on a grid of three columns, each as wide as its widest label, and a short gap between them, packed to
+   the left however wide the window is, so the eye does not have to cross the window to find the next one. */
 .puppeteer-group-editor .puppeteer-options {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
-    gap: 6px 16px;
+    grid-template-columns: repeat(3, minmax(0, max-content));
+    justify-content: start;
+    gap: 6px 2.5em;
     align-items: center;
 }
 
@@ -266,4 +268,49 @@
 
 .puppeteer-group-editor .blacksmith-list-row.is-drop-after {
     box-shadow: 0 2px 0 0 var(--blacksmith-tool-accent, #ff9a1f);
+}
+
+/* A library entry: the picture sets the height of the row, big enough for a title, the parts and two lines of description. */
+.puppeteer-group-editor .puppeteer-template .blacksmith-list-row-img {
+    width: 6em;
+    height: 6em;
+    flex: 0 0 auto;
+    object-fit: contain;
+}
+
+.puppeteer-group-editor .puppeteer-template .blacksmith-list-row-main {
+    min-width: 0;
+}
+
+/* Blacksmith's shared list row sets a title at 0.9em, which is right for a row of one line; an entry with a picture, a count and a
+   description is read by its name, so the name is larger here. */
+.puppeteer-group-editor .puppeteer-template .blacksmith-list-row-title {
+    font-size: 1.15em;
+}
+
+/* The description reads smaller than the title and stops at two lines, with an ellipsis. */
+.puppeteer-group-editor .puppeteer-template-description {
+    font-size: 0.9em;
+    font-weight: normal;
+    min-width: 0;
+}
+
+.puppeteer-group-editor .puppeteer-template-description .blacksmith-tool-editable-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Blacksmith leaves the rename pencil half lit; here it is out of sight until the text, or the pencil, is hovered or focused,
+   so a column of names and descriptions is not a column of buttons. It still takes up its room, so nothing shifts. */
+.puppeteer-group-editor .blacksmith-tool-editable-edit {
+    opacity: 0;
+}
+
+.puppeteer-group-editor .blacksmith-tool-editable:hover .blacksmith-tool-editable-edit,
+.puppeteer-group-editor .blacksmith-tool-editable:focus-within .blacksmith-tool-editable-edit,
+.puppeteer-group-editor .blacksmith-tool-editable-edit:focus-visible {
+    opacity: 1;
 }

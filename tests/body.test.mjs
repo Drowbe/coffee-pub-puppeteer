@@ -184,6 +184,8 @@ test('a group with a body saves the actor to the library, and no token', async (
     assert.deepEqual(template.body, { actorId: 'A1', actorName: 'Merchant', linked: true });
     assert.equal(JSON.stringify(template).includes('transparent.png'), false);
     assert.equal(library.listTemplates()[0].actor, 'Merchant');
+    const entry = library.listTemplates()[0];
+    assert.equal(Object.values(entry.counts).reduce((sum, count) => sum + count, 0), entry.members);
 });
 
 test('every stamp of it comes with its own body, sized to that stamp', async () => {

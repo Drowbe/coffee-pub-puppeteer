@@ -54,6 +54,13 @@ const TYPE_PLURAL = {
     Region: 'Regions'
 };
 
+/** What a library entry holds, by type: "3 tiles, 2 lights, 1 region". */
+function partsText(template) {
+    const counts = Object.entries(template.counts ?? {});
+    if (!counts.length) return `${template.members} part${template.members === 1 ? '' : 's'}`;
+    return counts.map(([type, count]) => `${count} ${(count === 1 ? TYPE_LABEL[type] : TYPE_PLURAL[type]) ?? type}`.toLowerCase()).join(', ');
+}
+
 const TYPE_LABEL = {
     Tile: 'Tile',
     Drawing: 'Drawing',
@@ -369,8 +376,8 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         : '<span class="blacksmith-list-row-img blacksmith-list-row-img-lg puppeteer-thumb-none"><i class="fa-solid fa-cubes"></i></span>'}
                 <div class="blacksmith-list-row-main">
                     <div class="blacksmith-list-row-title">${this._editableHtml('templateName', template.name, 'Entry', { 'template-id': template.id }, { required: true })}</div>
-                    <div class="blacksmith-list-row-meta">${template.members} part${template.members === 1 ? '' : 's'}${template.actor ? `, represents ${esc(template.actor)}` : ''}</div>
-                    ${this._editableHtml('templateDescription', template.description, 'No description', { 'template-id': template.id }, { multiline: true, tooltip: 'Describe' })}
+                    <div class="blacksmith-list-row-meta">${esc(partsText(template))}${template.actor ? `; represents ${esc(template.actor)}` : ''}</div>
+                    <div class="puppeteer-template-description"${template.description ? ` data-tooltip="${esc(template.description)}"` : ''}>${this._editableHtml('templateDescription', template.description, 'No description', { 'template-id': template.id }, { multiline: true, tooltip: 'Describe' })}</div>
                 </div>
                 <div class="blacksmith-list-row-action">
                     <button type="button" class="blacksmith-tool-btn" data-action="stampTemplate" data-template-id="${id}" data-tooltip="Fabricate a new copy: it follows your pointer, and a click on the map places it"><i class="fa-solid fa-hammer"></i> Fabricate</button>

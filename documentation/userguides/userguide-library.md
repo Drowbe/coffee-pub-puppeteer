@@ -25,7 +25,7 @@ A category travels with an entry that is exported: the file names it, and import
 
 ## Name and describe an entry
 
-Each entry shows a picture of the group, its name and a description. The picture is drawn when you save the entry, or update it, from the group's own parts: the tiles' images where they sit, with the walls, lights, sounds, drawings and regions as simple marks. It shows the group alone, with no map under it. If it cannot be drawn, the entry has a placeholder instead. Choose the pencil beside either to change it, then press Enter or click away to keep it, or Escape to put it back.
+Each entry shows a picture of the group, its name, what it holds ("3 tiles, 2 lights, 1 region", and the actor it represents) and a description, which stops at two lines (hover over it to read all of it). The picture is drawn when you save the entry, or update it, from the group's own parts: the tiles' images where they sit, with the walls, lights, sounds, drawings and regions as simple marks. It shows the group alone, with no map under it. If it cannot be drawn, the entry has a placeholder instead. Choose the pencil beside either to change it, then press Enter or click away to keep it, or Escape to put it back.
 
 ## Change an entry
 
