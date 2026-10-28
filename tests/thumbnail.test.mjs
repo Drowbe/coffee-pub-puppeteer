@@ -45,6 +45,20 @@ test('a tile carries what is needed to draw its picture where it is', async () =
     assert.deepEqual([tile.anchorX, tile.anchorY, tile.scaleX, tile.scaleY, tile.alpha], [0.5, 0.5, 1, 1, 0.8]);
 });
 
+test('tiles are stacked as the canvas stacks them, not in the order the group lists them', async () => {
+    const env = installFakes();
+    const groups = await import('../scripts/groups.js');
+    const { scene } = env;
+    const roof = scene.add('Tile', 'T1', { x: 100, y: 100, width: 200, height: 200, elevation: 5, sort: 0, texture: { src: 'roof.webp' } });
+    const floor = scene.add('Tile', 'T2', { x: 100, y: 100, width: 200, height: 200, elevation: 0, sort: 2, texture: { src: 'floor.webp' } });
+    const rug = scene.add('Tile', 'T3', { x: 100, y: 100, width: 200, height: 200, elevation: 0, sort: 1, texture: { src: 'rug.webp' } });
+    const group = await groups.createGroup(scene, { x: 100, y: 100 }, { name: 'House' });
+    await groups.addMembers(scene, group.id, [roof, floor, rug]);
+    await env.settle();
+    const plan = thumbnailPlan(scene, scene.getFlag('coffee-pub-puppeteer', 'groups')[group.id]);
+    assert.deepEqual(plan.items.map((item) => item.src), ['rug.webp', 'floor.webp', 'roof.webp']);
+});
+
 test('a group with nothing on the scene has no plan', async () => {
     const g = await cart();
     g.scene.collections.Tile.clear();

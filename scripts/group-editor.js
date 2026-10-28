@@ -17,6 +17,7 @@ import { syncAllGroups } from './follower.js';
 import { anchorState, anchorExists } from './anchor.js';
 import { getGroup, groupsTouched } from './store.js';
 import { pickPlacement, placeNewGroup } from './placement.js';
+import { groupThumbnail } from './thumbnail.js';
 import { listCategories, createCategory, renameCategory, deleteCategory, setTemplateCategory, exportTemplateData, listTemplates, saveGroupToLibrary, stampTemplate, deleteTemplate, getTemplate, importTemplate, renameTemplate, setTemplateDescription, updateTemplateFromGroup, duplicateGroup } from './library.js';
 
 const esc = (value) => foundry.utils.escapeHTML(String(value ?? ''));
@@ -230,11 +231,26 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
             card.addEventListener('dragleave', (event) => { if (!card.contains(event.relatedTarget)) card.classList.remove('is-over'); });
             card.addEventListener('drop', (event) => { event.preventDefault(); card.classList.remove('is-over'); this._dropTemplate(event, card.dataset.dropCategory); });
         }
+        this._fillThumbnails();
         // An actor dragged from the sidebar onto an empty token target gives the group a token.
         for (const zone of this.element.querySelectorAll('[data-drop-group]')) {
             zone.addEventListener('dragover', (event) => { event.preventDefault(); zone.classList.add('is-over'); });
             zone.addEventListener('dragleave', () => zone.classList.remove('is-over'));
             zone.addEventListener('drop', (event) => { event.preventDefault(); zone.classList.remove('is-over'); this._dropActor(event, zone.dataset.dropGroup); });
+        }
+    }
+
+    /** Draw each group's picture into its card; a card keeps its placeholder until the picture is ready (or if there is none). */
+    _fillThumbnails() {
+        const scene = canvas.scene;
+        if (!scene) return;
+        for (const slot of this.element.querySelectorAll('[data-thumb-group]')) {
+            const group = getGroup(scene, slot.dataset.thumbGroup);
+            if (!group) continue;
+            groupThumbnail(scene, group).then((url) => {
+                if (!url || !slot.isConnected) return;
+                slot.replaceChildren(Object.assign(document.createElement('img'), { src: url, alt: '', draggable: false }));
+            });
         }
     }
 
@@ -444,6 +460,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                 <label class="blacksmith-tool-card-summary">
                     <input type="checkbox" class="blacksmith-tool-card-toggle" data-field="cardOpen" data-group-id="${id}"${open ? ' checked' : ''}>
                     <i class="blacksmith-tool-card-caret fa-solid fa-chevron-right"></i>
+                    <span class="puppeteer-group-thumb" data-thumb-group="${id}" data-tooltip="What the group looks like"><i class="fa-solid fa-cubes"></i></span>
                     <span class="blacksmith-tool-card-title">${this._editableHtml('name', group.name, 'Group', { 'group-id': group.id }, { required: true })}</span>
                     <span class="blacksmith-tool-card-badges">
                         <span class="blacksmith-badge">${count} part${count === 1 ? '' : 's'}, ${Math.round(heading)}&deg;</span>

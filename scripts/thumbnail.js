@@ -40,6 +40,8 @@ export function thumbnailPlan(scene, group, size = THUMBNAIL_SIZE) {
                 scaleX: data.texture?.scaleX ?? 1,
                 scaleY: data.texture?.scaleY ?? 1,
                 alpha: data.alpha ?? 1,
+                elevation: data.elevation ?? 0,
+                sort: data.sort ?? 0,
                 outline: extent
             });
         } else if (member.type === 'Wall') {
@@ -51,6 +53,9 @@ export function thumbnailPlan(scene, group, size = THUMBNAIL_SIZE) {
         }
     }
     if (!points.length) return null;
+    // Stacked as the canvas stacks them: lower elevation first, then by sort order, so a roof is not hidden by what it covers.
+    // (Array sort is stable, so equal tiles keep the order the group lists them.)
+    items.sort((a, b) => (a.kind === 'tile' && b.kind === 'tile' ? (a.elevation - b.elevation) || (a.sort - b.sort) : 0));
 
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
@@ -67,9 +72,22 @@ export function thumbnailPlan(scene, group, size = THUMBNAIL_SIZE) {
     return { size, scale, offset, items };
 }
 
+const VIDEO = /\.(webm|mp4|m4v|ogv|mov)(\?.*)?$/i;
+
+/** A picture to draw, or for a video its first frame; null when it cannot be had. */
 function loadImage(src) {
     return new Promise((resolve) => {
-        if (!src || /\.(webm|mp4|m4v|ogv)$/i.test(src)) { resolve(null); return; }
+        if (!src) { resolve(null); return; }
+        if (VIDEO.test(src)) {
+            const video = document.createElement('video');
+            video.muted = true;
+            video.preload = 'auto';
+            video.onloadeddata = () => resolve(video.videoWidth ? video : null);
+            video.onerror = () => resolve(null);
+            video.src = foundry.utils.getRoute(src);
+            setTimeout(() => resolve(null), 4000);
+            return;
+        }
         const image = new Image();
         image.onload = () => resolve(image);
         image.onerror = () => resolve(null);
@@ -139,6 +157,30 @@ export async function renderThumbnail(plan) {
         }
     }
     return canvas.toDataURL('image/webp', 0.8);
+}
+
+// The pictures drawn for cards, by group id, with the plan each was drawn from so an unchanged group is not drawn again.
+const drawn = new Map();
+
+/**
+ * The picture of a group for its card in the editor: the same drawing as a library entry's, kept until the group changes.
+ * @returns {Promise<string|null>}
+ */
+export async function groupThumbnail(scene, group) {
+    try {
+        if (typeof document === 'undefined') return null;
+        const plan = thumbnailPlan(scene, group);
+        if (!plan) return null;
+        const key = JSON.stringify(plan);
+        const known = drawn.get(group.id);
+        if (known?.key === key) return known.url;
+        const url = await renderThumbnail(plan);
+        drawn.set(group.id, { key, url });
+        return url;
+    } catch (error) {
+        console.warn('coffee-pub-puppeteer: could not draw a group picture', error);
+        return null;
+    }
 }
 
 /**
