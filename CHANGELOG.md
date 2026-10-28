@@ -9,7 +9,7 @@ Each entry names its verification. "Simulated" means `node --test tests/*.test.m
 
 
 
-## [Unreleased]
+## [14.0.2]
 
 ### Added
 - **Snap to Grid.** A Behaviour switch, off by default. On, when a group's pin is dropped the group goes to the nearest point of the grid (a square's centre or corner) and the pin goes there too. It is carried by a Library entry. Files: `scripts/follower.js`, `scripts/geometry.js`, `scripts/groups.js`, `scripts/template.js`, `scripts/group-editor.js`. Verified: simulated (`tests/snap.test.mjs`); Foundry's own snapping is not yet seen in Foundry.
