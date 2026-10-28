@@ -47,31 +47,16 @@ test('a group already at the front is left alone, and a bad direction is refused
     assert.throws(() => g.groups.restackGroup(g.scene, g.group.id, 'sideways'), /front/);
 });
 
-test('a part moves one step forward or back among the group, and stops at the ends', async () => {
-    const g = await stage();
-    // The group's tiles are T2 (sort 1) under T1 (sort 2).
-    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T2', 'forward'), true);
-    let now = sorts(g.scene);
-    assert.ok(now.T2 > now.T1, JSON.stringify(now));
-    assert.equal(now.T0, 7);
-    // T2 is now the top of the group, so another step forward does nothing.
-    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T2', 'forward'), false);
-    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T2', 'backward'), true);
-    now = sorts(g.scene);
-    assert.ok(now.T2 < now.T1, JSON.stringify(now));
-});
-
-test('two parts with the same sort order are told apart by a step, and elevation is respected', async () => {
+test('two parts with the same sort order are told apart when the list is reordered', async () => {
     const g = await stage();
     g.scene.collections.Tile.get('T2')._source.sort = 2;
-    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T1', 'forward'), true);
-    assert.equal(sorts(g.scene).T1, 3);
-    g.scene.collections.Tile.get('T2')._source.elevation = 4;
-    assert.equal(await g.groups.stackMember(g.scene, g.group.id, 'Tile', 'T1', 'forward'), false);
-    assert.throws(() => g.groups.stackMember(g.scene, g.group.id, 'Wall', 'W1', 'forward'), /only tiles and drawings/);
+    await g.groups.reorderMember(g.scene, g.group.id, 'Tile', 'T1', null);
+    const now = sorts(g.scene);
+    assert.ok(now.T2 > now.T1, JSON.stringify(now));
+    assert.equal(now.T0, 7);
 });
 
-test('a part can be moved to another place in the list, and the order is only the list', async () => {
+test('a part can be moved to another place in the list, and the list is the stack', async () => {
     const g = await stage();
     const order = () => g.scene.getFlag('coffee-pub-puppeteer', 'groups')[g.group.id].members.map((member) => member.id);
     assert.deepEqual(order(), ['T1', 'T2', 'D1']);
@@ -84,6 +69,9 @@ test('a part can be moved to another place in the list, and the order is only th
     // Where it already is: nothing written.
     assert.equal(await g.groups.reorderMember(g.scene, g.group.id, 'Tile', 'T1', null), false);
     await assert.rejects(() => g.groups.reorderMember(g.scene, g.group.id, 'Tile', 'T9', null), /not a member/);
-    // Nothing on the map changed.
-    assert.equal(sorts(g.scene).T1, 2);
+    // The list is now T2 then T1 for tiles, so T2 is drawn in front; the tiles keep the sort values they had.
+    const now = sorts(g.scene);
+    assert.ok(now.T2 > now.T1, JSON.stringify(now));
+    assert.deepEqual([now.T1, now.T2].sort(), [1, 2]);
+    assert.equal(now.T0, 7);
 });

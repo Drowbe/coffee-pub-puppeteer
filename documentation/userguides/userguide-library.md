@@ -29,7 +29,7 @@ Each entry shows a picture of the group, its name and a description. The picture
 
 ## Change an entry
 
-On the entry, choose **Replace from Group**. A list of the groups on this scene appears; choose the one the entry should become. The entry keeps its name and description and takes the parts, token and picture of that group. Copies you have already fabricated are not changed. Choose Cancel to back out; the button is greyed out when the scene has no groups.
+On the entry, choose the three-dots button, then **Replace from Group**. A list of the groups on this scene appears; choose the one the entry should become. The entry keeps its name and description and takes the parts, token and picture of that group. Copies you have already fabricated are not changed. Choose Cancel to back out; the button is greyed out when the scene has no groups.
 
 ## Share an entry
 
@@ -37,4 +37,4 @@ Choose the export button on an entry to save it as a file, and **Import** on the
 
 ## Remove an entry
 
-Choose the trash button on an entry and confirm. Groups already placed on scenes are not affected, and deleting a group on a scene does not remove its entry.
+Choose the three-dots button on an entry, then **Remove from Library**, and confirm. The same menu has **Save as JSON**, which writes the entry to a file. Groups already placed on scenes are not affected, and deleting a group on a scene does not remove its entry.

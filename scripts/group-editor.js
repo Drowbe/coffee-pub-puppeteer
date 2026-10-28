@@ -7,7 +7,7 @@ import { getBlacksmith } from './blacksmith.js';
 import {
     createGroup, captureArea, recenterPivot, exportGroup, addSelected, removeSelected, renameMember, removeMember, selectMembers, renameGroup,
     setHeading, rotateBy, deleteGroup, listGroups, diagnoseGroup, selectMember, selectToken, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour,
-    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, reorderMember, stackMember, worldActor, setGroupWidth, groupWidth, HIDEABLE
+    setGroupHidden, setMemberHidden, setPlaying, canPlayPause, replacePin, addEvent, removeEvent, scaleGroup, resetScale, restackGroup, reorderMember, worldActor, setGroupWidth, groupWidth, HIDEABLE
 } from './groups.js';
 import { TRIGGERS, ACTIONS, HEALTH_LEVELS, describeEvent } from './events.js';
 import { easeOf } from './tween.js';
@@ -33,9 +33,6 @@ const TYPE_ICON = {
 };
 
 // Which group cards are open. Module level so it survives a redraw and a close and reopen.
-// The part types that stack, so have a place in front of or behind the group's others.
-const STACKABLE = ['Tile', 'Drawing'];
-
 const expanded = new Set();
 
 // The library categories that are closed (an open one is not remembered; every category starts open).
@@ -126,14 +123,13 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         toggleGroupHidden: (event, target, win) => win._toggleGroupHidden(target.dataset.groupId),
         togglePlaying: (event, target, win) => win._togglePlaying(target.dataset.groupId),
         toggleMemberHidden: (event, target, win) => win._toggleMemberHidden(target.dataset.groupId, target.dataset.type, target.dataset.id),
-        exportTemplate: (event, target, win) => win._exportTemplate(target.dataset.templateId),
-        deleteTemplate: (event, target, win) => win._deleteTemplate(target.dataset.templateId),
+        templateMenu: (event, target, win) => win._templateMenu(event, target.dataset.templateId),
         importTemplate: (event, target, win) => win.element.querySelector('input[data-field="importFile"]')?.click(),
         addSelected: (event, target, win) => win._addSelected(target.dataset.groupId),
         removeSelected: (event, target, win) => win._removeSelected(target.dataset.groupId),
         selectMembers: (event, target, win) => win._selectMembers(target.dataset.groupId, target.dataset.type || null),
         panTo: (event, target, win) => win._panTo(target.dataset.groupId),
-        stackMember: (event, target, win) => win._stackMember(target.dataset.groupId, target.dataset.type, target.dataset.id, target.dataset.direction),
+        editMember: (event, target, win) => win._editMember(target.dataset.type, target.dataset.id),
         removeMember: (event, target, win) => win._removeMember(target.dataset.groupId, target.dataset.type, target.dataset.id),
         boardSelected: (event, target, win) => win._boardSelected(target.dataset.groupId),
         dismount: (event, target, win) => win._dismount(target.dataset.groupId, target.dataset.tokenId),
@@ -288,14 +284,6 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         });
     }
 
-    _stackMember(groupId, type, id, direction) {
-        return run('Move part in the stack', async () => {
-            const moved = await stackMember(canvas.scene, groupId, type, id, direction);
-            if (!moved) say('Nothing to change', direction === 'forward' ? 'It is already in front of the group\'s other parts, or they are at a different elevation.' : 'It is already behind the group\'s other parts, or they are at a different elevation.');
-            this.render();
-        });
-    }
-
     /** Draw each group's picture into its card; a card keeps its placeholder until the picture is ready (or if there is none). */
     _fillThumbnails() {
         const scene = canvas.scene;
@@ -381,14 +369,10 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                     <div class="blacksmith-list-row-title">${this._editableHtml('templateName', template.name, 'Entry', { 'template-id': template.id }, { required: true })}</div>
                     <div class="blacksmith-list-row-meta">${template.members} part${template.members === 1 ? '' : 's'}${template.actor ? `, represents ${esc(template.actor)}` : ''}</div>
                     ${this._editableHtml('templateDescription', template.description, 'No description', { 'template-id': template.id }, { multiline: true, tooltip: 'Describe' })}
-                    <div class="puppeteer-inline">
-                        <button type="button" class="blacksmith-tool-btn" data-action="updateTemplate" data-template-id="${id}"${groups.length ? '' : ' disabled'} data-tooltip="${groups.length ? 'Choose a group on this scene to replace this entry with. Copies already placed are not changed.' : 'There are no groups on this scene to replace the entry with'}"><i class="fa-solid fa-arrows-rotate"></i> Replace from Group</button>
-                    </div>
                 </div>
                 <div class="blacksmith-list-row-action">
                     <button type="button" class="blacksmith-tool-btn" data-action="stampTemplate" data-template-id="${id}" data-tooltip="Fabricate a new copy: it follows your pointer, and a click on the map places it"><i class="fa-solid fa-hammer"></i> Fabricate</button>
-                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="exportTemplate" data-template-id="${id}" data-tooltip="Save as a JSON file"><i class="fa-solid fa-file-export"></i></button>
-                    <button type="button" class="blacksmith-tool-btn is-icon is-danger" data-action="deleteTemplate" data-template-id="${id}" data-tooltip="Remove from the library"><i class="fa-solid fa-trash"></i></button>
+                    <button type="button" class="blacksmith-tool-btn is-icon" data-action="templateMenu" data-template-id="${id}" data-tooltip="More: replace from a group, save as a JSON file, remove"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                 </div>
             </div>`;
         };
@@ -566,8 +550,7 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
                             data-tooltip="${esc(`${scene.uuid}.${member.type}.${member.id}`)} (click to copy)">${esc(member.id)}</button>
                     </div>
                     <div class="blacksmith-list-row-action">
-                        ${present && STACKABLE.includes(member.type) ? `<button type="button" class="blacksmith-tool-btn is-icon" data-action="stackMember" data-direction="forward" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}" data-tooltip="Bring this part forward: draw it over the group's next part"><i class="fa-solid fa-angle-up"></i></button>
-                        <button type="button" class="blacksmith-tool-btn is-icon" data-action="stackMember" data-direction="backward" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}" data-tooltip="Send this part back: draw it under the group's previous part"><i class="fa-solid fa-angle-down"></i></button>` : ''}
+                        ${present ? `<button type="button" class="blacksmith-tool-btn is-icon" data-action="editMember" data-type="${esc(member.type)}" data-id="${esc(member.id)}" data-tooltip="Properties: open this ${esc((TYPE_LABEL[member.type] ?? member.type).toLowerCase())}'s edit window"><i class="fa-solid fa-gear"></i></button>` : ''}
                         ${canHide ? (EMITTERS.includes(member.type)
         ? `<button type="button" class="blacksmith-tool-btn is-icon${hiddenNow ? '' : ' is-active'}" data-action="toggleMemberHidden" data-group-id="${id}" data-type="${esc(member.type)}" data-id="${esc(member.id)}"
                             data-tooltip="${hiddenNow ? 'Off. Turn this on' : 'On. Turn this off'}"><i class="fa-solid fa-power-off"></i></button>`
@@ -1231,6 +1214,22 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
         });
     }
 
+    /** A library entry's More menu: what is done to an entry now and then, out of the way of Fabricate. */
+    _templateMenu(event, templateId) {
+        const at = event.target?.closest?.('button')?.getBoundingClientRect?.();
+        getBlacksmith().uiContextMenu.show({
+            id: `${MODULE_ID}-template-menu`,
+            x: at ? at.right : event.clientX,
+            y: at ? at.bottom : event.clientY,
+            zones: [
+                { name: 'Replace from Group', icon: 'fa-solid fa-arrows-rotate', description: 'Choose a group on this scene to replace this entry with. Copies already placed are not changed.', callback: () => this._updateTemplate(templateId) },
+                { name: 'Save as JSON', icon: 'fa-solid fa-file-export', description: 'The entry as a JSON file', callback: () => this._exportTemplate(templateId) },
+                { separator: true },
+                { name: 'Remove from Library', icon: 'fa-solid fa-trash', callback: () => this._deleteTemplate(templateId) }
+            ]
+        });
+    }
+
     _exportTemplate(templateId) {
         return run('Export template', async () => {
             const template = exportTemplateData(templateId);
@@ -1340,6 +1339,15 @@ export class GroupEditorWindow extends BlacksmithToolWindowBaseV2 {
     _selectToken(tokenId, add) {
         return run('Select token', async () => {
             if (!selectToken(canvas.scene, tokenId, { add })) say('Not on the canvas', 'That token is not on the scene in view.');
+        });
+    }
+
+    /** Open a part's own edit window, as double-clicking it on the canvas would. */
+    _editMember(type, id) {
+        return run('Edit part', async () => {
+            const doc = canvas.scene?.getEmbeddedCollection(type).get(id);
+            if (!doc) { say('Not on the canvas', 'That object is not on the scene in view.'); return; }
+            await doc.sheet.render({ force: true });
         });
     }
 

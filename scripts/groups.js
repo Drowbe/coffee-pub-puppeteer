@@ -873,8 +873,33 @@ export function restackGroup(scene, groupId, where) {
 }
 
 /**
- * Move one part of a group to another place in its list. The order of the list has no effect on the map; it is how the
- * parts read in the editor, and the order a library entry keeps.
+ * Give a group's tiles, and its drawings, the stacking its list asks for: the first in the list is drawn in front, the
+ * last at the back. The sort order values the parts already hold are dealt out again in that order, so the group keeps
+ * its place among the scene's other tiles and drawings. Elevation is not changed, so a part held by elevation stays where
+ * elevation puts it.
+ * @returns {Promise<number>}  How many parts were given a new sort order.
+ */
+async function stackByList(scene, members) {
+    let changed = 0;
+    for (const type of STACKED) {
+        const collection = scene.getEmbeddedCollection(type);
+        const back = members.filter((member) => member.type === type).map((member) => collection.get(member.id)).filter(Boolean).reverse();
+        if (back.length < 2) continue;
+        // Strictly rising, so two parts that held the same sort order are told apart.
+        let last = -Infinity;
+        const values = back.map((part) => part._source.sort ?? 0).sort((a, b) => a - b).map((value) => (last = Math.max(value, last + 1)));
+        const updates = back.flatMap((part, index) => ((part._source.sort ?? 0) === values[index] ? [] : [{ _id: part.id, sort: values[index] }]));
+        if (!updates.length) continue;
+        await scene.updateEmbeddedDocuments(type, updates, FOLLOWER_WRITE());
+        changed += updates.length;
+    }
+    return changed;
+}
+
+/**
+ * Move one part of a group to another place in its list. The list is also the stack: the first tile (or drawing) in the
+ * list is drawn in front and the last at the back, so moving a part moves it in front of or behind the others. A library
+ * entry keeps the order.
  * @param {{type: string, id: string}|null} anchor  The part to put it beside, or null for the end of the list.
  * @param {boolean} [after]  Put it after the anchor instead of before it.
  * @returns {Promise<boolean>}  Whether the order changed.
@@ -895,36 +920,7 @@ export function reorderMember(scene, groupId, type, id, anchor, after = false) {
         members.splice(at, 0, mine);
         if (members.every((member, index) => member === group.members[index])) return false;
         await patchGroup(scene, groupId, { members });
-        return true;
-    });
-}
-
-/**
- * Move one tile or drawing a step forward or back among the group's own tiles or drawings, by trading sort order with its
- * neighbour in the stack. Elevation is not changed, so a part held by elevation does not move.
- * @param {'forward'|'backward'} direction
- * @returns {Promise<boolean>}  Whether it moved; false at the top or bottom of the group's stack, or when elevation decides.
- */
-export function stackMember(scene, groupId, type, id, direction) {
-    if (!STACKED.includes(type)) throw new Error(`${MODULE_ID}: only tiles and drawings stack, not "${type}"`);
-    if (direction !== 'forward' && direction !== 'backward') throw new Error(`${MODULE_ID}: a part goes "forward" or "backward", not "${direction}"`);
-    return runExclusive(scene, groupId, async () => {
-        const group = requireGroup(scene, groupId);
-        const collection = scene.getEmbeddedCollection(type);
-        const parts = group.members.filter((member) => member.type === type).map((member) => collection.get(member.id)).filter(Boolean).sort(stackOrder);
-        const index = parts.findIndex((part) => part.id === id);
-        if (index < 0) throw new Error(`${MODULE_ID}: ${type} ${id} is not a member of group "${group.name}"`);
-        const mine = parts[index];
-        const other = parts[index + (direction === 'forward' ? 1 : -1)];
-        if (!other) return false;
-        if ((mine._source.elevation ?? 0) !== (other._source.elevation ?? 0)) return false;
-        const mineSort = mine._source.sort ?? 0;
-        const otherSort = other._source.sort ?? 0;
-        // Trade places; two parts with the same sort order are told apart by one step.
-        const updates = mineSort === otherSort
-            ? [{ _id: mine.id, sort: otherSort + (direction === 'forward' ? 1 : -1) }]
-            : [{ _id: mine.id, sort: otherSort }, { _id: other.id, sort: mineSort }];
-        await scene.updateEmbeddedDocuments(type, updates, FOLLOWER_WRITE());
+        await stackByList(scene, members);
         return true;
     });
 }

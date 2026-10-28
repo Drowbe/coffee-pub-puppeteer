@@ -85,6 +85,8 @@ A library entry also carries a thumbnail, a small webp data URI drawn when the e
 
 `restackGroup` (`scripts/groups.js`) puts a whole group above or below the rest of the scene's tiles and drawings by rewriting the members' `sort`, consecutively and in their existing order, past the highest or lowest `sort` of the other documents at or beyond the group's elevation. It never touches elevation, which Foundry compares first, so a document above the group by elevation still covers it.
 
+The list of parts is also the stack. `reorderMember` writes the new member order and then `stackByList` deals the sort values the group's tiles already held (and, separately, its drawings) out again in list order, first in the list highest, strictly rising so equal values are told apart. The group keeps its place among the scene's other documents, and elevation is never changed. A group that has never been reordered keeps whatever stacking it had until its first reorder.
+
 ## Body token
 
 A body is optional, and most groups have none: a group with no actor is a pin and its parts, and nothing in Puppeteer requires an actor. A group may represent an actor, and the body token is how it then takes attacks and damage (`scripts/body.js`, with the operations in `scripts/groups.js`).

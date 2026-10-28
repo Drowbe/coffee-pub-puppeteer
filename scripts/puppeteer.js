@@ -3,7 +3,7 @@
 import { MODULE_ID, TOAST_CHANNEL } from './constants.js';
 import { bootstrap } from './bootstrap.js';
 import { groupState } from './state.js';
-import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden, setEmittersOn, setPlaying, replacePin, addEvent, removeEvent, scaleGroup, resetScale, setGroupWidth, restackGroup, reorderMember, stackMember } from './groups.js';
+import { registerPinType, createGroup, captureArea, recenterPivot, exportGroup, renameMember, diagnoseGroup, addSelected, addMembers, removeMember, setHeading, rotateBy, deleteGroup, listGroups, setBody, adoptBody, clearBody, setBodyLinked, mountTokens, dismountToken, setMountable, setMovePivot, setBehaviour, setGroupHidden, setMemberHidden, setEmittersOn, setPlaying, replacePin, addEvent, removeEvent, scaleGroup, resetScale, setGroupWidth, restackGroup, reorderMember } from './groups.js';
 import { registerFollower } from './follower.js';
 import { registerPruning } from './prune.js';
 import { registerUi } from './ui.js';
@@ -117,10 +117,8 @@ Hooks.once('ready', async () => {
         setWidth: (groupId, squares, scene = canvas.scene) => setGroupWidth(scene, groupId, squares),
         /** Draw a whole group above (`'front'`) or below (`'back'`) everything else of its tiles' and drawings' kinds, by sort order. Returns `{ moved }`. */
         restack: (groupId, where, scene = canvas.scene) => restackGroup(scene, groupId, where),
-        /** Move a part to another place in the group's list (beside `anchor`, `{ type, id }`, or to the end). Returns whether the order changed. */
+        /** Move a part to another place in the group's list (beside `anchor`, `{ type, id }`, or to the end). The list is the stack: first is drawn in front. Returns whether the order changed. */
         reorderPart: (groupId, type, id, anchor = null, after = false, scene = canvas.scene) => reorderMember(scene, groupId, type, id, anchor, after),
-        /** Move a tile or drawing `'forward'` or `'backward'` one step among the group's own, by sort order. Returns whether it moved. */
-        stackPart: (groupId, type, id, direction, scene = canvas.scene) => stackMember(scene, groupId, type, id, direction),
         /** Switch a group's lights (`'AmbientLight'`) or sounds (`'AmbientSound'`) on or off together; `on` left out flips them. */
         setEmittersOn: (groupId, type, on, scene = canvas.scene) => setEmittersOn(scene, groupId, type, on),
         /** Play or pause a group by running its "Play is clicked" or "Pause is clicked" events; `playing` left out flips it. Returns `{ playing, ran }`. */
