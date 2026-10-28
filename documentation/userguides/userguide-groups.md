@@ -6,7 +6,7 @@ Everything here is GM only. A group is a pin on the map plus the tiles, drawings
 
 ## Add and remove parts
 
-1. Open the Group Editor with **Puppeteer Groups** in the toolbar. Each group on the **Scene Groups** tab is a card. A closed card is one line: its name, how many parts it has and which way it faces, with **Go To Pin**, **Hide** and icons beside them to duplicate the group, save it to the Library (the same icon as the Library tab), export it as a file, and delete it. An open card shows Token, Riders, Behaviour, Position, Events and Parts, in that order. Choose the arrow at its left to open it. Open cards stay open until you close them.
+1. Open the Group Editor with **Puppeteer Groups** in the toolbar. Each group on the **Scene Groups** tab is a card. A closed card is one line: a small picture of the group (drawn from its parts, so groups can be told apart), its name, how many parts it has and which way it faces, with **Go To Pin**, **Hide** and icons beside them to duplicate the group, save it to the Library (the same icon as the Library tab), export it as a file, and delete it. An open card shows Token, Riders, Behaviour, Position, Events and Parts, in that order. Choose the arrow at its left to open it. Open cards stay open until you close them.
 2. Select objects on the map and choose **Add Selected**. Foundry shows one layer at a time, so add one layer's objects, then switch layers and add the next. Regions are added this way too.
 3. Or choose **Capture Area** and drag a box. Everything inside it, on every layer, joins the group.
 4. To take parts out, select them and choose **Remove Selected**, or use the cross beside a part under **Parts**.
