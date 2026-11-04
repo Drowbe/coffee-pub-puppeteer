@@ -2,7 +2,7 @@
 // there. Right-click or Escape gives up. The group is shown as it will stand, at its true size, drawn on Blacksmith's
 // utilities layer where nothing it draws can be picked up or changed.
 import { getBlacksmith } from './blacksmith.js';
-import { stampMembers } from './template.js';
+import { stampMembers, fitTemplateToGrid, gridSizeOf } from './template.js';
 import { memberOutlines } from './geometry.js';
 import { createGroup } from './groups.js';
 
@@ -70,7 +70,7 @@ export function pickPlacement(template) {
         ghost.eventMode = 'none';
         ghost.visible = false;
         layer.addChild(ghost);
-        drawGhost(ghost, template).catch((error) => console.error('Puppeteer: drawing the group to place failed', error));
+        drawGhost(ghost, fitTemplateToGrid(template, gridSizeOf(canvas.scene))).catch((error) => console.error('Puppeteer: drawing the group to place failed', error));
 
         const board = document.getElementById('board') ?? canvas.app?.view;
         const stageCursor = canvas.stage.cursor;

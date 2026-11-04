@@ -5,7 +5,7 @@
 // pivot's own frame, so the template has no heading of its own) plus a snapshot of the member's document
 // data. Stamping builds fresh creation data for a chosen pivot and heading, so two stamps are two
 // independent copies.
-import { MEMBER_TYPES, memberUpdate } from './geometry.js';
+import { MEMBER_TYPES, memberUpdate, scaleMember } from './geometry.js';
 
 // Version 2: a Tile's offset is its anchor point (x, y), as Foundry v14 defines it. Version 1 files recorded the
 // middle of its rectangle measured from a top-left x, y, which stamps a tile half its size out.
@@ -104,6 +104,7 @@ export function validateTemplate(template) {
     if (!Array.isArray(template.members)) fail('no members list');
     if (template.body !== undefined && typeof template.body?.actorId !== 'string') fail('its body names no actor');
     if (template.behaviour !== undefined && (typeof template.behaviour !== 'object' || template.behaviour === null)) fail('its behaviour is not an object');
+    if (template.gridSize !== undefined && !(Number.isFinite(template.gridSize) && template.gridSize > 0)) fail('its grid size is not a number');
     if (template.thumbnail !== undefined && !(typeof template.thumbnail === 'string' && template.thumbnail.startsWith('data:image/'))) fail('its thumbnail is not an image');
     template.members.forEach((member, i) => {
         if (!MEMBER_TYPES.includes(member?.type)) fail(`member ${i} has an unsupported type`);
@@ -116,6 +117,40 @@ export function validateTemplate(template) {
         if (!placed) fail(`member ${i} has no position`);
     });
     return template;
+}
+
+/**
+ * The size of a square on a scene, in pixels, or null for a scene with no grid (whose size means nothing).
+ * @param {Scene} scene
+ */
+export function gridSizeOf(scene) {
+    const grid = scene?.grid;
+    if (!grid || grid.type === 0) return null;
+    return grid.sizeX ?? grid.size ?? null;
+}
+
+/**
+ * A template resized for a scene whose squares are not the size of those it was saved on, so the group is the same number
+ * of squares wide wherever it is made. Every offset and every length in pixels is multiplied by the ratio. A light's reach
+ * and a sound's radius are in the scene's own units of distance, which already follow the grid, so they are left as they are.
+ * A template with no recorded grid size (saved before it was kept), a scene with no grid, or the same size of square, is
+ * returned as it is.
+ * @param {object} template
+ * @param {number|null} gridSize  The size of a square on the scene it is going to, in pixels.
+ * @returns {object}
+ */
+export function fitTemplateToGrid(template, gridSize) {
+    if (!template.gridSize || !gridSize) return template;
+    const factor = gridSize / template.gridSize;
+    if (Math.abs(factor - 1) < 0.001) return template;
+    const members = template.members.map((member) => {
+        const scaled = scaleMember(member, member.data, factor);
+        const data = { ...scaled.data };
+        if (member.type === 'AmbientLight' && member.data.config) data.config = { ...data.config, dim: member.data.config.dim, bright: member.data.config.bright };
+        if (member.type === 'AmbientSound' && 'radius' in member.data) data.radius = member.data.radius;
+        return { ...scaled.record, data };
+    });
+    return { ...template, members, gridSize };
 }
 
 /**

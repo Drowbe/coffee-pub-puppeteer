@@ -7,7 +7,7 @@
 import { MODULE_ID, MODULE_NAME, TOAST_CHANNEL } from './constants.js';
 import { getBlacksmith } from './blacksmith.js';
 import { MEMBER_TYPES, normAngle } from './geometry.js';
-import { stampMembers, stampBehaviour, validateTemplate } from './template.js';
+import { stampMembers, stampBehaviour, validateTemplate, fitTemplateToGrid, gridSizeOf } from './template.js';
 import { createGroup, deleteGroup, exportGroup, setBody, uniqueGroupName, HIDEABLE } from './groups.js';
 import { anchorState } from './anchor.js';
 import { getGroup } from './store.js';
@@ -237,14 +237,26 @@ export async function importTemplate(text) {
  * @param {Scene} scene
  * @param {object|string} template  A template, or the id of one in the library.
  * @param {{x: number, y: number}} point  Where the pivot goes.
- * @param {{heading?: number, name?: string}} [options]
+ * @param {{heading?: number, name?: string, keepPixels?: boolean}} [options]  `keepPixels` makes the group the same size in
+ *   pixels as it was saved, not the same number of squares, when the scene's squares are not the size of those it was saved on.
  * @returns {Promise<object>} The new group record.
  */
-export async function stampTemplate(scene, template, point, { heading = 0, name } = {}) {
+export async function stampTemplate(scene, template, point, { heading = 0, name, keepPixels = false } = {}) {
     const { utils } = getBlacksmith();
-    const source = typeof template === 'string' ? getTemplate(template) : template;
-    if (!source) throw new Error(`Puppeteer: no template ${template} in the library`);
-    validateTemplate(source);
+    const saved = typeof template === 'string' ? getTemplate(template) : template;
+    if (!saved) throw new Error(`Puppeteer: no template ${template} in the library`);
+    validateTemplate(saved);
+    // The same number of squares wide wherever it is made, unless asked to keep its size in pixels.
+    const source = keepPixels ? saved : fitTemplateToGrid(saved, gridSizeOf(scene));
+    if (source !== saved) {
+        getBlacksmith().toast.show({
+            title: 'Resized to this grid',
+            subtitle: `${saved.name} was saved on squares of ${saved.gridSize} pixels and this scene's are ${gridSizeOf(scene)}, so it was resized to match.`,
+            icon: 'fa-solid fa-up-right-and-down-left-from-center',
+            channel: TOAST_CHANNEL,
+            duration: 6
+        });
+    }
 
     // The group and its pin first, empty, so the follower has nothing to move while the members arrive. The members
     // are then placed for the heading Blacksmith stored on the pin, which is what the follower will use.

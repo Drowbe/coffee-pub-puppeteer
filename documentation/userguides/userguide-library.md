@@ -13,6 +13,8 @@ On the **Scene Groups** tab, choose the Library icon (the boxes, as on the Libra
 1. Open the **Library** tab.
 2. Choose **Fabricate** on the entry. The group follows your pointer with its pin under the crosshair, shown at its true size; click the map where the pin goes (right-click or Escape cancels). It becomes a new group with its own pin, its own tiles, lights, walls and sounds, and the names you gave the parts.
 
+A copy is made the same number of squares wide as the group it came from, whatever the grid of the scene it goes on. A wagon ten squares wide on a grid of 140 pixels is ten squares wide on a grid of 100: its parts, walls, drawings and regions are resized to fit, and a notice says so. The reach of lights and sounds is in the scene's own units of distance, so it is not changed. An entry saved before the grid was recorded has no size to compare, so it is made as it was saved; save it again, or use **Replace from Group**, to give it one. A scene with no grid is not resized for.
+
 Each copy is independent. Two copies are two groups: move, turn or delete one and the other is untouched.
 
 If the saved group could be attacked (see [Making a group something that can be attacked](userguide-targets.md)), each copy comes with its own token for the same actor, with its own hit points, and the entry shows which actor it represents. If that actor is not in your world, the copy has no token and you are told.

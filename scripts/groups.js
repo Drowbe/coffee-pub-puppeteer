@@ -11,7 +11,7 @@ import { anchorState, anchorExists } from './anchor.js';
 import { EASE_LIMITS, TRAVEL_SPEED_LIMITS, DEFAULT_TRAVEL_SPEED } from './tween.js';
 import { announceBoarding, playCue } from './announce.js';
 import { fireEvent, normaliseEvent, MAX_EVENTS } from './events.js';
-import { buildTemplate } from './template.js';
+import { buildTemplate, gridSizeOf } from './template.js';
 import { bodyFootprint, bodyTraits, bodyToken, fitBody, bodyMove } from './body.js';
 import { RIDER_FLAG, STAYED_FLAG, captureRider, footprintBox, insideGroup, tokenCentre, riderUpdate, riderMove } from './riders.js';
 
@@ -1088,7 +1088,11 @@ export function exportGroup(scene, groupId) {
         actorName: game.actors.get(group.body.actorId)?.name ?? token?.name,
         linked: !!token?._source.actorLink
     };
-    return buildTemplate(group, sources, body);
+    const template = buildTemplate(group, sources, body);
+    // The size of a square it was made on, so it can be made the same number of squares wide on a scene with another.
+    const grid = gridSizeOf(scene);
+    if (grid) template.gridSize = grid;
+    return template;
 }
 
 /**

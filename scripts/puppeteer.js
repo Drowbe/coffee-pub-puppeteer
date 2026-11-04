@@ -72,7 +72,7 @@ Hooks.once('ready', async () => {
                 options.scene ?? canvas.scene,
                 templateId,
                 options.point ?? { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y },
-                { heading: options.heading, name: options.name }
+                { heading: options.heading, name: options.name, keepPixels: options.keepPixels }
             ),
             remove: (templateId) => deleteTemplate(templateId),
             rename: (templateId, name) => renameTemplate(templateId, name),
